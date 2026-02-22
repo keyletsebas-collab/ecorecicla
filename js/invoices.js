@@ -125,28 +125,32 @@ function renderBasicForm() {
       <hr style="border-color:var(--clr-border);margin:20px 0;" />
       <p class="form-label" style="margin-bottom:10px;">${t('lbl.add_material')}</p>
 
-      <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto; align-items:end;">
+      <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr auto; align-items:end; gap: 8px;">
         <div class="form-group">
           <label class="form-label">${t('lbl.material')}</label>
           <select id="basic-material" class="form-select">${matOptions}</select>
         </div>
         <div class="form-group">
           <label class="form-label">${t('lbl.quantity')}</label>
-          <input id="basic-qty" type="number" class="form-input" placeholder="0" min="0" step="0.1" />
+          <input id="basic-qty" type="number" class="form-input" placeholder="0" min="0" step="0.1" title="Cantidad/Unidad" />
         </div>
         <div class="form-group">
-          <label class="form-label">${t('lbl.weight')}</label>
+          <label class="form-label">${t('lbl.weight')} (kg)</label>
           <input id="basic-peso" type="number" class="form-input" placeholder="0.00" min="0" step="0.01" />
         </div>
         <div class="form-group">
-          <label class="form-label">${t('lbl.unit')}</label>
-          <input id="basic-unit" type="text" class="form-input" value="kg" />
+          <label class="form-label">${t('lbl.price_buy')} (${getCurrency().symbol})</label>
+          <input id="basic-price-buy" type="number" class="form-input" placeholder="0.00" min="0" step="0.01" title="Precio que pagas al recolector" />
         </div>
         <div class="form-group">
-          <label class="form-label">${t('lbl.price')} (${getCurrency().symbol})</label>
-          <input id="basic-price" type="number" class="form-input" placeholder="0.00" min="0" step="0.01" />
+          <label class="form-label">${t('lbl.price_sell')} (${getCurrency().symbol})</label>
+          <input id="basic-price-sell" type="number" class="form-input" placeholder="0.00" min="0" step="0.01" title="Precio al que vendes" />
         </div>
-        <button class="btn-secondary" onclick="addBasicItem()" style="margin-bottom:0;height:42px;align-self:flex-end;">${t('btn.add')}</button>
+        <div class="form-group">
+          <label class="form-label">${t('lbl.unit')}</label>
+          <input id="basic-unit" type="text" class="form-input" value="lb" style="max-width:60px;" />
+        </div>
+        <button class="btn-secondary" onclick="addBasicItem()" style="margin-bottom:0;height:42px;align-self:flex-end;padding:0 15px;">${t('btn.add')}</button>
       </div>
 
       <div id="basic-items-list" class="material-items"></div>
@@ -186,22 +190,37 @@ function addBasicItem() {
   const matId = document.getElementById('basic-material').value;
   const qty = parseFloat(document.getElementById('basic-qty').value) || 0;
   const peso = parseFloat(document.getElementById('basic-peso').value) || 0;
-  const unit = document.getElementById('basic-unit').value.trim() || 'kg';
-  const price = parseFloat(document.getElementById('basic-price').value) || 0;
+  const unit = document.getElementById('basic-unit').value.trim() || 'lb';
+  const priceBuy = parseFloat(document.getElementById('basic-price-buy').value) || 0;
+  const priceSell = parseFloat(document.getElementById('basic-price-sell').value) || 0;
 
-  if (qty <= 0 || price <= 0) { showToast(t('err.add_mat'), 'error'); return; }
+  if (qty <= 0 || priceBuy <= 0) { showToast(t('err.add_mat'), 'error'); return; }
 
   const mat = mats.find(m => m.id === matId) || { name: matId, icon: '♻️' };
-  const ganancia = peso * price;
-  const perdidaRaw = (qty * price) - (peso * qty);
-  const perdida = perdidaRaw > 0 ? perdidaRaw : 0;
-  const subtotal = qty * price;
 
-  basicItems.push({ id: Date.now(), matId, name: mat.name, icon: mat.icon, qty, peso, unit, price, subtotal, ganancia, perdida });
+  // Fórmulas solicitadas:
+  // 1. Total Compra = Cantidad * Precio Compra
+  const totalCompra = qty * priceBuy;
+  // 2. Total Venta = Cantidad * Precio Venta
+  const totalVenta = qty * priceSell;
+  // 3. Balance = Total Venta - Total Compra
+  const balance = totalVenta - totalCompra;
+  // 4. Porcentaje (Margen)
+  const margin = totalVenta > 0 ? ((balance / totalVenta) * 100).toFixed(1) : 0;
+
+  basicItems.push({
+    id: Date.now(),
+    matId, name: mat.name, icon: mat.icon,
+    qty, peso, unit,
+    priceBuy, priceSell,
+    totalCompra, totalVenta, balance, margin
+  });
+
   renderBasicItems();
   document.getElementById('basic-qty').value = '';
   document.getElementById('basic-peso').value = '';
-  document.getElementById('basic-price').value = '';
+  document.getElementById('basic-price-buy').value = '';
+  document.getElementById('basic-price-sell').value = '';
 }
 
 function removeBasicItem(id) {
@@ -218,22 +237,40 @@ function renderBasicItems() {
   list.innerHTML = basicItems.map(item => `
     <div class="material-item">
       <span style="font-size:1.2rem">${item.icon}</span>
-      <span class="material-item-name">${item.name}</span>
-      <span class="material-item-detail">${item.qty} ${item.unit} | ${t('lbl.weight')}: ${item.peso} kg</span>
-      <span class="material-item-detail">${formatMoney(item.price)}/${item.unit}</span>
-      <span class="material-item-price" style="color:var(--clr-primary-light);">+${formatMoney(item.ganancia)}</span>
-      ${item.perdida > 0 ? `<span class="material-item-price" style="color:#f87171;">-${formatMoney(item.perdida)}</span>` : ''}
+      <div style="flex:1;">
+        <div class="material-item-name">${item.name} <span class="badge" style="font-size:0.7rem;">${item.qty} ${item.unit}</span></div>
+        <div style="font-size:0.75rem; color:var(--clr-text-muted);">
+          Comp: ${formatMoney(item.priceBuy)} | Vent: ${formatMoney(item.priceSell)}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:600; font-size:0.85rem; color:#f87171;">-${formatMoney(item.totalCompra)} (C)</div>
+        <div style="font-weight:600; font-size:0.85rem; color:var(--clr-primary-light);">+${formatMoney(item.totalVenta)} (V)</div>
+      </div>
+      <div style="margin: 0 10px; padding: 4px 8px; background: var(--clr-surface-3); border-radius: 4px; text-align:center; min-width:80px;">
+        <div style="font-size:0.7rem; color:var(--clr-text-muted);">Balance</div>
+        <div style="font-weight:700; color:${item.balance >= 0 ? 'var(--clr-primary-light)' : '#f87171'}">${formatMoney(item.balance)}</div>
+      </div>
       <button class="btn-danger" onclick="removeBasicItem(${item.id})">✕</button>
     </div>
   `).join('');
 
-  const totalG = basicItems.reduce((s, i) => s + i.ganancia, 0);
-  const totalP = basicItems.reduce((s, i) => s + i.perdida, 0);
-  const totalFac = basicItems.reduce((s, i) => s + i.subtotal, 0);
+  const totalC = basicItems.reduce((s, i) => s + i.totalCompra, 0);
+  const totalV = basicItems.reduce((s, i) => s + i.totalVenta, 0);
+  const totalB = totalV - totalC;
 
-  document.getElementById('basic-ganancia').textContent = formatMoney(totalG);
-  document.getElementById('basic-perdida').textContent = formatMoney(totalP);
-  document.getElementById('basic-total').textContent = formatMoney(totalFac);
+  document.getElementById('basic-ganancia').textContent = formatMoney(totalV);
+  document.getElementById('basic-ganancia').style.color = 'var(--clr-primary-light)';
+  document.getElementById('basic-ganancia').previousElementSibling.textContent = 'Total Venta (Ingreso)';
+
+  document.getElementById('basic-perdida').textContent = formatMoney(totalC);
+  document.getElementById('basic-perdida').style.color = '#f87171';
+  document.getElementById('basic-perdida').previousElementSibling.textContent = 'Total Compra (Egreso)';
+
+  document.getElementById('basic-total').textContent = formatMoney(totalB);
+  document.getElementById('basic-total').style.color = totalB >= 0 ? 'var(--clr-primary-light)' : '#f87171';
+  document.getElementById('basic-total').previousElementSibling.textContent = 'Balance Neto';
+
   summary.style.display = 'block';
 }
 
@@ -250,32 +287,41 @@ function saveBasicInvoice() {
   const client = document.getElementById('basic-client').value.trim() || 'Cliente General';
   const date = document.getElementById('basic-date').value || new Date().toISOString().split('T')[0];
   const notes = document.getElementById('basic-notes').value.trim();
-  const total = basicItems.reduce((s, i) => s + i.subtotal, 0);
-  const totalGanancia = basicItems.reduce((s, i) => s + i.ganancia, 0);
-  const totalPerdida = basicItems.reduce((s, i) => s + i.perdida, 0);
+
+  const totalC = basicItems.reduce((s, i) => s + i.totalCompra, 0);
+  const totalV = basicItems.reduce((s, i) => s + i.totalVenta, 0);
+  const balanceTotal = totalV - totalC;
 
   const invoice = {
     id: `FAC-B-${Date.now()}`,
     type: 'basica', typeName: 'Básica',
     client, date, notes,
     items: [...basicItems],
-    total, totalGanancia, totalPerdida,
+    totalCompra: totalC,
+    totalVenta: totalV,
+    total: totalV, // Mostramos el total de venta como ref principal
+    balance: balanceTotal,
     createdAt: new Date().toISOString()
   };
 
   saveInvoice(invoice);
   clearBasicForm();
 
-  if (totalGanancia > 0) {
-    addFinanceEntry('ingreso', {
-      concept: `${invoice.id} – ${client} (${t('inv.gain').split('(')[0].trim()})`,
-      amount: totalGanancia, date, category: 'Materiales', ref: invoice.id
+  // Registrar Egreso: Lo que pagamos por la compra
+  if (totalC > 0) {
+    addFinanceEntry('egreso', {
+      concept: `Compra: ${invoice.id} – ${client}`,
+      amount: totalC, date, category: 'Materiales', ref: invoice.id
     });
   }
-  if (totalPerdida > 0) {
-    addFinanceEntry('egreso', {
-      concept: `${invoice.id} – ${client} (${t('inv.loss').split('(')[0].trim()})`,
-      amount: totalPerdida, date, category: 'Materiales', ref: invoice.id
+
+  // Registrar Ingreso (Balance/Ganancia Bruta): 
+  // Opcional: Podrías registrar el total de venta como ingreso, 
+  // pero el usuario pidió ver el balance como ganancia bruta.
+  if (balanceTotal > 0) {
+    addFinanceEntry('ingreso', {
+      concept: `Ganancia: ${invoice.id} – ${client}`,
+      amount: balanceTotal, date, category: 'Materiales', ref: invoice.id
     });
   }
 
@@ -541,14 +587,4 @@ function renderInvoicesPage(container) {
 
   const today = new Date().toISOString().split('T')[0];
   ['basic-date', 'comp-date'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = today;
-  });
-
-  refreshCountTab();
-}
-
-function refreshCountTab() {
-  const inner = document.getElementById('count-tab-inner');
-  if (inner) inner.innerHTML = renderCountTab();
-}
+    const el =
