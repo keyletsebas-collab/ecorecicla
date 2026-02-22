@@ -57,87 +57,131 @@ function renderInvoiceCards(invoices) {
       </div>`;
   }
 
-  return invoices.map(inv => {
-    const isBasica = inv.type === 'basica';
-    const badge = isBasica
-      ? `<span class="badge badge--green">${t('hist.basic_badge')}</span>`
-      : `<span class="badge badge--yellow">${t('hist.biz_badge')}</span>`;
-    const icon = isBasica ? '📦' : '🏢';
+  // Sort by date (desc) and then by creation time (desc)
+  const sorted = [...invoices].sort((a, b) => {
+    if (b.date !== a.date) return b.date.localeCompare(a.date);
+    return b.createdAt.localeCompare(a.createdAt);
+  });
 
-    const itemRows = isBasica
-      ? (inv.items || []).map(item => `
-          <tr>
-            <td>${item.icon} ${item.name}</td>
-            <td>${item.qty} ${item.unit}</td>
-            <td>${formatMoney(item.price)}</td>
-            <td><b>${formatMoney(item.subtotal)}</b></td>
-          </tr>`).join('')
-      : (inv.items || []).map(item => `
-          <tr>
-            <td>${item.desc}</td>
-            <td>${item.qty}</td>
-            <td>${formatMoney(item.uprice)}</td>
-            <td><b>${formatMoney(item.subtotal)}</b></td>
-          </tr>`).join('');
+  // Group by Month and then by Day
+  const groups = {};
+  sorted.forEach(inv => {
+    const [y, m, d] = inv.date.split('-');
+    const monthKey = `${y}-${m}`;
+    const dayKey = inv.date;
+    if (!groups[monthKey]) groups[monthKey] = {};
+    if (!groups[monthKey][dayKey]) groups[monthKey][dayKey] = [];
+    groups[monthKey][dayKey].push(inv);
+  });
 
-    const detailRows = isBasica ? `
-      <p><b>${t('hist.client')}</b> ${inv.client || '—'}</p>
-    ` : `
-      <div class="form-row" style="margin-bottom:12px;">
-        <p><b>${t('hist.company')}</b> ${inv.company || '—'}</p>
-        <p><b>${t('hist.nit')}</b> ${inv.nit || '—'}</p>
-        <p><b>${t('hist.contact')}</b> ${inv.contact || '—'}</p>
-        <p><b>${t('hist.address')}</b> ${inv.address || '—'}</p>
-      </div>`;
+  const monthNames = {
+    '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+    '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+    '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+  };
 
-    const totalsSection = isBasica ? `
-      <div class="invoice-summary" style="margin-top:12px;">
-        ${inv.totalGanancia > 0 ? `
-        <div class="invoice-summary-row">
-          <span class="invoice-summary-label">${t('inv.gain')}</span>
-          <span class="invoice-summary-value" style="color:var(--clr-primary-light);">+${formatMoney(inv.totalGanancia)}</span>
-        </div>` : ''}
-        ${inv.totalPerdida > 0 ? `
-        <div class="invoice-summary-row">
-          <span class="invoice-summary-label">${t('inv.loss')}</span>
-          <span class="invoice-summary-value" style="color:#f87171;">-${formatMoney(inv.totalPerdida)}</span>
-        </div>` : ''}
-        <div class="invoice-summary-row total">
-          <span class="invoice-summary-label">${t('lbl.total')}</span>
-          <span class="invoice-summary-value">${formatMoney(inv.total)}</span>
-        </div>
-      </div>` : `
-      <div class="invoice-summary" style="margin-top:12px;">
-        <div class="invoice-summary-row">
-          <span class="invoice-summary-label">${t('lbl.subtotal')}</span>
-          <span class="invoice-summary-value">${formatMoney(inv.subtotal)}</span>
-        </div>
-        <div class="invoice-summary-row">
-          <span class="invoice-summary-label">${t('inv.iva')} (${inv.taxRate}%)</span>
-          <span class="invoice-summary-value">${formatMoney(inv.taxAmount)}</span>
-        </div>
-        <div class="invoice-summary-row total">
-          <span class="invoice-summary-label">${t('lbl.total')}</span>
-          <span class="invoice-summary-value">${formatMoney(inv.total)}</span>
-        </div>
-      </div>`;
+  let html = '';
+  // Iterate months (desc)
+  Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(mKey => {
+    const [y, m] = mKey.split('-');
+    html += `<div class="history-month-header">${monthNames[m]} ${y}</div>`;
 
-    return `
-    <div class="history-card" id="hcard-${inv.id}">
-      <div class="history-card-header" onclick="toggleHistoryCard('${inv.id}')">
-        <div class="history-card-icon">${icon}</div>
-        <div class="history-card-info">
-          <div class="history-card-title">${inv.id} &nbsp; ${badge}</div>
-          <div class="history-card-meta">
-            ${inv.client || inv.company || '—'} &bull; ${formatDate(inv.date)} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}
-          </div>
-        </div>
-        <div class="history-card-total">${formatMoney(inv.total)}</div>
-        <span class="history-card-chevron">▼</span>
+    // Iterate days (desc)
+    Object.keys(groups[mKey]).sort((a, b) => b.localeCompare(a)).forEach(dKey => {
+      const dayInvoices = groups[mKey][dKey];
+      html += `<div class="history-day-header">${formatDate(dKey)}</div>`;
+
+      dayInvoices.forEach(inv => {
+        html += renderSingleInvoiceCard(inv);
+      });
+    });
+  });
+
+  return html;
+}
+
+function renderSingleInvoiceCard(inv) {
+  const isBasica = inv.type === 'basica';
+  const badge = isBasica
+    ? `<span class="badge badge--green">${t('hist.basic_badge')}</span>`
+    : `<span class="badge badge--yellow">${t('hist.biz_badge')}</span>`;
+  const icon = isBasica ? '📦' : '🏢';
+
+  const itemRows = isBasica
+    ? (inv.items || []).map(item => `
+        <tr>
+          <td>${item.icon} ${item.name}</td>
+          <td>${item.qty} ${item.unit}</td>
+          <td>${formatMoney(item.priceBuy || 0)}</td>
+          <td><b>${formatMoney(item.totalCompra || 0)}</b></td>
+        </tr>`).join('')
+    : (inv.items || []).map(item => `
+        <tr>
+          <td>${item.desc}</td>
+          <td>${item.qty}</td>
+          <td>${formatMoney(item.uprice)}</td>
+          <td><b>${formatMoney(item.subtotal)}</b></td>
+        </tr>`).join('');
+
+  const detailRows = isBasica ? `
+    <p><b>${t('hist.client')}</b> ${inv.client || '—'}</p>
+  ` : `
+    <div class="form-row" style="margin-bottom:12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <p><b>${t('hist.company')}</b> ${inv.company || '—'}</p>
+      <p><b>${t('hist.nit')}</b> ${inv.nit || '—'}</p>
+      <p><b>${t('hist.contact')}</b> ${inv.contact || '—'}</p>
+      <p><b>${t('hist.address')}</b> ${inv.address || '—'}</p>
+    </div>`;
+
+  const totalsSection = isBasica ? `
+    <div class="invoice-summary" style="margin-top:12px;">
+      <div class="invoice-summary-row">
+        <span class="invoice-summary-label">Total Compra (Egreso)</span>
+        <span class="invoice-summary-value" style="color:#f87171;">-${formatMoney(inv.totalCompra)}</span>
       </div>
-      <div class="history-card-body">
+      <div class="invoice-summary-row total">
+        <span class="invoice-summary-label">Balance Neto</span>
+        <span class="invoice-summary-value" style="color:${inv.balance >= 0 ? 'var(--clr-primary-light)' : '#f87171'}">${formatMoney(inv.balance)}</span>
+      </div>
+    </div>` : `
+    <div class="invoice-summary" style="margin-top:12px;">
+      <div class="invoice-summary-row">
+        <span class="invoice-summary-label">${t('lbl.subtotal')}</span>
+        <span class="invoice-summary-value">${formatMoney(inv.subtotal)}</span>
+      </div>
+      <div class="invoice-summary-row">
+        <span class="invoice-summary-label">${t('inv.iva')} (${inv.taxRate}%)</span>
+        <span class="invoice-summary-value">${formatMoney(inv.taxAmount)}</span>
+      </div>
+      <div class="invoice-summary-row total">
+        <span class="invoice-summary-label">${t('lbl.total')}</span>
+        <span class="invoice-summary-value">${formatMoney(inv.total)}</span>
+      </div>
+    </div>`;
+
+  return `
+  <div class="history-card" id="hcard-${inv.id}">
+    <div class="history-card-header" onclick="toggleHistoryCard('${inv.id}')">
+      <div class="history-card-icon">${icon}</div>
+      <div class="history-card-info">
+        <div class="history-card-title">${inv.id} &nbsp; ${badge}</div>
+        <div class="history-card-meta">
+          ${inv.client || inv.company || '—'} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}
+        </div>
+      </div>
+      <div class="history-card-total">${formatMoney(inv.total)}</div>
+      <span class="history-card-chevron">▼</span>
+    </div>
+    <div class="history-card-body">
+      <div id="pdf-content-${inv.id}" class="pdf-export-container">
+        <div class="pdf-only-header" style="display:none; text-align:center; padding-bottom:20px; border-bottom:2px solid #3b82f6; margin-bottom:20px;">
+           <h1 style="color:#3b82f6; margin:0;">RECIMINSA</h1>
+           <p style="margin:5px 0;">Gestión de Materiales Reciclables</p>
+           <h2 style="margin:15px 0 5px 0;">FACTURA ${inv.typeName.toUpperCase()}</h2>
+           <p>ID: ${inv.id} | Fecha: ${formatDate(inv.date)}</p>
+        </div>
         ${detailRows}
-        <div style="overflow-x:auto;margin-top:10px;">
+        <div style="overflow-x:auto; margin-top:10px;">
           <table class="data-table">
             <thead><tr>
               <th>${t('hist.col_desc')}</th><th>${t('hist.col_qty')}</th><th>${t('hist.col_unit')}</th><th>${t('hist.col_total')}</th>
@@ -146,13 +190,43 @@ function renderInvoiceCards(invoices) {
           </table>
         </div>
         ${totalsSection}
-        ${inv.notes ? `<p style="margin-top:12px;font-size:0.83rem;color:var(--clr-text-secondary);">📝 ${inv.notes}</p>` : ''}
-        <div style="margin-top:14px;display:flex;justify-content:flex-end;">
-          <button class="btn-danger" onclick="deleteInvoice('${inv.id}')">${t('hist.del_inv')}</button>
-        </div>
+        ${inv.notes ? `<p style="margin-top:12px; font-size:0.83rem; color:var(--clr-text-secondary);">📝 ${inv.notes}</p>` : ''}
       </div>
-    </div>`;
-  }).join('');
+      <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:8px;">
+        ${!isBasica ? `<button class="btn-secondary" onclick="downloadInvoicePDF('${inv.id}')">📄 PDF</button>` : ''}
+        <button class="btn-danger" onclick="deleteInvoice('${inv.id}')">${t('hist.del_inv')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function downloadInvoicePDF(id) {
+  const element = document.getElementById(`pdf-content-${id}`);
+  if (!element) return;
+
+  // Show PDF-only elements temporarily
+  const pdfHeader = element.querySelector('.pdf-only-header');
+  if (pdfHeader) pdfHeader.style.display = 'block';
+
+  // Configuration for html2pdf
+  const opt = {
+    margin: [10, 10],
+    filename: `Factura_${id}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  try {
+    showToast('Generando PDF...', 'info');
+    await html2pdf().set(opt).from(element).save();
+    showToast('PDF Descargado', 'success');
+  } catch (err) {
+    console.error('PDF Error:', err);
+    showToast('Error al generar PDF', 'error');
+  } finally {
+    if (pdfHeader) pdfHeader.style.display = 'none';
+  }
 }
 
 function toggleHistoryCard(id) {

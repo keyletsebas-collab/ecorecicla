@@ -336,148 +336,162 @@ let compItems = [];
 
 function renderCompanyForm() {
   return `
-    <div class="card card--elevated">
-      <div class="page-header">
-        <div>
-          <h3 class="section-title">${t('inv.biz_title')}</h3>
-          <p class="section-subtitle">${t('inv.biz_sub')}</p>
-        </div>
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+      <div class="card-header">
+        <h3 class="card-title">${t('inv.biz_title')}</h3>
+        <p class="card-subtitle">${t('inv.biz_sub')}</p>
       </div>
 
-      <div class="form-row">
+      <div class="form-row" style="grid-template-columns: 1fr 1fr;">
         <div class="form-group">
           <label class="form-label">${t('inv.company_name')}</label>
-          <input id="comp-company" type="text" class="form-input" placeholder="Empresa S.A.S." required />
+          <input id="comp-name" type="text" class="form-input" placeholder="Nombre completo" />
         </div>
         <div class="form-group">
           <label class="form-label">${t('inv.nit')}</label>
-          <input id="comp-nit" type="text" class="form-input" placeholder="900.123.456-7" />
+          <input id="comp-nit" type="text" class="form-input" placeholder="ID Fiscal" />
         </div>
       </div>
-      <div class="form-row">
+
+      <div class="form-row" style="grid-template-columns: 1fr 1fr;">
         <div class="form-group">
           <label class="form-label">${t('inv.contact')}</label>
-          <input id="comp-contact" type="text" class="form-input" placeholder="${t('inv.contact')}" />
+          <input id="comp-contact" type="text" class="form-input" placeholder="Nombre de contacto" />
         </div>
+        <div class="form-group">
+          <label class="form-label">${t('inv.address')}</label>
+          <input id="comp-address" type="text" class="form-input" placeholder="Ej: Calle 123, ciudad" />
+        </div>
+      </div>
+
+      <div class="form-row" style="grid-template-columns: 1fr;">
         <div class="form-group">
           <label class="form-label">${t('lbl.invoice_date')}</label>
           <input id="comp-date" type="date" class="form-input" />
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">${t('inv.address')}</label>
-        <input id="comp-address" type="text" class="form-input" placeholder="Calle 123 / empresa@mail.com" />
-      </div>
 
       <hr style="border-color:var(--clr-border);margin:20px 0;" />
       <p class="form-label" style="margin-bottom:10px;">${t('inv.add_item')}</p>
 
-      <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr auto; align-items:end;">
+      <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr auto; align-items:end; gap:8px;">
         <div class="form-group">
           <label class="form-label">${t('inv.item_desc')}</label>
-          <input id="comp-desc" type="text" class="form-input" placeholder="${t('inv.item_desc')}" />
+          <input id="comp-item-desc" type="text" class="form-input" placeholder="Descripción del servicio/producto" />
         </div>
         <div class="form-group">
           <label class="form-label">${t('lbl.quantity')}</label>
-          <input id="comp-qty" type="number" class="form-input" placeholder="1" min="1" step="1" />
+          <input id="comp-item-qty" type="number" class="form-input" placeholder="0" min="1" />
         </div>
         <div class="form-group">
-          <label class="form-label">${t('inv.unit_price')} (${getCurrency().symbol})</label>
-          <input id="comp-uprice" type="number" class="form-input" placeholder="0.00" min="0" step="0.01" />
+          <label class="form-label">${t('inv.unit_price')}</label>
+          <input id="comp-item-price" type="number" class="form-input" placeholder="0.00" min="0" step="0.01" />
         </div>
-        <button class="btn-secondary" onclick="addCompItem()" style="height:42px;align-self:flex-end;">${t('btn.add')}</button>
+        <button class="btn-secondary" onclick="addCompItem()" style="margin-bottom:0;height:42px;align-self:flex-end;">${t('btn.add')}</button>
       </div>
 
-      <div id="comp-items-list" class="material-items"></div>
+      <div id="comp-items-list" class="material-items" style="margin-top:15px;"></div>
 
-      <div id="comp-summary" class="invoice-summary" style="display:none;">
-        <div class="invoice-summary-row">
-          <span class="invoice-summary-label">${t('lbl.subtotal')}</span>
-          <span class="invoice-summary-value" id="comp-subtotal">-</span>
-        </div>
-        <div class="invoice-summary-row">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="invoice-summary-label">${t('inv.iva')}</span>
-            <input id="comp-tax" type="number" class="form-input" value="19" min="0" max="100" style="width:70px;padding:4px 8px;" oninput="updateCompTotals()" />
+      <div id="comp-summary" style="display:none; margin-top:20px; padding:15px; background:var(--clr-surface-2); border-radius:8px; border:1px solid var(--clr-border);">
+        <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="form-group">
+            <label class="form-label">${t('inv.iva')} (%)</label>
+            <input id="comp-tax" type="number" class="form-input" value="16" min="0" oninput="updateCompTotals()" />
           </div>
-          <span class="invoice-summary-value" id="comp-tax-amount">-</span>
-        </div>
-        <div class="invoice-summary-row total">
-          <span class="invoice-summary-label">${t('inv.total_pay')}</span>
-          <span class="invoice-summary-value" id="comp-total">-</span>
+          <div style="text-align:right;">
+             <div style="font-size:0.9rem; color:var(--clr-text-muted);">${t('lbl.subtotal')}: <span id="comp-subtotal-val">$0.00</span></div>
+             <div style="font-size:0.9rem; color:var(--clr-text-muted);">IVA: <span id="comp-tax-val">$0.00</span></div>
+             <div style="font-size:1.2rem; font-weight:700; color:var(--clr-primary-light); margin-top:5px;">${t('lbl.total')}: <span id="comp-total-val">$0.00</span></div>
+          </div>
         </div>
       </div>
 
-      <div class="form-group" style="margin-top:16px;">
-        <label class="form-label">${t('inv.pay_notes')}</label>
-        <textarea id="comp-notes" class="form-textarea" placeholder="${t('inv.pay_notes_ph')}"></textarea>
+      <div class="form-group" style="margin-top:20px;">
+        <label class="form-label">${t('lbl.notes')}</label>
+        <textarea id="comp-notes" class="form-input" style="height:80px;" placeholder="${t('inv.pay_notes_ph')}"></textarea>
       </div>
 
-      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
-        <button class="btn-secondary" onclick="clearCompForm()">${t('inv.clear_form')}</button>
-        <button class="btn-primary" style="width:auto;padding:12px 28px;" onclick="saveCompanyInvoice()">
-          <span>${t('inv.save_invoice')}</span>
-          <div class="btn-spinner hidden"></div>
-        </button>
+      <div style="display:flex; gap:10px; margin-top:30px;">
+        <button class="btn-primary" onclick="saveCompanyInvoice()" style="flex:2;">${t('inv.save_invoice')}</button>
+        <button class="btn-outline" onclick="clearCompForm()" style="flex:1;">${t('inv.clear_form')}</button>
       </div>
-    </div>`;
+    </div>
+  `;
 }
 
 function addCompItem() {
-  const desc = document.getElementById('comp-desc').value.trim();
-  const qty = parseInt(document.getElementById('comp-qty').value) || 0;
-  const uprice = parseFloat(document.getElementById('comp-uprice').value) || 0;
+  const desc = document.getElementById('comp-item-desc').value.trim();
+  const qty = parseFloat(document.getElementById('comp-item-qty').value) || 0;
+  const uprice = parseFloat(document.getElementById('comp-item-price').value) || 0;
 
   if (!desc || qty <= 0 || uprice <= 0) { showToast(t('err.add_item'), 'error'); return; }
 
-  compItems.push({ id: Date.now(), desc, qty, uprice, subtotal: qty * uprice });
+  const subtotal = qty * uprice;
+  compItems.push({ id: Date.now(), desc, qty, uprice, subtotal });
+
   renderCompItems();
-  document.getElementById('comp-desc').value = '';
-  document.getElementById('comp-qty').value = '';
-  document.getElementById('comp-uprice').value = '';
+  updateCompTotals();
+
+  document.getElementById('comp-item-desc').value = '';
+  document.getElementById('comp-item-qty').value = '';
+  document.getElementById('comp-item-price').value = '';
 }
 
 function removeCompItem(id) {
   compItems = compItems.filter(i => i.id !== id);
   renderCompItems();
+  updateCompTotals();
 }
 
 function renderCompItems() {
   const list = document.getElementById('comp-items-list');
   const summary = document.getElementById('comp-summary');
 
-  if (compItems.length === 0) { list.innerHTML = ''; summary.style.display = 'none'; return; }
+  if (compItems.length === 0) {
+    list.innerHTML = '';
+    summary.style.display = 'none';
+    return;
+  }
 
   list.innerHTML = compItems.map(item => `
     <div class="material-item">
-      <span class="material-item-name">${item.desc}</span>
-      <span class="material-item-detail">${item.qty} × ${formatMoney(item.uprice)}</span>
-      <span class="material-item-price">${formatMoney(item.subtotal)}</span>
-      <button class="btn-danger" onclick="removeCompItem(${item.id})">✕</button>
+      <div style="flex:1;">
+        <div class="material-item-name">${item.desc}</div>
+        <div style="font-size:0.75rem; color:var(--clr-text-muted);">
+          ${item.qty} x ${formatMoney(item.uprice)}
+        </div>
+      </div>
+      <div style="font-weight:700; color:var(--clr-primary-light);">
+        ${formatMoney(item.subtotal)}
+      </div>
+      <button class="btn-danger" onclick="removeCompItem(${item.id})" style="margin-left:15px;">✕</button>
     </div>
   `).join('');
 
   summary.style.display = 'block';
-  updateCompTotals();
 }
 
 function updateCompTotals() {
-  const subtotal = compItems.reduce((sum, i) => sum + i.subtotal, 0);
-  const taxRate = parseFloat(document.getElementById('comp-tax')?.value || 0) / 100;
-  const taxAmt = subtotal * taxRate;
-  const total = subtotal + taxAmt;
+  const rawSubtotal = compItems.reduce((s, i) => s + i.subtotal, 0);
+  const taxRate = parseFloat(document.getElementById('comp-tax').value) || 0;
+  const taxAmount = rawSubtotal * (taxRate / 100);
+  const total = rawSubtotal + taxAmount;
 
-  if (document.getElementById('comp-subtotal')) {
-    document.getElementById('comp-subtotal').textContent = formatMoney(subtotal);
-    document.getElementById('comp-tax-amount').textContent = formatMoney(taxAmt);
-    document.getElementById('comp-total').textContent = formatMoney(total);
-  }
+  const subEl = document.getElementById('comp-subtotal-val');
+  const taxEl = document.getElementById('comp-tax-val');
+  const totEl = document.getElementById('comp-total-val');
+
+  if (subEl) subEl.textContent = formatMoney(rawSubtotal);
+  if (taxEl) taxEl.textContent = formatMoney(taxAmount);
+  if (totEl) totEl.textContent = formatMoney(total);
+
+  return { rawSubtotal, taxRate, taxAmount, total };
 }
 
 function clearCompForm() {
   compItems = [];
   renderCompItems();
-  ['comp-company', 'comp-nit', 'comp-contact', 'comp-address', 'comp-notes'].forEach(id => {
+  ['comp-name', 'comp-nit', 'comp-contact', 'comp-address', 'comp-notes'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -486,34 +500,34 @@ function clearCompForm() {
 function saveCompanyInvoice() {
   if (compItems.length === 0) { showToast(t('err.no_item'), 'error'); return; }
 
-  const company = document.getElementById('comp-company').value.trim() || 'Empresa Sin Nombre';
+  const company = document.getElementById('comp-name').value.trim() || 'Empresa General';
   const nit = document.getElementById('comp-nit').value.trim();
   const contact = document.getElementById('comp-contact').value.trim();
   const address = document.getElementById('comp-address').value.trim();
   const date = document.getElementById('comp-date').value || new Date().toISOString().split('T')[0];
   const notes = document.getElementById('comp-notes').value.trim();
-  const taxRate = parseFloat(document.getElementById('comp-tax').value || 0);
 
-  const subtotal = compItems.reduce((s, i) => s + i.subtotal, 0);
-  const taxAmt = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmt;
+  const { rawSubtotal, taxRate, taxAmount, total } = updateCompTotals();
 
   const invoice = {
     id: `FAC-E-${Date.now()}`,
     type: 'empresa', typeName: 'Empresarial',
-    company, nit, contact, address, client: company,
-    date, notes,
+    company, nit, contact, address, date, notes,
     items: [...compItems],
-    subtotal, taxRate, taxAmount: taxAmt, total,
+    subtotal: rawSubtotal,
+    taxRate, taxAmount, total,
     createdAt: new Date().toISOString()
   };
 
   saveInvoice(invoice);
+  clearCompForm();
+
+  // Register income for total amount (Business invoices are sales)
   addFinanceEntry('ingreso', {
     concept: `${invoice.id} – ${company}`,
-    amount: total, date, category: 'Empresarial', ref: invoice.id
+    amount: total, date, category: 'Ventas Empresariales', ref: invoice.id
   });
-  clearCompForm();
+
   showToast(`${t('toast.inv_saved')} ${invoice.id}`, 'success');
 }
 
