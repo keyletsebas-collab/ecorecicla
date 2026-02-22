@@ -23,7 +23,17 @@ try {
     }
     db = firebase.database();
     isFirebaseActive = true;
-    console.log("🚀 Firebase conectado correctamente");
+    console.log("🚀 Firebase conectado correctamente a:", firebaseConfig.databaseURL);
+
+    // Prueba de conexión silenciosa
+    db.ref('.info/connected').on('value', (snap) => {
+        if (snap.val() === true) {
+            console.log("📡 Conexión activa con Realtime Database");
+        } else {
+            console.warn("📡 Buscando conexión con Firebase...");
+        }
+    });
 } catch (err) {
-    console.warn("ℹ️ Error conectando a Firebase. Revisa tus credenciales en js/firebase-config.js");
+    console.error("❌ Error CRÍTICO conectando a Firebase:", err);
+    console.warn("ℹ️ Revisa que las URLs y claves en js/firebase-config.js sean correctas.");
 }
