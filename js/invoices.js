@@ -587,4 +587,14 @@ function renderInvoicesPage(container) {
 
   const today = new Date().toISOString().split('T')[0];
   ['basic-date', 'comp-date'].forEach(id => {
-    const el =
+    const el = document.getElementById(id);
+    if (el) el.value = today;
+  });
+
+  refreshCountTab();
+}
+
+function refreshCountTab() {
+  const inner = document.getElementById('count-tab-inner');
+  if (inner) inner.innerHTML = renderCountTab();
+}
