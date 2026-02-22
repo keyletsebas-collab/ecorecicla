@@ -46,6 +46,16 @@ function togglePassword(inputId, btn) {
 // EMAIL / PHONE LOGIN
 // =============================================
 
+/**
+ * Convierte un objeto de Firebase o array en un array de usuarios válido.
+ * Firebase a veces devuelve objetos con IDs como llaves en lugar de un array corregido.
+ */
+function parseFirebaseUsers(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  return Object.values(data);
+}
+
 async function handleLogin(evt) {
   evt.preventDefault();
   const identifier = document.getElementById('login-email').value.trim().toLowerCase();
@@ -54,8 +64,8 @@ async function handleLogin(evt) {
   const btn = document.getElementById('login-btn');
 
   const resetBtn = () => {
-    btn.querySelector('span').classList.remove('hidden');
-    btn.querySelector('.btn-spinner').classList.add('hidden');
+    btn.querySelector('span')?.classList.remove('hidden');
+    btn.querySelector('.btn-spinner')?.classList.add('hidden');
     btn.disabled = false;
   };
 
@@ -65,8 +75,9 @@ async function handleLogin(evt) {
   if (isFirebaseActive && db) {
     try {
       const snapshot = await db.ref('users').get();
-      const cloudUsers = snapshot.val();
-      if (cloudUsers) {
+      const cloudData = snapshot.val();
+      if (cloudData) {
+        const cloudUsers = parseFirebaseUsers(cloudData);
         localStorage.setItem('recim_users', JSON.stringify(cloudUsers));
       }
     } catch (err) {
@@ -83,6 +94,7 @@ async function handleLogin(evt) {
     return;
   }
 
+  // ... (rest of password checks)
   if (!found.password) {
     errorEl.textContent = 'Esta cuenta no tiene contraseña. Ve a “Crear Cuenta”, usa el mismo correo y elige una contraseña.';
     errorEl.classList.remove('hidden');
@@ -133,8 +145,8 @@ async function handleSignup(evt) {
   const btn = document.getElementById('signup-btn');
 
   const resetBtn = () => {
-    btn.querySelector('span').classList.remove('hidden');
-    btn.querySelector('.btn-spinner').classList.add('hidden');
+    btn.querySelector('span')?.classList.remove('hidden');
+    btn.querySelector('.btn-spinner')?.classList.add('hidden');
     btn.disabled = false;
   };
 
@@ -146,9 +158,22 @@ async function handleSignup(evt) {
     return;
   }
 
-  const users = JSON.parse(localStorage.getItem('recim_users') || '[]');
-  const existsIdx = users.findIndex(u => u.email?.toLowerCase() === identity);
-  const exists = existsIdx >= 0 ? users[existsIdx] : null;
+  // 1. ANTES DE REGISTRAR: Pull de la nube para no borrar a otros usuarios
+  let currentUsers = JSON.parse(localStorage.getItem('recim_users') || '[]');
+  if (isFirebaseActive && db) {
+    try {
+      const snapshot = await db.ref('users').get();
+      const cloudData = snapshot.val();
+      if (cloudData) {
+        currentUsers = parseFirebaseUsers(cloudData);
+      }
+    } catch (err) {
+      console.warn("No se pudo obtener lista de usuarios de la nube, usando local.");
+    }
+  }
+
+  const existsIdx = currentUsers.findIndex(u => u.email?.toLowerCase() === identity);
+  const exists = existsIdx >= 0 ? currentUsers[existsIdx] : null;
 
   if (exists && exists.password) {
     errorEl.textContent = 'Ya existe una cuenta con ese correo. Inicia sesión.';
@@ -160,31 +185,34 @@ async function handleSignup(evt) {
   btn.querySelector('.btn-spinner').classList.remove('hidden');
   btn.disabled = true;
 
-  setTimeout(() => {
+  setTimeout(async () => {
     try {
       let session;
 
       if (exists && !exists.password) {
         // Upgrade old social account with a password
-        users[existsIdx] = { ...exists, name, password: btoa(password), provider: 'email', avatar: name[0].toUpperCase() };
-        localStorage.setItem('recim_users', JSON.stringify(users));
+        currentUsers[existsIdx] = { ...exists, name, password: btoa(password), provider: 'email', avatar: name[0].toUpperCase() };
         session = { name, email: exists.email, avatar: name[0].toUpperCase(), provider: 'email', accountId: exists.accountId };
-        localStorage.setItem('recim_session', JSON.stringify(session));
         showToast('✅ Cuenta actualizada con contraseña', 'success');
       } else {
         // Brand-new account
         const accountId = `ACC-${Date.now()}`;
         const newUser = { name, email: identity, password: btoa(password), provider: 'email', accountId, avatar: name[0].toUpperCase(), createdAt: new Date().toISOString() };
-        users.push(newUser);
-        localStorage.setItem('recim_users', JSON.stringify(users));
+        currentUsers.push(newUser);
         session = { name, email: identity, avatar: name[0].toUpperCase(), provider: 'email', accountId };
-        localStorage.setItem('recim_session', JSON.stringify(session));
         showToast('🎉 Cuenta creada exitosamente', 'success');
+      }
 
-        // Sync users to Firebase if active
-        if (isFirebaseActive && db) {
-          db.ref('users').set(users).catch(err => console.error("Firebase users sync error:", err));
-        }
+      // Guardar localmente
+      localStorage.setItem('recim_users', JSON.stringify(currentUsers));
+      localStorage.setItem('recim_session', JSON.stringify(session));
+
+      // 2. DESPUÉS DE REGISTRAR: Push sincronizado
+      if (isFirebaseActive && db) {
+        await db.ref('users').set(currentUsers).catch(err => {
+          console.error("Error al sincronizar usuarios con la nube:", err);
+          showToast('⚠️ Error al sincronizar con la nube', 'warning');
+        });
       }
 
       initApp(session);
