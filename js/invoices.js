@@ -6,6 +6,11 @@
 let basicItems = []; // Still used for internal logic if needed, but the UI is now row-driven
 let compItems = [];
 
+// Helper to detect if device is likely a phone/tablet
+function isMobileDevice() {
+  return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 function switchInvoiceTab(tabName) {
   document.querySelectorAll('.invoice-tab').forEach(t_ => t_.classList.remove('active'));
   document.querySelectorAll('.invoice-tab-content').forEach(c => c.classList.remove('active'));
@@ -123,6 +128,7 @@ function renderBasicForm() {
           <thead>
             <tr>
               <th style="width:200px;">${t('lbl.material')}</th>
+              <th style="width:100px;">${t('lbl.code')}</th>
               <th>${t('lbl.quantity')}</th>
               <th>${t('lbl.unit')}</th>
               <th>${t('lbl.weight')} (kg)</th>
@@ -181,7 +187,13 @@ function addBasicEntryRow() {
   const tr = document.createElement('tr');
   tr.id = rowId;
   tr.innerHTML = `
-    <td><select class="form-select row-mat">${options}</select></td>
+    <td>
+      <select class="form-select row-mat" onchange="const m = getMaterialCodes().find(x=>x.id===this.value); this.closest('tr').querySelector('.row-code').value = m?m.code:''; calculateBatchTotals()">
+        <option value="" disabled selected>${t('lbl.select_mat') || 'Seleccionar...'}</option>
+        ${options}
+      </select>
+    </td>
+    <td><input type="text" class="form-input row-code" readonly style="background:var(--clr-surface-2); font-family:monospace; font-size:0.8rem;" /></td>
     <td><input type="number" class="form-input row-qty" placeholder="0" min="0" step="1" oninput="calculateBatchTotals()" /></td>
     <td><input type="text" class="form-input row-unit" value="lb" style="width:50px;" /></td>
     <td><input type="number" class="form-input row-peso" placeholder="0" min="0" step="0.1" oninput="calculateBatchTotals()" /></td>
@@ -543,7 +555,7 @@ function renderInvoicesPage(container) {
       </div>
     </div>
 
-    <div class="invoice-tabs">
+    <div class="invoice-tabs" style="${isMobileDevice() ? 'display:none;' : ''}">
       <button class="invoice-tab active" id="inv-tab-btn-conteo" onclick="switchInvoiceTab('conteo'); refreshCountTab()">
         ${t('inv.tab_count')}
       </button>
@@ -555,11 +567,11 @@ function renderInvoicesPage(container) {
       </button>
     </div>
 
-    <div id="inv-tab-conteo" class="invoice-tab-content active">
+    <div id="inv-tab-conteo" class="invoice-tab-content ${isMobileDevice() ? '' : 'active'}">
       <div id="count-tab-inner"></div>
     </div>
 
-    <div id="inv-tab-basica" class="invoice-tab-content">
+    <div id="inv-tab-basica" class="invoice-tab-content ${isMobileDevice() ? 'active' : ''}">
       <!-- Initialized by initBasicForm -->
     </div>
 
