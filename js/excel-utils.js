@@ -123,13 +123,17 @@ function exportarExcelResiduos(invoice) {
             }
         });
 
+        // Obtener divisa actual
+        const cur = (typeof getCurrency === 'function') ? getCurrency() : { symbol: 'RD$', code: 'DOP' };
+        const curSymbol = cur.symbol.replace(/"/g, '""'); // Escapar comillas para formato Excel
+
         // Formato de moneda para columnas H, I, J, K, L
         const moneyCols = ['H', 'I', 'J', 'K', 'L'];
         for (let r = 2; r <= dataRows.length + 1; r++) {
             moneyCols.forEach(col => {
                 const ref = `${col}${r}`;
                 if (ws1[ref]) {
-                    ws1[ref].z = '"RD$"#,##0.00';
+                    ws1[ref].z = `"${curSymbol}"#,##0.00`;
                 }
             });
         }
@@ -155,9 +159,9 @@ function exportarExcelResiduos(invoice) {
             ['ID Factura', invoice.id],
             ['Proveedor', invoice.client || invoice.company || '—'],
             ['Total cantidad recibida', totalKg],
-            ['Total comprado RD$', totalCompra],
-            ['Total vendido RD$', totalVenta],
-            ['Ganancia total RD$', gananciaTotal],
+            [`Total comprado ${cur.code}`, totalCompra],
+            [`Total vendido ${cur.code}`, totalVenta],
+            [`Ganancia total ${cur.code}`, gananciaTotal],
             ['Residuo principal', principal.name || '—'],
             ['Usuario', usuarioNombre],
         ];
@@ -174,7 +178,7 @@ function exportarExcelResiduos(invoice) {
 
         // Formato moneda en filas de moneda (6, 7, 8 → 0-indexed 5, 6, 7)
         ['B6', 'B7', 'B8'].forEach(ref => {
-            if (ws2[ref]) ws2[ref].z = '"RD$"#,##0.00';
+            if (ws2[ref]) ws2[ref].z = `"${curSymbol}"#,##0.00`;
         });
 
         XLSX.utils.book_append_sheet(wb, ws2, 'Resumen_Diario');
