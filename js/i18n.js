@@ -600,7 +600,7 @@ const CURRENCIES = [
 ];
 
 function getCurrency() {
-    const id = (getSettings().currency) || 'usd';
+    const id = (getSettings().currency) || 'dop';
     return CURRENCIES.find(c => c.id === id) || CURRENCIES[0];
 }
 
