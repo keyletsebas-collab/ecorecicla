@@ -1,4 +1,4 @@
-const CACHE_NAME = 'reciminsa-v2';
+const CACHE_NAME = 'reciminsa-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -12,7 +12,7 @@ const ASSETS = [
   '/js/finance.js',
   '/js/settings.js',
   '/js/firebase-config.js',
-  '/js/pdf-utils.js',
+  '/js/excel-utils.js',
   '/manifest.json'
 ];
 
