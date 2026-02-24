@@ -2,7 +2,7 @@
    SETTINGS.JS – Página de Ajustes de la App
    ============================================= */
 
-const APP_VERSION = '3.5.0';
+const APP_VERSION = 'beta 1.0.2';
 
 const LANGUAGES = [
   { code: 'es', label: '🇩🇴 Español' },
