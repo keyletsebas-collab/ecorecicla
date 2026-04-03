@@ -213,3 +213,166 @@ function exportarExcelResiduos(invoice) {
         showToast('❌ Error al generar Excel', 'error');
     }
 }
+
+/**
+ * Exporta todos los datos de la app (Facturas, Ingresos, Egresos) 
+ * en un solo archivo Excel con múltiples pestañas.
+ */
+function exportAllDataToExcel() {
+    if (typeof XLSX === 'undefined') {
+        showToast('❌ Librería Excel no disponible', 'error');
+        return;
+    }
+
+    try {
+        showToast('📊 Generando copia de seguridad...', 'info');
+        const wb = XLSX.utils.book_new();
+
+        // 1. Facturas
+        const invoices = JSON.parse(localStorage.getItem('recim_invoices') || '[]');
+        if (invoices.length > 0) {
+            const invRows = [];
+            invoices.forEach(inv => {
+                inv.items.forEach(item => {
+                    invRows.push({
+                        ID: inv.id,
+                        Fecha: inv.date,
+                        Cliente: inv.client || inv.company || '—',
+                        Tipo: inv.type || 'basic',
+                        Material: item.name || item.desc || '',
+                        Cantidad: item.qty || 0,
+                        Unidad: item.unit || 'kg',
+                        Precio_Compra: item.priceBuy || item.uprice || 0,
+                        Precio_Venta: item.priceSell || 0,
+                        Subtotal: (item.qty || 0) * (item.priceBuy || item.uprice || 0),
+                        Notas: inv.notes || ''
+                    });
+                });
+            });
+            const wsInv = XLSX.utils.json_to_sheet(invRows);
+            XLSX.utils.book_append_sheet(wb, wsInv, 'Facturas');
+        }
+
+        // 2. Ingresos
+        const ingresos = JSON.parse(localStorage.getItem('recim_ingresos') || '[]');
+        if (ingresos.length > 0) {
+            const wsInc = XLSX.utils.json_to_sheet(ingresos.map(i => ({
+                ID: i.id,
+                Fecha: i.date,
+                Concepto: i.concept,
+                Monto: i.amount,
+                Categoria: i.category || 'General'
+            })));
+            XLSX.utils.book_append_sheet(wb, wsInc, 'Ingresos');
+        }
+
+        // 3. Egresos
+        const egresos = JSON.parse(localStorage.getItem('recim_egresos') || '[]');
+        if (egresos.length > 0) {
+            const wsExp = XLSX.utils.json_to_sheet(egresos.map(e => ({
+                ID: e.id,
+                Fecha: e.date,
+                Concepto: e.concept,
+                Monto: e.amount,
+                Categoria: e.category || 'General'
+            })));
+            XLSX.utils.book_append_sheet(wb, wsExp, 'Egresos');
+        }
+
+        const fileName = `Reciminsa_Backup_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToast('✅ Copia de seguridad descargada', 'success');
+    } catch (err) {
+        console.error('Full Export Error:', err);
+        showToast('❌ Error al exportar datos', 'error');
+    }
+}
+
+/**
+ * Importa datos desde un archivo Excel y los guarda en la app.
+ * @param {File} file - El archivo subido por el usuario.
+ */
+function importExcelData(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            let importedCount = 0;
+
+            // Procesar cada pestaña conocida
+            for (const sheetName of workbook.SheetNames) {
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet);
+
+                if (sheetName === 'Facturas') {
+                    // Agrupar filas por ID para reconstruir facturas
+                    const invMap = {};
+                    rows.forEach(r => {
+                        if (!invMap[r.ID]) {
+                            invMap[r.ID] = {
+                                id: r.ID,
+                                date: r.Fecha,
+                                client: r.Cliente,
+                                type: r.Tipo,
+                                notes: r.Notas,
+                                items: [],
+                                createdAt: new Date().toISOString()
+                            };
+                        }
+                        invMap[r.ID].items.push({
+                            name: r.Material,
+                            qty: parseFloat(r.Cantidad),
+                            unit: r.Unidad,
+                            priceBuy: parseFloat(r.Precio_Compra),
+                            priceSell: parseFloat(r.Precio_Venta)
+                        });
+                    });
+                    localStorage.setItem('recim_invoices', JSON.stringify(Object.values(invMap)));
+                    importedCount++;
+                }
+
+                if (sheetName === 'Ingresos') {
+                    const mapped = rows.map(r => ({
+                        id: r.ID || 'INC-' + Date.now() + Math.random(),
+                        date: r.Fecha,
+                        concept: r.Concepto,
+                        amount: parseFloat(r.Monto),
+                        category: r.Categoria || 'Importado'
+                    }));
+                    localStorage.setItem('recim_ingresos', JSON.stringify(mapped));
+                    importedCount++;
+                }
+
+                if (sheetName === 'Egresos') {
+                    const mapped = rows.map(r => ({
+                        id: r.ID || 'EXP-' + Date.now() + Math.random(),
+                        date: r.Fecha,
+                        concept: r.Concepto,
+                        amount: parseFloat(r.Monto),
+                        category: r.Categoria || 'Importado'
+                    }));
+                    localStorage.setItem('recim_egresos', JSON.stringify(mapped));
+                    importedCount++;
+                }
+            }
+
+            if (importedCount > 0) {
+                // Forzar sincronización con la nube
+                if (window.forceSync) await window.forceSync();
+                showToast(t('toast.import_success'), 'success');
+                // Recargar página actual para ver cambios
+                if (typeof rerenderCurrentPage === 'function') rerenderCurrentPage();
+            } else {
+                showToast('⚠️ No se encontraron pestañas válidas para importar', 'warning');
+            }
+
+        } catch (err) {
+            console.error('Import Error:', err);
+            showToast(t('toast.import_error'), 'error');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}

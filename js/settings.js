@@ -178,14 +178,30 @@ function renderSettingsPage(container) {
       </div>
 
       <!-- ===== CACHÉ Y DATOS ===== -->
-      <div class="card card--elevated settings-section" style="grid-column: span 2;">
+      <div class="card card--elevated settings-section">
         <h3 class="settings-section-title">🗂 Almacenamiento y Caché</h3>
         <div id="cache-breakdown">Calculando...</div>
         <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
-          <button class="btn-secondary" onclick="handleClearCache('facturas')" style="flex:1;">🧹 Limpiar Facturas</button>
-          <button class="btn-secondary" onclick="handleClearCache('finanzas')" style="flex:1;">🧹 Limpiar Finanzas</button>
-          <button class="btn-secondary" onclick="handleClearCache('materiales')" style="flex:1;">🧹 Limpiar Materiales</button>
-          <button class="btn-danger" onclick="handleClearCache('todo')" style="flex:1;justify-content:center;">⚠️ Limpiar Todo</button>
+          <button class="btn-secondary" onclick="handleClearCache('facturas')" style="flex:1;font-size:0.8rem;">🧹 Facturas</button>
+          <button class="btn-secondary" onclick="handleClearCache('finanzas')" style="flex:1;font-size:0.8rem;">🧹 Finanzas</button>
+          <button class="btn-danger" onclick="handleClearCache('todo')" style="flex:1;justify-content:center;font-size:0.8rem;">⚠️ Limpiar Todo</button>
+        </div>
+      </div>
+
+      <!-- ===== HERRAMIENTAS DE DATOS ===== -->
+      <div class="card card--elevated settings-section">
+        <h3 class="settings-section-title">${t('set.data_tools')}</h3>
+        <p style="font-size:0.78rem;color:var(--clr-text-muted);margin-bottom:12px;">${t('set.import_help')}</p>
+        
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #3b82f6, #2563eb);" onclick="exportAllDataToExcel()">
+            ${t('set.export_excel')}
+          </button>
+          
+          <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display:none;" onchange="handleImportExcel(this)" />
+          <button class="btn-secondary" style="width:100%;justify-content:center;" onclick="document.getElementById('import-excel-input').click()">
+            ${t('set.import_excel')}
+          </button>
         </div>
       </div>
 
@@ -223,14 +239,18 @@ function renderSettingsPage(container) {
 
         <div style="margin-top:20px; display:flex; flex-direction:column; gap:12px;">
           ${deferredPrompt ? `
-            <div style="padding: 12px; background: var(--clr-primary-glow); border: 1px dashed var(--clr-primary); border-radius: var(--r-md); margin-bottom: 4px;">
-              <p style="font-size:0.82rem; color:var(--clr-text-secondary); margin-bottom:8px;">${t('set.install_desc')}</p>
-              <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark));box-shadow:0 4px 15px var(--clr-primary-glow);" onclick="handleInstallApp()">
+            <div style="padding: 16px; background: var(--clr-primary-glow); border: 1px dashed var(--clr-primary); border-radius: var(--r-md); margin-bottom: 4px; text-align:center;">
+              <p style="font-size:0.85rem; color:var(--clr-text-secondary); margin-bottom:12px; font-weight:500;">${t('set.install_desc')}</p>
+              <button class="btn-primary" style="width:100%;justify-content:center;height:48px;font-size:1rem;background:linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark));box-shadow:0 4px 15px var(--clr-primary-glow);" onclick="handleInstallApp()">
                 ${t('set.install_btn')}
               </button>
             </div>
-          ` : ''}
-          <button class="btn-danger" style="width:100%;justify-content:center;" onclick="handleClearData()">
+          ` : `
+            <div style="padding: 12px; background: var(--clr-surface-2); border: 1px solid var(--clr-border); border-radius: var(--r-md); text-align:center; opacity:0.8;">
+              <p style="font-size:0.75rem; color:var(--clr-text-muted);">📱 La app ya está instalada o tu navegador no soporta instalación directa.</p>
+            </div>
+          `}
+          <button class="btn-danger" style="width:100%;justify-content:center;margin-top:10px;" onclick="handleClearData()">
             ${t('set.clear_data')}
           </button>
         </div>
@@ -420,4 +440,15 @@ async function handleInstallApp() {
     deferredPrompt = null;
     rerenderCurrentPage();
   }
+}
+
+function handleImportExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  if (confirm('¿Importar datos desde este archivo? Los datos actuales de ingresos, egresos y facturas podrían ser sobrescritos.')) {
+    importExcelData(file);
+  }
+  // Reset input so the same file can be uploaded again if needed
+  input.value = '';
 }
