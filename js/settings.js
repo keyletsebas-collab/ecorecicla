@@ -194,8 +194,12 @@ function renderSettingsPage(container) {
         <p style="font-size:0.78rem;color:var(--clr-text-muted);margin-bottom:12px;">${t('set.import_help')}</p>
         
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #3b82f6, #2563eb);" onclick="exportAllDataToExcel()">
+          <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #3b82f6, #1d4ed8);" onclick="exportAllDataToExcel()">
             ${t('set.export_excel')}
+          </button>
+
+          <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #22c55e, #15803d);" onclick="showExcelExportModal()">
+            ${t('set.export_excel_custom')}
           </button>
           
           <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display:none;" onchange="handleImportExcel(this)" />
@@ -442,6 +446,7 @@ async function handleInstallApp() {
   }
 }
 
+
 function handleImportExcel(input) {
   const file = input.files[0];
   if (!file) return;
@@ -451,4 +456,96 @@ function handleImportExcel(input) {
   }
   // Reset input so the same file can be uploaded again if needed
   input.value = '';
+}
+
+// ---- CUSTOM EXCEL EXPORT MODAL ----
+
+function showExcelExportModal() {
+  // Check if modal already exists
+  if (document.getElementById('xls-export-modal')) return;
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'xls-export-modal';
+  modalOverlay.className = 'modal-overlay';
+  modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeExcelExportModal(); };
+
+  modalOverlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">${t('xls.modal_title')}</h3>
+        <button class="modal-close" onclick="closeExcelExportModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: var(--clr-text-secondary); margin-bottom: 16px;">
+          ${t('xls.select_info')}
+        </p>
+        
+        <div class="xls-checklist">
+          <label class="xls-item xls-all-toggle">
+            <input type="checkbox" id="xls-cb-all" onchange="toggleAllExcelCheckboxes(this.checked)" checked />
+            <span class="xls-item-label">${t('xls.all')}</span>
+          </label>
+          
+          <label class="xls-item">
+            <input type="checkbox" class="xls-cb" data-key="invoices" checked />
+            <span class="xls-item-label">🧾 ${t('xls.invoices')}</span>
+          </label>
+          
+          <label class="xls-item">
+            <input type="checkbox" class="xls-cb" data-key="income" checked />
+            <span class="xls-item-label">📈 ${t('xls.income')}</span>
+          </label>
+          
+          <label class="xls-item">
+            <input type="checkbox" class="xls-cb" data-key="expenses" checked />
+            <span class="xls-item-label">📉 ${t('xls.expenses')}</span>
+          </label>
+          
+          <label class="xls-item">
+            <input type="checkbox" class="xls-cb" data-key="materials" checked />
+            <span class="xls-item-label">🏷️ ${t('xls.materials')}</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeExcelExportModal()">${t('btn.cancel')}</button>
+        <button class="btn-primary" onclick="handleExcelExport()">${t('xls.generate_btn')}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+}
+
+function closeExcelExportModal() {
+  const modal = document.getElementById('xls-export-modal');
+  if (modal) modal.remove();
+}
+
+function toggleAllExcelCheckboxes(checked) {
+  document.querySelectorAll('.xls-cb').forEach(cb => cb.checked = checked);
+}
+
+function handleExcelExport() {
+  const selection = {};
+  let anySelected = false;
+  
+  document.querySelectorAll('.xls-cb').forEach(cb => {
+    const key = cb.getAttribute('data-key');
+    selection[key] = cb.checked;
+    if (cb.checked) anySelected = true;
+  });
+
+  if (!anySelected) {
+    showToast('⚠️ Selecciona al menos una categoría', 'warning');
+    return;
+  }
+
+  // Call the function in excel-utils.js
+  if (typeof exportSelectedDataToExcel === 'function') {
+    exportSelectedDataToExcel(selection);
+    closeExcelExportModal();
+  } else {
+    showToast('❌ Error: Función de exportación no encontrada', 'error');
+  }
 }

@@ -215,75 +215,121 @@ function exportarExcelResiduos(invoice) {
 }
 
 /**
- * Exporta todos los datos de la app (Facturas, Ingresos, Egresos) 
+ * Exporta todos los datos de la app (Facturas, Ingresos, Egresos, Materiales) 
  * en un solo archivo Excel con múltiples pestañas.
  */
 function exportAllDataToExcel() {
+    exportSelectedDataToExcel({
+        invoices: true,
+        income: true,
+        expenses: true,
+        materials: true
+    });
+}
+
+/**
+ * Exporta datos seleccionados de la app en un solo archivo Excel.
+ * @param {Object} selection - { invoices: bool, income: bool, expenses: bool, materials: bool }
+ */
+function exportSelectedDataToExcel(selection = {}) {
     if (typeof XLSX === 'undefined') {
         showToast('❌ Librería Excel no disponible', 'error');
         return;
     }
 
     try {
-        showToast('📊 Generando copia de seguridad...', 'info');
+        showToast('📊 Generando Excel...', 'info');
         const wb = XLSX.utils.book_new();
+        let sheetsAdded = 0;
 
         // 1. Facturas
-        const invoices = JSON.parse(localStorage.getItem('recim_invoices') || '[]');
-        if (invoices.length > 0) {
-            const invRows = [];
-            invoices.forEach(inv => {
-                inv.items.forEach(item => {
-                    invRows.push({
-                        ID: inv.id,
-                        Fecha: inv.date,
-                        Cliente: inv.client || inv.company || '—',
-                        Tipo: inv.type || 'basic',
-                        Material: item.name || item.desc || '',
-                        Cantidad: item.qty || 0,
-                        Unidad: item.unit || 'kg',
-                        Precio_Compra: item.priceBuy || item.uprice || 0,
-                        Precio_Venta: item.priceSell || 0,
-                        Subtotal: (item.qty || 0) * (item.priceBuy || item.uprice || 0),
-                        Notas: inv.notes || ''
+        if (selection.invoices) {
+            const invoices = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
+            if (invoices.length > 0) {
+                const invRows = [];
+                invoices.forEach(inv => {
+                    const items = inv.items || [];
+                    items.forEach(item => {
+                        invRows.push({
+                            ID: inv.id,
+                            Fecha: inv.date,
+                            Cliente: inv.client || inv.company || '—',
+                            Tipo: inv.type || 'basic',
+                            Material: item.name || item.desc || '',
+                            Cantidad: item.qty || 0,
+                            Unidad: item.unit || 'kg',
+                            Precio_Compra: item.priceBuy || item.uprice || 0,
+                            Precio_Venta: item.priceSell || 0,
+                            Subtotal: (item.qty || 0) * (item.priceBuy || item.uprice || 0),
+                            Notas: inv.notes || ''
+                        });
                     });
                 });
-            });
-            const wsInv = XLSX.utils.json_to_sheet(invRows);
-            XLSX.utils.book_append_sheet(wb, wsInv, 'Facturas');
+                if (invRows.length > 0) {
+                    const wsInv = XLSX.utils.json_to_sheet(invRows);
+                    XLSX.utils.book_append_sheet(wb, wsInv, 'Facturas');
+                    sheetsAdded++;
+                }
+            }
         }
 
         // 2. Ingresos
-        const ingresos = JSON.parse(localStorage.getItem('recim_ingresos') || '[]');
-        if (ingresos.length > 0) {
-            const wsInc = XLSX.utils.json_to_sheet(ingresos.map(i => ({
-                ID: i.id,
-                Fecha: i.date,
-                Concepto: i.concept,
-                Monto: i.amount,
-                Categoria: i.category || 'General'
-            })));
-            XLSX.utils.book_append_sheet(wb, wsInc, 'Ingresos');
+        if (selection.income) {
+            const ingresos = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
+            if (ingresos.length > 0) {
+                const wsInc = XLSX.utils.json_to_sheet(ingresos.map(i => ({
+                    ID: i.id,
+                    Fecha: i.date,
+                    Concepto: i.concept,
+                    Monto: i.amount,
+                    Categoria: i.category || 'General'
+                })));
+                XLSX.utils.book_append_sheet(wb, wsInc, 'Ingresos');
+                sheetsAdded++;
+            }
         }
 
         // 3. Egresos
-        const egresos = JSON.parse(localStorage.getItem('recim_egresos') || '[]');
-        if (egresos.length > 0) {
-            const wsExp = XLSX.utils.json_to_sheet(egresos.map(e => ({
-                ID: e.id,
-                Fecha: e.date,
-                Concepto: e.concept,
-                Monto: e.amount,
-                Categoria: e.category || 'General'
-            })));
-            XLSX.utils.book_append_sheet(wb, wsExp, 'Egresos');
+        if (selection.expenses) {
+            const egresos = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
+            if (egresos.length > 0) {
+                const wsExp = XLSX.utils.json_to_sheet(egresos.map(e => ({
+                    ID: e.id,
+                    Fecha: e.date,
+                    Concepto: e.concept,
+                    Monto: e.amount,
+                    Categoria: e.category || 'General'
+                })));
+                XLSX.utils.book_append_sheet(wb, wsExp, 'Egresos');
+                sheetsAdded++;
+            }
         }
 
-        const fileName = `Reciminsa_Backup_${new Date().toISOString().split('T')[0]}.xlsx`;
+        // 4. Materiales
+        if (selection.materials) {
+            const mats = (typeof getMaterialCodes === 'function') ? getMaterialCodes() : [];
+            if (mats.length > 0) {
+                const wsMat = XLSX.utils.json_to_sheet(mats.map(m => ({
+                    Código: m.id || m.code || '',
+                    Nombre: m.name || '',
+                    Unidad: m.unit || 'kg'
+                })));
+                XLSX.utils.book_append_sheet(wb, wsMat, 'Catálogo_Materiales');
+                sheetsAdded++;
+            }
+        }
+
+        if (sheetsAdded === 0) {
+            showToast('⚠️ No hay datos para exportar en las categorías seleccionadas', 'warning');
+            return;
+        }
+
+        const fileName = `Reciminsa_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, fileName);
-        showToast('✅ Copia de seguridad descargada', 'success');
+        showToast('✅ Excel generado correctamente', 'success');
+
     } catch (err) {
-        console.error('Full Export Error:', err);
+        console.error('Custom Export Error:', err);
         showToast('❌ Error al exportar datos', 'error');
     }
 }
