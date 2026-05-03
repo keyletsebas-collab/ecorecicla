@@ -22,6 +22,7 @@ function showToast(message, type = 'success') {
 // ---- Page title keys (used with t()) ----
 const PAGE_TITLE_KEYS = {
     historial: 'page.historial',
+    bitacoras: 'page.bitacoras',
     facturas: 'page.facturas',
     codigos: 'page.codigos',
     ingresos: 'page.ingresos',
@@ -54,6 +55,7 @@ function rerenderCurrentPage() {
     if (!target) return;
     switch (pageName) {
         case 'historial': renderHistoryPage(target); break;
+        case 'bitacoras': renderBitacorasPage(target); break;
         case 'facturas': renderInvoicesPage(target); break;
         case 'codigos': renderCodigosPage(target); break;
         case 'ingresos': renderIngresosPage(target); break;
@@ -88,6 +90,7 @@ function navigate(pageName) {
     // Render page content
     switch (pageName) {
         case 'historial': renderHistoryPage(target); break;
+        case 'bitacoras': renderBitacorasPage(target); break;
         case 'facturas': renderInvoicesPage(target); break;
         case 'codigos': renderCodigosPage(target); break;
         case 'ingresos': renderIngresosPage(target); break;

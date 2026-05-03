@@ -19,11 +19,15 @@ function renderHistoryPage(container) {
         <div class="stat-value stat-value--blue">${invoices.length}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">${t('hist.basics')}</div>
+        <div class="stat-label">Bitácoras</div>
         <div class="stat-value stat-value--green">${invoices.filter(i => i.type === 'basica').length}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">${t('hist.business')}</div>
+        <div class="stat-label">Fact. Locales</div>
+        <div class="stat-value stat-value--blue">${invoices.filter(i => i.type === 'local').length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Fact. Empresas</div>
         <div class="stat-value stat-value--yellow">${invoices.filter(i => i.type === 'empresa').length}</div>
       </div>
       <div class="stat-card">
@@ -35,8 +39,9 @@ function renderHistoryPage(container) {
     <div class="history-filters">
       <select id="history-filter-type" class="form-select" style="width:auto;" onchange="filterHistory()">
         <option value="all">${t('hist.all_types')}</option>
-        <option value="basica">${t('hist.only_basic')}</option>
-        <option value="empresa">${t('hist.only_biz')}</option>
+        <option value="basica">Bitácoras</option>
+        <option value="local">Facturas Locales</option>
+        <option value="empresa">Facturas Empresariales</option>
       </select>
       <input id="history-search" type="text" class="form-input" style="width:auto;min-width:200px;" placeholder="${t('hist.search')}" oninput="filterHistory()" />
       <button class="btn-secondary" onclick="clearHistory()">${t('hist.clear_all')}</button>
@@ -102,10 +107,19 @@ function renderInvoiceCards(invoices) {
 
 function renderSingleInvoiceCard(inv) {
   const isBasica = inv.type === 'basica';
-  const badge = isBasica
-    ? `<span class="badge badge--green">${t('hist.basic_badge')}</span>`
-    : `<span class="badge badge--yellow">${t('hist.biz_badge')}</span>`;
-  const icon = isBasica ? '📦' : '🏢';
+  const isLocal = inv.type === 'local';
+  
+  let badge, icon;
+  if (isBasica) {
+    badge = `<span class="badge badge--green">Bitácora</span>`;
+    icon = '🚛';
+  } else if (isLocal) {
+    badge = `<span class="badge badge--blue">Fact. Local</span>`;
+    icon = '🏠';
+  } else {
+    badge = `<span class="badge badge--yellow">Fact. Empresa</span>`;
+    icon = '🏢';
+  }
 
   const itemRows = isBasica
     ? (inv.items || []).map(item => `
@@ -193,17 +207,14 @@ function renderSingleInvoiceCard(inv) {
         ${inv.notes ? `<p style="margin-top:12px; font-size:0.83rem; color:var(--clr-text-secondary);">📝 ${inv.notes}</p>` : ''}
       </div>
       <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:8px;">
-        ${!isBasica ? `<button class="btn-secondary" onclick="handleDownloadPDF('${inv.id}')">📄 PDF</button>` : ''}
+        ${!isBasica ? `<button class="btn-secondary" onclick="generatePDFInvoice(getAllInvoices().find(i => i.id === '${inv.id}'))">📄 PDF</button>` : ''}
         <button class="btn-danger" onclick="deleteInvoice('${inv.id}')">${t('hist.del_inv')}</button>
       </div>
     </div>
   </div>`;
 }
 
-function handleDownloadPDF(id) {
-  const inv = getAllInvoices().find(i => i.id === id);
-  if (inv) downloadInvoicePDF(inv);
-}
+// generatePDFInvoice is called from invoices.js
 
 function toggleHistoryCard(id) {
   const card = document.getElementById(`hcard-${id}`);

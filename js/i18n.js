@@ -11,7 +11,8 @@ const TRANSLATIONS = {
     es: {
         // Navigation / Page titles
         'nav.historial': 'Historial',
-        'nav.facturas': 'Creación de Facturas',
+        'nav.bitacoras': 'Bitácoras de Recogida',
+        'nav.facturas': 'Facturación',
         'nav.codigos': 'Códigos de Materiales',
         'nav.ingresos': 'Ingresos',
         'nav.egresos': 'Egresos',
@@ -19,7 +20,8 @@ const TRANSLATIONS = {
 
         // Page titles (topbar)
         'page.historial': 'Historial de Facturas',
-        'page.facturas': 'Creación de Facturas',
+        'page.bitacoras': 'Bitácoras de Recogida',
+        'page.facturas': 'Facturación',
         'page.codigos': 'Códigos de Materiales',
         'page.ingresos': 'Ingresos',
         'page.egresos': 'Egresos',
@@ -86,13 +88,14 @@ const TRANSLATIONS = {
         'toast.del_inv': '🗑 Factura eliminada',
         'toast.clear_hist': '🗑 Historial limpiado',
 
-        // Invoices
-        'inv.title': '🧾 Creación de Facturas',
-        'inv.subtitle': 'Selecciona el tipo de factura que deseas crear',
-        'inv.tab_count': '📊 Conteo de Facturas',
-        'inv.tab_basic': '📦 Básica',
+        // Invoices & Bitácoras
+        'inv.title': '🧾 Facturación',
+        'inv.subtitle': 'Crea facturas locales y empresariales',
+        'inv.bit_title': '🚛 Bitácoras de Recogida',
+        'inv.bit_subtitle': 'Registra la entrada de materiales reciclables',
+        'inv.tab_local': '🏠 Local',
         'inv.tab_biz': '🏢 Empresarial',
-        'inv.basic_title': 'Factura Básica de Materiales',
+        'inv.basic_title': 'Bitácora de Recogida',
         'inv.basic_sub': 'Para ingresos de cartones, botellas, vidrio y demás materiales reciclables.',
         'inv.biz_title': 'Factura Empresarial',
         'inv.biz_sub': 'Genera facturas detalladas para empresas con RNC, Comprobante Fiscal, impuestos y totales.',
@@ -224,14 +227,16 @@ const TRANSLATIONS = {
 
     en: {
         'nav.historial': 'History',
-        'nav.facturas': 'Create Invoices',
+        'nav.bitacoras': 'Collection Logs',
+        'nav.facturas': 'Invoicing',
         'nav.codigos': 'Material Codes',
         'nav.ingresos': 'Income',
         'nav.egresos': 'Expenses',
         'nav.ajustes': 'Settings',
 
         'page.historial': 'Invoice History',
-        'page.facturas': 'Create Invoices',
+        'page.bitacoras': 'Collection Logs',
+        'page.facturas': 'Invoicing',
         'page.codigos': 'Material Codes',
         'page.ingresos': 'Income',
         'page.egresos': 'Expenses',
