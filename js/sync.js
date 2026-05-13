@@ -9,6 +9,7 @@
     const WATCHED_KEYS = [
         { pattern: 'recim_invoices', pages: ['facturas', 'historial'], label: '🧾 Facturas' },
         { pattern: 'recim_material_codes', pages: ['codigos'], label: '🏷️ Materiales' },
+        { pattern: 'recim_clients', pages: ['clientes'], label: '👥 Clientes' },
         { pattern: 'recim_ingresos', pages: ['ingresos'], label: '💰 Ingresos' },
         { pattern: 'recim_egresos', pages: ['egresos'], label: '💸 Egresos' },
     ];

@@ -25,6 +25,7 @@ const PAGE_TITLE_KEYS = {
     bitacoras: 'page.bitacoras',
     facturas: 'page.facturas',
     codigos: 'page.codigos',
+    clientes: 'page.clientes',
     ingresos: 'page.ingresos',
     egresos: 'page.egresos',
     ajustes: 'page.ajustes'
@@ -58,6 +59,7 @@ function rerenderCurrentPage() {
         case 'bitacoras': renderBitacorasPage(target); break;
         case 'facturas': renderInvoicesPage(target); break;
         case 'codigos': renderCodigosPage(target); break;
+        case 'clientes': renderClientesPage(target); break;
         case 'ingresos': renderIngresosPage(target); break;
         case 'egresos': renderEgresosPage(target); break;
         case 'ajustes': renderSettingsPage(target); break;
@@ -93,6 +95,7 @@ function navigate(pageName) {
         case 'bitacoras': renderBitacorasPage(target); break;
         case 'facturas': renderInvoicesPage(target); break;
         case 'codigos': renderCodigosPage(target); break;
+        case 'clientes': renderClientesPage(target); break;
         case 'ingresos': renderIngresosPage(target); break;
         case 'egresos': renderEgresosPage(target); break;
         case 'ajustes': renderSettingsPage(target); break;

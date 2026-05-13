@@ -27,6 +27,15 @@ function renderFacturaForm(type) {
         <p class="card-subtitle">${isEmpresa ? t('inv.biz_sub') : 'Para consumidores finales (Sin RNC)'}</p>
       </div>
 
+      <div class="form-row" style="margin-bottom: 15px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Seleccionar Cliente Guardado (Opcional)</label>
+          <select id="fac-client-select-${type}" class="form-select" onchange="autofillClient('${type}', this.value)">
+            <option value="">-- Escribir datos manualmente --</option>
+          </select>
+        </div>
+      </div>
+
       <div class="form-row" style="grid-template-columns: 1fr 1fr;">
         <div class="form-group">
           <label class="form-label">${isEmpresa ? t('inv.company_name') : 'Nombre del Cliente'}</label>
@@ -128,6 +137,43 @@ function initFacturaForm(type) {
     const today = new Date().toISOString().split('T')[0];
     const el = document.getElementById(`fac-date-${type}`);
     if (el) el.value = today;
+    initClientSelect(type);
+  }
+}
+
+function initClientSelect(type) {
+  const select = document.getElementById(`fac-client-select-${type}`);
+  if (!select) return;
+  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  clients.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = `${c.name} ${c.nit ? `(${c.nit})` : ''}`;
+    select.appendChild(opt);
+  });
+}
+
+function autofillClient(type, id) {
+  if (!id) {
+    document.getElementById(`fac-name-${type}`).value = '';
+    const nitEl = document.getElementById(`fac-nit-${type}`);
+    const addrEl = document.getElementById(`fac-address-${type}`);
+    const contactEl = document.getElementById(`fac-contact-${type}`);
+    if (nitEl && nitEl.type !== 'hidden') nitEl.value = '';
+    if (addrEl && addrEl.type !== 'hidden') addrEl.value = '';
+    if (contactEl && contactEl.type !== 'hidden') contactEl.value = '';
+    return;
+  }
+  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const client = clients.find(c => c.id === id);
+  if (client) {
+    document.getElementById(`fac-name-${type}`).value = client.name || '';
+    const nitEl = document.getElementById(`fac-nit-${type}`);
+    const addrEl = document.getElementById(`fac-address-${type}`);
+    const contactEl = document.getElementById(`fac-contact-${type}`);
+    if (nitEl && nitEl.type !== 'hidden') nitEl.value = client.nit || '';
+    if (addrEl && addrEl.type !== 'hidden') addrEl.value = client.address || '';
+    if (contactEl && contactEl.type !== 'hidden') contactEl.value = client.contact || '';
   }
 }
 
