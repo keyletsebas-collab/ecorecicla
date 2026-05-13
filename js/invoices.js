@@ -78,6 +78,7 @@ function renderFacturaForm(type) {
             <tr>
               <th style="width:40%;">${t('inv.item_desc')}</th>
               <th>${t('lbl.quantity')}</th>
+              <th>Unidad</th>
               <th>${t('inv.unit_price')}</th>
               <th>Total</th>
               <th style="width:40px;"></th>
@@ -139,7 +140,14 @@ function addFacEntryRow(type) {
   tr.id = rowId;
   tr.innerHTML = `
     <td><input type="text" class="form-input row-desc" placeholder="Descripción del producto/servicio" /></td>
-    <td><input type="number" class="form-input row-qty" placeholder="0" min="1" step="0.01" oninput="calcFacTotals('${type}')" /></td>
+    <td><input type="number" class="form-input row-qty" placeholder="0" min="0.01" step="0.01" oninput="calcFacTotals('${type}')" /></td>
+    <td>
+      <select class="form-select row-unit">
+        <option value="lb" selected>libra</option>
+        <option value="kg">kg</option>
+        <option value="unidad">unidad</option>
+      </select>
+    </td>
     <td><input type="number" class="form-input row-uprice" placeholder="0.00" min="0" step="0.01" oninput="calcFacTotals('${type}')" /></td>
     <td class="row-total" style="font-weight:600; text-align:right;">RD$0.00</td>
     <td><button class="btn-icon" onclick="removeFacEntryRow('${rowId}', '${type}')">✕</button></td>
@@ -192,10 +200,11 @@ async function saveFactura(type) {
   rows.forEach(tr => {
     const desc = tr.querySelector('.row-desc').value.trim();
     const qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
+    const unit = tr.querySelector('.row-unit').value || '';
     const uprice = parseFloat(tr.querySelector('.row-uprice').value) || 0;
 
     if (desc && qty > 0 && uprice > 0) {
-      items.push({ id: Date.now() + Math.random(), desc, qty, uprice, subtotal: qty * uprice });
+      items.push({ id: Date.now() + Math.random(), desc, qty, unit, uprice, subtotal: qty * uprice });
     }
   });
 
@@ -259,7 +268,7 @@ function generatePDFInvoice(invoice) {
 
   const itemsHtml = invoice.items.map(item => `
     <tr style="border-bottom: 1px solid #ddd;">
-      <td style="padding: 8px;">${item.qty}</td>
+      <td style="padding: 8px;">${item.qty} ${item.unit || ''}</td>
       <td style="padding: 8px;">${item.desc}</td>
       <td style="padding: 8px; text-align:right;">${formatMoney(item.uprice)}</td>
       <td style="padding: 8px; text-align:right;">${formatMoney(item.subtotal)}</td>
