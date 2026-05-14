@@ -62,6 +62,12 @@ function renderCountTab() {
       </div>
     </div>
 
+    <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+      <button class="btn-secondary" onclick="exportBitacorasListToExcel(getAllInvoices().filter(i => i.type === 'basica'))">
+        📊 Exportar Bitácora a Excel
+      </button>
+    </div>
+
     ${rows.length > 0 ? `
     <div class="card">
       <h3 class="section-title" style="margin-bottom:16px;">${t('inv.count_by_mat')}</h3>

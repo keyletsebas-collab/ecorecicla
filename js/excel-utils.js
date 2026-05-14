@@ -422,3 +422,75 @@ function importExcelData(file) {
     };
     reader.readAsArrayBuffer(file);
 }
+
+/**
+ * Exporta una lista de bitácoras (invoices tipo basica) a Excel
+ * @param {Array} bitacoras - Arreglo de facturas tipo 'basica'
+ */
+function exportBitacorasListToExcel(bitacoras) {
+    if (!bitacoras || bitacoras.length === 0) {
+        showToast('⚠️ No hay bitácoras para exportar', 'warning');
+        return;
+    }
+    if (typeof XLSX === 'undefined') {
+        showToast('❌ Librería Excel no disponible', 'error');
+        return;
+    }
+
+    try {
+        showToast('📊 Generando Excel de Bitácoras...', 'info');
+        const wb = XLSX.utils.book_new();
+
+        // 1. Hoja de Registros Detallados
+        const detRows = [];
+        bitacoras.forEach(b => {
+            (b.items || []).forEach(item => {
+                detRows.push({
+                    'ID Bitácora': b.id,
+                    'Fecha': b.date,
+                    'Cliente/Procedencia': b.client || '—',
+                    'Material': item.name || '',
+                    'Cantidad': item.qty || 0,
+                    'Unidad': item.unit || 'lb',
+                    'Peso (kg)': item.peso || 0,
+                    'Costo Compra': item.priceBuy || 0,
+                    'Precio Venta': item.priceSell || 0,
+                    'Total Compra': item.totalCompra || 0,
+                    'Total Venta': item.totalVenta || 0,
+                    'Balance': item.balance || 0,
+                    'Notas': b.notes || ''
+                });
+            });
+        });
+
+        const wsDet = XLSX.utils.json_to_sheet(detRows);
+        XLSX.utils.book_append_sheet(wb, wsDet, 'Registros_Detallados');
+
+        // 2. Hoja de Resumen por Material
+        const matSummary = {};
+        bitacoras.forEach(b => {
+            (b.items || []).forEach(item => {
+                const mid = item.matId || item.name;
+                if (!matSummary[mid]) {
+                    matSummary[mid] = { 'Material': item.name, 'Cant. Total': 0, 'Peso Total (kg)': 0, 'Inversión Total': 0, 'Venta Est.': 0, 'Balance': 0 };
+                }
+                matSummary[mid]['Cant. Total'] += (item.qty || 0);
+                matSummary[mid]['Peso Total (kg)'] += (item.peso || 0);
+                matSummary[mid]['Inversión Total'] += (item.totalCompra || 0);
+                matSummary[mid]['Venta Est.'] += (item.totalVenta || 0);
+                matSummary[mid]['Balance'] += (item.balance || 0);
+            });
+        });
+
+        const wsSum = XLSX.utils.json_to_sheet(Object.values(matSummary));
+        XLSX.utils.book_append_sheet(wb, wsSum, 'Resumen_Materiales');
+
+        const fileName = `Bitacora_Recogida_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToast('✅ Excel de bitácora generado', 'success');
+
+    } catch (err) {
+        console.error('Export Bitacoras Error:', err);
+        showToast('❌ Error al exportar bitácoras', 'error');
+    }
+}
