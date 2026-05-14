@@ -585,8 +585,8 @@
         display: none;
     }
 
-    /* Restrict navigation on mobile: only Ingresos, Egresos, Bitacoras and Historial */
-    .sidebar-link:not([data-page="ingresos"]):not([data-page="egresos"]):not([data-page="bitacoras"]):not([data-page="historial"]) {
+    /* Restrict navigation on mobile: only Ingresos, Egresos, Bitacoras, Historial, Facturas and Clientes */
+    .sidebar-link:not([data-page="ingresos"]):not([data-page="egresos"]):not([data-page="bitacoras"]):not([data-page="historial"]):not([data-page="facturas"]):not([data-page="clientes"]) {
         display: none;
     }
 }

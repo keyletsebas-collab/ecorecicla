@@ -17,6 +17,7 @@ const TRANSLATIONS = {
         'nav.ingresos': 'Ingresos',
         'nav.egresos': 'Egresos',
         'nav.ajustes': 'Ajustes',
+        'nav.clientes': 'Clientes / Empresas',
 
         // Page titles (topbar)
         'page.historial': 'Historial de Facturas',
@@ -26,6 +27,7 @@ const TRANSLATIONS = {
         'page.ingresos': 'Ingresos',
         'page.egresos': 'Egresos',
         'page.ajustes': 'Ajustes',
+        'page.clientes': 'Clientes y Empresas',
 
         // Common
         'btn.save': 'Guardar',
@@ -223,6 +225,17 @@ const TRANSLATIONS = {
         'toast.import_success': '✅ Datos importados correctamente',
         'toast.import_error': '❌ Error al importar el archivo',
         'confirm.clear_data': '¿Seguro que deseas eliminar TODOS los datos de la app? Esta acción no se puede deshacer.',
+
+        // Clients / Companies
+        'cli.title': '👥 Clientes y Empresas',
+        'cli.subtitle': 'Gestiona la información de tus clientes frecuentes',
+        'cli.new_client': 'Nuevo Cliente / Empresa',
+        'cli.btn': '💾 Guardar Cliente / Empresa',
+        'cli.my_clients': 'Mis Clientes',
+        'cli.no_clients': 'Sin clientes registrados aún.',
+        'toast.cli_add': '✅ Cliente creado',
+        'toast.cli_del': '🗑 Cliente eliminado',
+        'toast.cli_upd': '✅ Cliente actualizado',
     },
 
     en: {
@@ -233,6 +246,7 @@ const TRANSLATIONS = {
         'nav.ingresos': 'Income',
         'nav.egresos': 'Expenses',
         'nav.ajustes': 'Settings',
+        'nav.clientes': 'Clients / Companies',
 
         'page.historial': 'Invoice History',
         'page.bitacoras': 'Collection Logs',
@@ -241,6 +255,7 @@ const TRANSLATIONS = {
         'page.ingresos': 'Income',
         'page.egresos': 'Expenses',
         'page.ajustes': 'Settings',
+        'page.clientes': 'Clients & Companies',
 
         'btn.save': 'Save',
         'btn.cancel': 'Cancel',
@@ -431,6 +446,17 @@ const TRANSLATIONS = {
         'toast.import_success': '✅ Data imported successfully',
         'toast.import_error': '❌ Error importing file',
         'confirm.clear_data': 'Are you sure you want to delete ALL app data? This cannot be undone.',
+
+        // Clients / Companies
+        'cli.title': '👥 Clients & Companies',
+        'cli.subtitle': 'Manage your frequent clients information',
+        'cli.new_client': 'New Client / Company',
+        'cli.btn': '💾 Save Client / Company',
+        'cli.my_clients': 'My Clients',
+        'cli.no_clients': 'No clients registered yet.',
+        'toast.cli_add': '✅ Client created',
+        'toast.cli_del': '🗑 Client deleted',
+        'toast.cli_upd': '✅ Client updated',
     },
 
     pt: {
