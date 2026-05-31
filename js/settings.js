@@ -64,7 +64,6 @@ function renderSettingsPage(container) {
   const darkMode = settings.darkMode !== false;
   const currentCur = settings.currency || 'usd';
   const gdriveFolderVal = localStorage.getItem(userKey('recim_gdrive_folder')) || '';
-  const gdriveScriptUrlVal = localStorage.getItem(userKey('recim_gdrive_script_url')) || '';
 
   container.innerHTML = `
     <div class="page-header">
@@ -203,40 +202,25 @@ function renderSettingsPage(container) {
           </div>
 
           <div class="form-group" style="margin-top:4px;">
-            <label class="form-label" style="font-size:0.75rem;">${t('set.gdrive_folder')}</label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+              <label class="form-label" style="font-size:0.75rem; margin-bottom:0; font-weight:600;">${t('set.gdrive_folder')}</label>
+              ${gdriveFolderVal ? `<button id="btn-edit-gdrive" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; border-radius:4px;" onclick="toggleGDriveEdit()">✏️ Editar</button>` : ''}
+            </div>
             <input id="settings-gdrive-folder" type="text" class="form-input" 
                    placeholder="${t('set.gdrive_folder_ph')}" 
                    value="${gdriveFolderVal}" 
-                   style="width:100%;" />
+                   style="width:100%; transition: all 0.3s ease; ${gdriveFolderVal ? 'background-color: var(--clr-surface-2); opacity: 0.7; pointer-events: none;' : ''}" 
+                   ${gdriveFolderVal ? 'readonly' : ''} />
           </div>
 
           <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--clr-border);">
-            <span class="settings-item-label">Estado de Conexión</span>
-            <span id="gdrive-status-badge" class="badge" style="font-size:0.72rem; padding:3px 8px; border-radius:6px; font-weight:600;">
+            <span class="settings-item-label" style="font-weight:600;">Estado de Conexión</span>
+            <span id="gdrive-status-badge" class="badge" style="font-size:0.75rem; padding:4px 10px; border-radius:6px; font-weight:600;">
               Calculando...
             </span>
           </div>
 
-          <!-- CONFIGURACION AVANZADA -->
-          <details style="margin-top: 4px; padding: 10px; background: var(--clr-surface-3); border: 1px solid var(--clr-border); border-radius: var(--r-sm);">
-            <summary style="font-size: 0.8rem; font-weight: 600; color: var(--clr-text-secondary); cursor: pointer; user-select: none; outline: none;">
-              ${t('set.gdrive_advanced')}
-            </summary>
-            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
-              <div class="form-group">
-                <label class="form-label" style="font-size:0.7rem;">${t('set.gdrive_script')}</label>
-                <input id="settings-gdrive-script" type="text" class="form-input" 
-                       placeholder="${t('set.gdrive_script_ph')}" 
-                       value="${gdriveScriptUrlVal}" 
-                       style="width:100%; font-size: 0.8rem; padding: 8px 10px;" />
-              </div>
-              <button class="btn-secondary" style="width:100%; justify-content:center; gap:8px; font-size:0.75rem; padding:6px 10px;" onclick="copyGDriveScriptCode()">
-                <span>${t('set.gdrive_copy_btn')}</span>
-              </button>
-            </div>
-          </details>
-
-          <button id="btn-test-gdrive" class="btn-primary" style="width:100%; justify-content:center; gap:8px; margin-top: 4px;" onclick="handleGDriveSave()">
+          <button id="btn-test-gdrive" class="btn-primary" style="width:100%; justify-content:center; gap:8px; margin-top: 4px; padding: 10px; font-weight:600; font-size: 0.9rem;" onclick="handleGDriveSave()">
             <span>${t('set.gdrive_btn')}</span>
             <div class="btn-spinner hidden" id="gdrive-spinner"></div>
           </button>
@@ -503,6 +487,17 @@ async function handleGDriveSave() {
       if (success) {
         localStorage.setItem(userKey('recim_gdrive_status'), 'success');
         showToast(t('toast.gdrive_success'), 'success');
+        
+        // Bloquear el input visualmente de inmediato
+        if (folderInput) {
+          folderInput.setAttribute('readonly', 'true');
+          folderInput.style.backgroundColor = 'var(--clr-surface-2)';
+          folderInput.style.opacity = '0.7';
+          folderInput.style.pointerEvents = 'none';
+        }
+
+        // Send Welcome Email
+        sendGDriveWelcomeEmail();
       } else {
         localStorage.setItem(userKey('recim_gdrive_status'), 'error');
         showToast(t('toast.gdrive_error') + 'Verifica Apps Script', 'error');
@@ -518,6 +513,71 @@ async function handleGDriveSave() {
     if (btn) btn.disabled = false;
     if (spinner) spinner.classList.add('hidden');
     updateGDriveStatusDOM();
+  }
+}
+
+async function sendGDriveWelcomeEmail() {
+  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+  const userEmail = session.email;
+  const userName = session.name || 'Usuario';
+  
+  if (!userEmail) return;
+
+  const scriptUrl = 'https://script.google.com/macros/s/AKfycbzrwE5FXgHuCGMIwiZE34DZChQP4zhvxaicj5eXcXKFw7qrew_jU6dVc2e50VxBQxP6/exec';
+  
+  const payload = {
+    action: 'email',
+    to: userEmail,
+    subject: '¡Respaldo en Google Drive Activado exitosamente!',
+    htmlBody: `
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #22c55e; padding: 20px; text-align: center;">
+          <h2 style="color: white; margin: 0;">¡Hola ${userName}!</h2>
+        </div>
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; line-height: 1.5;">Tu cuenta de <strong>Reciminsa</strong> ha sido vinculada exitosamente con tu carpeta de Google Drive.</p>
+          <p style="font-size: 16px; line-height: 1.5;">A partir de ahora, todos tus datos (facturas, ingresos, egresos y clientes) se respaldarán automáticamente de forma segura en tu propio Google Drive, sin depender de servidores externos.</p>
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+            <p style="margin: 0; font-size: 14px; color: #555;"><strong>Nota:</strong> Puedes modificar la carpeta de destino en la sección de Ajustes en cualquier momento presionando el botón de editar (✏️).</p>
+          </div>
+          <p style="font-size: 16px; line-height: 1.5;">Gracias por utilizar Reciminsa.</p>
+        </div>
+        <div style="background-color: #f1f1f1; padding: 15px; text-align: center; font-size: 12px; color: #888;">
+          <p style="margin: 0;">Este correo fue generado automáticamente. Por favor no respondas a esta dirección.</p>
+        </div>
+      </div>
+    `,
+    textBody: \`Hola \${userName},\n\nTu cuenta de Reciminsa ha sido vinculada exitosamente con tu carpeta de Google Drive.\n\nA partir de ahora, tus datos se respaldarán automáticamente de forma segura en tu propio Google Drive.\n\nGracias por utilizar Reciminsa.\n\nEste correo fue generado automáticamente. Por favor no respondas a esta dirección.\`
+  };
+
+  try {
+    await fetch(scriptUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    console.log('Welcome email sent to', userEmail);
+  } catch(e) {
+    console.error('Failed to send welcome email', e);
+  }
+}
+
+function toggleGDriveEdit() {
+  const input = document.getElementById('settings-gdrive-folder');
+  if (input) {
+    if (input.hasAttribute('readonly')) {
+      input.removeAttribute('readonly');
+      input.style.backgroundColor = '';
+      input.style.opacity = '1';
+      input.style.pointerEvents = 'auto';
+      input.focus();
+    } else {
+      input.setAttribute('readonly', 'true');
+      input.style.backgroundColor = 'var(--clr-surface-2)';
+      input.style.opacity = '0.7';
+      input.style.pointerEvents = 'none';
+    }
   }
 }
 

@@ -231,15 +231,10 @@ const TRANSLATIONS = {
         'set.gdrive_instructions': '💡 **Instrucciones**: Crea una carpeta en tu Google Drive, compártela como **Editor** con **Noreplyreciminsasrl@gmail.com** y pega abajo el enlace de la carpeta. ¡No requieres programar nada!',
         'set.gdrive_folder': 'Dirección / URL de la Carpeta de Google Drive',
         'set.gdrive_folder_ph': 'Ej: https://drive.google.com/drive/folders/1A2B3C...',
-        'set.gdrive_advanced': '⚙️ Configuración Avanzada',
-        'set.gdrive_script': 'URL de Apps Script Personalizado (Opcional)',
-        'set.gdrive_script_ph': 'Ej: https://script.google.com/macros/s/AKfycb...',
-        'set.gdrive_copy_btn': '📋 Copiar Código del Apps Script',
         'set.gdrive_btn': '💾 Probar y Guardar Respaldo',
         'toast.gdrive_saved': '✅ Ajustes de Google Drive guardados',
         'toast.gdrive_success': '✅ ¡Respaldo completado y guardado en tu Google Drive!',
         'toast.gdrive_error': '❌ Error al respaldar en tu Google Drive: ',
-        'toast.gdrive_copied': '📋 Código del script copiado al portapapeles (Opcional)',
 
         // Clients / Companies
         'cli.title': '👥 Gestión de Clientes',
@@ -469,15 +464,10 @@ const TRANSLATIONS = {
         'set.gdrive_instructions': '💡 **Instructions**: Create a folder in your Google Drive, share it as **Editor** with **Noreplyreciminsasrl@gmail.com** and paste the folder link below. No coding required!',
         'set.gdrive_folder': 'Google Drive Folder URL or ID',
         'set.gdrive_folder_ph': 'E.g.: https://drive.google.com/drive/folders/1A2B3C...',
-        'set.gdrive_advanced': '⚙️ Advanced Settings',
-        'set.gdrive_script': 'Custom Apps Script URL (Optional)',
-        'set.gdrive_script_ph': 'E.g.: https://script.google.com/macros/s/AKfycb...',
-        'set.gdrive_copy_btn': '📋 Copy Apps Script Code',
         'set.gdrive_btn': '💾 Test & Save Backup',
         'toast.gdrive_saved': '✅ Google Drive settings saved',
         'toast.gdrive_success': '✅ Backup completed and saved to your Google Drive!',
         'toast.gdrive_error': '❌ Error backing up to your Google Drive: ',
-        'toast.gdrive_copied': '📋 Script code copied to clipboard (Optional)',
 
         // Clients / Companies
         'cli.title': '👥 Client Management',
@@ -700,15 +690,10 @@ const TRANSLATIONS = {
         'set.gdrive_instructions': '💡 **Instruções**: Crie uma pasta no seu Google Drive, compartilhe-a como **Editor** com **Noreplyreciminsasrl@gmail.com** e cole o link da pasta abaixo. Sem necessidade de programação!',
         'set.gdrive_folder': 'Endereço / URL da pasta do Google Drive',
         'set.gdrive_folder_ph': 'Ex: https://drive.google.com/drive/folders/1A2B3C...',
-        'set.gdrive_advanced': '⚙️ Configurações Avançadas',
-        'set.gdrive_script': 'URL do Apps Script Personalizado (Opcional)',
-        'set.gdrive_script_ph': 'Ex: https://script.google.com/macros/s/AKfycb...',
-        'set.gdrive_copy_btn': '📋 Copiar Código do Apps Script',
         'set.gdrive_btn': '💾 Testar e Salvar Backup',
         'toast.gdrive_saved': '✅ Configurações do Google Drive salvas',
         'toast.gdrive_success': '✅ Backup concluído e salvo no seu Google Drive!',
         'toast.gdrive_error': '❌ Erro ao salvar backup no seu Google Drive: ',
-        'toast.gdrive_copied': '📋 Código do script copiado para a área de transferência (Opcional)',
     }
 };
 
