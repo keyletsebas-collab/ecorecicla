@@ -409,10 +409,19 @@ function copyGDriveScriptCode() {
 
 function updateGDriveStatusDOM() {
   const el = document.getElementById('gdrive-status-badge');
+  const btn = document.getElementById('btn-test-gdrive');
   if (!el) return;
 
   const folder = localStorage.getItem(userKey('recim_gdrive_folder'));
   const status = localStorage.getItem(userKey('recim_gdrive_status'));
+
+  if (btn) {
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+    btn.style.border = '';
+  }
 
   if (!folder) {
     el.className = 'badge badge--yellow';
@@ -420,6 +429,12 @@ function updateGDriveStatusDOM() {
   } else if (status === 'success') {
     el.className = 'badge badge--green';
     el.textContent = 'Sincronizado';
+    if (btn) {
+      btn.style.background = 'var(--clr-surface-3)';
+      btn.style.color = 'var(--clr-text-muted)';
+      btn.style.pointerEvents = 'none';
+      btn.style.border = '1px solid var(--clr-border)';
+    }
   } else if (status === 'error') {
     el.className = 'badge badge--red';
     el.textContent = 'Error Conexión';
@@ -572,6 +587,9 @@ function toggleGDriveEdit() {
       input.style.opacity = '1';
       input.style.pointerEvents = 'auto';
       input.focus();
+      
+      localStorage.setItem(userKey('recim_gdrive_status'), 'pending');
+      updateGDriveStatusDOM();
     } else {
       input.setAttribute('readonly', 'true');
       input.style.backgroundColor = 'var(--clr-surface-2)';
