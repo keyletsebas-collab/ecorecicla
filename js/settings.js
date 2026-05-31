@@ -198,21 +198,11 @@ function renderSettingsPage(container) {
             ${t('set.gdrive_desc')}
           </p>
           
-          <div style="display:flex; gap:8px;">
-            <button class="btn-secondary" style="width:100%; justify-content:center; gap:8px; font-size:0.8rem; padding:8px;" onclick="copyGDriveScriptCode()">
-              <span>${t('set.gdrive_copy_btn')}</span>
-            </button>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label" style="font-size:0.75rem;">${t('set.gdrive_script')}</label>
-            <input id="settings-gdrive-script" type="text" class="form-input" 
-                   placeholder="${t('set.gdrive_script_ph')}" 
-                   value="${gdriveScriptUrlVal}" 
-                   style="width:100%;" />
+          <div style="padding:12px; background:var(--clr-surface-3); border:1px dashed var(--clr-primary); border-radius:var(--r-md); font-size:0.82rem; line-height:1.4; color:var(--clr-text-secondary);">
+            ${t('set.gdrive_instructions')}
           </div>
 
-          <div class="form-group" style="margin-bottom:8px;">
+          <div class="form-group" style="margin-top:4px;">
             <label class="form-label" style="font-size:0.75rem;">${t('set.gdrive_folder')}</label>
             <input id="settings-gdrive-folder" type="text" class="form-input" 
                    placeholder="${t('set.gdrive_folder_ph')}" 
@@ -227,7 +217,26 @@ function renderSettingsPage(container) {
             </span>
           </div>
 
-          <button id="btn-test-gdrive" class="btn-primary" style="width:100%; justify-content:center; gap:8px;" onclick="handleGDriveSave()">
+          <!-- CONFIGURACION AVANZADA -->
+          <details style="margin-top: 4px; padding: 10px; background: var(--clr-surface-3); border: 1px solid var(--clr-border); border-radius: var(--r-sm);">
+            <summary style="font-size: 0.8rem; font-weight: 600; color: var(--clr-text-secondary); cursor: pointer; user-select: none; outline: none;">
+              ${t('set.gdrive_advanced')}
+            </summary>
+            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+              <div class="form-group">
+                <label class="form-label" style="font-size:0.7rem;">${t('set.gdrive_script')}</label>
+                <input id="settings-gdrive-script" type="text" class="form-input" 
+                       placeholder="${t('set.gdrive_script_ph')}" 
+                       value="${gdriveScriptUrlVal}" 
+                       style="width:100%; font-size: 0.8rem; padding: 8px 10px;" />
+              </div>
+              <button class="btn-secondary" style="width:100%; justify-content:center; gap:8px; font-size:0.75rem; padding:6px 10px;" onclick="copyGDriveScriptCode()">
+                <span>${t('set.gdrive_copy_btn')}</span>
+              </button>
+            </div>
+          </details>
+
+          <button id="btn-test-gdrive" class="btn-primary" style="width:100%; justify-content:center; gap:8px; margin-top: 4px;" onclick="handleGDriveSave()">
             <span>${t('set.gdrive_btn')}</span>
             <div class="btn-spinner hidden" id="gdrive-spinner"></div>
           </button>

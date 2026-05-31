@@ -193,10 +193,14 @@
         const folderId = extractFolderId(folderInput);
         if (!folderId) return false;
 
-        const scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
+        let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
         if (!scriptUrl) {
-            console.warn('⚠️ Google Drive Sync: URL de Apps Script personal no configurada para este usuario.');
-            return false;
+            // Fall back to the administrator's central script
+            if (typeof getAppsScriptUrl === 'function') {
+                scriptUrl = getAppsScriptUrl();
+            } else {
+                scriptUrl = 'https://script.google.com/macros/s/AKfycbzrwE5FXgHuCGMIwiZE34DZChQP4zhvxaicj5eXcXKFw7qrew_jU6dVc2e50VxBQxP6/exec';
+            }
         }
         
         let accountId = 'default';
