@@ -550,19 +550,19 @@ async function sendGDriveWelcomeEmail() {
           <h2 style="color: white; margin: 0;">¡Hola ${userName}!</h2>
         </div>
         <div style="padding: 30px;">
-          <p style="font-size: 16px; line-height: 1.5;">Tu cuenta de <strong>Reciminsa</strong> ha sido vinculada exitosamente con tu carpeta de Google Drive.</p>
+          <p style="font-size: 16px; line-height: 1.5;">Tu cuenta de <strong>Reciminsa App</strong> ha sido vinculada exitosamente con tu carpeta de Google Drive.</p>
           <p style="font-size: 16px; line-height: 1.5;">A partir de ahora, todos tus datos (facturas, ingresos, egresos y clientes) se respaldarán automáticamente de forma segura en tu propio Google Drive, sin depender de servidores externos.</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #3b82f6;">
             <p style="margin: 0; font-size: 14px; color: #555;"><strong>Nota:</strong> Puedes modificar la carpeta de destino en la sección de Ajustes en cualquier momento presionando el botón de editar (✏️).</p>
           </div>
-          <p style="font-size: 16px; line-height: 1.5;">Gracias por utilizar Reciminsa.</p>
+          <p style="font-size: 16px; line-height: 1.5;">Gracias por utilizar Reciminsa App.</p>
         </div>
         <div style="background-color: #f1f1f1; padding: 15px; text-align: center; font-size: 12px; color: #888;">
           <p style="margin: 0;">Este correo fue generado automáticamente. Por favor no respondas a esta dirección.</p>
         </div>
       </div>
     `,
-    textBody: `Hola ${userName},\n\nTu cuenta de Reciminsa ha sido vinculada exitosamente con tu carpeta de Google Drive.\n\nA partir de ahora, tus datos se respaldarán automáticamente de forma segura en tu propio Google Drive.\n\nGracias por utilizar Reciminsa.\n\nEste correo fue generado automáticamente. Por favor no respondas a esta dirección.`
+    textBody: `Hola ${userName},\n\nTu cuenta de Reciminsa App ha sido vinculada exitosamente con tu carpeta de Google Drive.\n\nA partir de ahora, tus datos se respaldarán automáticamente de forma segura en tu propio Google Drive.\n\nGracias por utilizar Reciminsa App.\n\nEste correo fue generado automáticamente. Por favor no respondas a esta dirección.`
   };
 
   try {

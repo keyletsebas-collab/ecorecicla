@@ -258,13 +258,13 @@ async function sendSignupVerificationEmail(email, code, userName) {
   const htmlBody = `
     <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #0c0f0a; color: #e2e8f0; padding: 40px 20px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid #1f2937; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #22c55e; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.04em;">Reciminsa</h1>
+        <h1 style="color: #22c55e; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.04em;">Reciminsa App</h1>
         <p style="color: #94a3b8; margin: 5px 0 0 0; font-size: 14px; letter-spacing: 0.05em;">GESTIÓN INTELIGENTE DE RECICLAJE</p>
       </div>
       <div style="background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 30px; margin-bottom: 25px;">
         <h2 style="color: #ffffff; margin-top: 0; font-size: 20px; font-weight: 600; text-align: center;">Activación de Cuenta</h2>
         <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; text-align: center;">
-          ¡Bienvenido a Reciminsa, <strong>${userName}</strong>! Estamos encantados de tenerte con nosotros.
+          ¡Bienvenido a Reciminsa App, <strong>${userName}</strong>! Estamos encantados de tenerte con nosotros.
         </p>
         <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; text-align: center; margin-bottom: 25px;">
           Para completar tu registro y activar tu cuenta, utiliza el siguiente código de activación de 6 dígitos. Este código es válido por <strong>15 minutos</strong>.
@@ -285,7 +285,7 @@ async function sendSignupVerificationEmail(email, code, userName) {
     </div>
   `;
 
-  const textBody = `¡Hola, ${userName}! Bienvenido a Reciminsa. Tu código de activación de cuenta es: ${code}. Este código expira en 15 minutos.`;
+  const textBody = `¡Hola, ${userName}! Bienvenido a Reciminsa App. Tu código de activación de cuenta es: ${code}. Este código expira en 15 minutos.`;
 
   try {
     await fetch(scriptUrl, {
@@ -598,13 +598,13 @@ async function sendResetEmail(email, code, userName) {
   const htmlBody = `
     <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #0c0f0a; color: #e2e8f0; padding: 40px 20px; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid #1f2937; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #22c55e; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.04em;">Reciminsa</h1>
+        <h1 style="color: #22c55e; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.04em;">Reciminsa App</h1>
         <p style="color: #94a3b8; margin: 5px 0 0 0; font-size: 14px; letter-spacing: 0.05em;">GESTIÓN INTELIGENTE DE RECICLAJE</p>
       </div>
       <div style="background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 30px; margin-bottom: 25px;">
         <h2 style="color: #ffffff; margin-top: 0; font-size: 20px; font-weight: 600; text-align: center;">Recuperación de Contraseña</h2>
         <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; text-align: center;">
-          Hola, <strong>${userName}</strong>. Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Reciminsa.
+          Hola, <strong>${userName}</strong>. Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Reciminsa App.
         </p>
         <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; text-align: center; margin-bottom: 25px;">
           Utiliza el siguiente código de verificación de un solo uso para continuar. Este código es válido por <strong>10 minutos</strong>.
@@ -625,7 +625,7 @@ async function sendResetEmail(email, code, userName) {
     </div>
   `;
   
-  const textBody = `Hola, ${userName}. Tu código de verificación de contraseña para Reciminsa es: ${code}. Este código expira en 10 minutos.`;
+  const textBody = `Hola, ${userName}. Tu código de verificación de contraseña para Reciminsa App es: ${code}. Este código expira en 10 minutos.`;
   
   if (!scriptUrl) {
     console.warn("⚠️ No se ha configurado la URL de Google Apps Script. Utilizando fallback local en consola y pantalla.");
