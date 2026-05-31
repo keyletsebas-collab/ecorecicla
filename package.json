@@ -1,22 +1,21 @@
 {
-  "name": "reciminsa-app",
-  "version": "1.0.0",
-  "description": "",
-  "main": "service-worker.js",
+  "name": "reciminsa-app-pc-port",
+  "version": "1.0.2",
+  "author": "Keylet Sebastian",
+  "description": "Aplicacion de escritorio para la gestion de materiales reciclables en RECIMINSA.",
+  "main": "main.js",
+  "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "node build.js",
-    "android:sync": "npm run build && npx cap sync android",
-    "android:open": "npx cap open android"
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/keyletsebas-collab/ecorecicla.git"
+    "url": "git+https://github.com/keyletsebas-collab/reciminsa-app-pc-port.git"
   },
   "keywords": [],
-  "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/keyletsebas-collab/ecorecicla/issues"
   },
@@ -24,6 +23,18 @@
   "dependencies": {
     "@capacitor/android": "^8.3.4",
     "@capacitor/cli": "^8.3.4",
-    "@capacitor/core": "^8.3.4"
+    "@capacitor/core": "^8.3.4",
+    "electron-squirrel-startup": "^1.0.1"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-deb": "^7.11.2",
+    "@electron-forge/maker-rpm": "^7.11.2",
+    "@electron-forge/maker-squirrel": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.11.2",
+    "@electron-forge/plugin-fuses": "^7.11.2",
+    "@electron/fuses": "^1.8.0",
+    "electron": "42.3.0"
   }
 }

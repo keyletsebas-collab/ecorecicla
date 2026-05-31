@@ -7,6 +7,17 @@
 // All app data is namespaced under the current user's accountId.
 // Usage: localStorage.getItem(userKey('recim_invoices'))
 function userKey(baseKey) {
+  try {
+    const session = localStorage.getItem('recim_session');
+    if (session) {
+      const user = JSON.parse(session);
+      if (user && user.accountId) {
+        return `${baseKey}_${user.accountId}`;
+      }
+    }
+  } catch (e) {
+    console.error('Error in userKey:', e);
+  }
   return baseKey;
 }
 
@@ -46,16 +57,6 @@ function togglePassword(inputId, btn) {
 // EMAIL / PHONE LOGIN
 // =============================================
 
-/**
- * Convierte un objeto de Firebase o array en un array de usuarios válido.
- * Firebase a veces devuelve objetos con IDs como llaves en lugar de un array corregido.
- */
-function parseFirebaseUsers(data) {
-  if (!data) return [];
-  if (Array.isArray(data)) return data;
-  return Object.values(data);
-}
-
 async function handleLogin(evt) {
   evt.preventDefault();
   const identifier = document.getElementById('login-email').value.trim().toLowerCase();
@@ -71,69 +72,55 @@ async function handleLogin(evt) {
 
   errorEl.classList.add('hidden');
 
-  // Sync users from Firebase if active before checking local storage
-  if (isFirebaseActive && db) {
-    try {
-      const snapshot = await db.ref('users').get();
-      const cloudData = snapshot.val();
-      if (cloudData) {
-        const cloudUsers = parseFirebaseUsers(cloudData);
-        localStorage.setItem('recim_users', JSON.stringify(cloudUsers));
-      }
-    } catch (err) {
-      console.error("Firebase login sync error:", err);
-    }
-  }
-
-  const users = JSON.parse(localStorage.getItem('recim_users') || '[]');
-  const found = users.find(u => u.email?.toLowerCase() === identifier);
-
-  if (!found) {
-    errorEl.textContent = 'No existe una cuenta con ese correo.';
-    errorEl.classList.remove('hidden');
-    return;
-  }
-
-  // ... (rest of password checks)
-  if (!found.password) {
-    errorEl.textContent = 'Esta cuenta no tiene contraseña. Ve a “Crear Cuenta”, usa el mismo correo y elige una contraseña.';
-    errorEl.classList.remove('hidden');
-    return;
-  }
-
-  if (found.password !== btoa(password)) {
-    errorEl.textContent = 'Contraseña incorrecta.';
-    errorEl.classList.remove('hidden');
-    return;
-  }
-
   btn.querySelector('span').classList.add('hidden');
   btn.querySelector('.btn-spinner').classList.remove('hidden');
   btn.disabled = true;
 
-  setTimeout(() => {
+  setTimeout(async () => {
     try {
+      if (!isSupabaseActive || !supabaseClient) {
+        throw new Error("Supabase no está inicializado o no hay conexión de red.");
+      }
+
+      // Query user profile from Supabase
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('email', identifier)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        errorEl.textContent = 'No existe una cuenta con ese correo.';
+        errorEl.classList.remove('hidden');
+        resetBtn();
+        return;
+      }
+
+      if (data.password !== btoa(password)) {
+        errorEl.textContent = 'Contraseña incorrecta.';
+        errorEl.classList.remove('hidden');
+        resetBtn();
+        return;
+      }
+
       const session = {
-        name: found.name,
-        email: found.email,
-        avatar: (found.avatar || found.name || 'U')[0].toUpperCase(),
+        name: data.name,
+        email: data.email,
+        avatar: (data.avatar || data.name || 'U')[0].toUpperCase(),
         provider: 'email',
-        accountId: found.accountId,
-        familyId: found.familyId || null
+        accountId: data.id,
+        familyId: data.family_id || null
       };
 
-      // Clear any residue user storage before starting the new session
-      const keysToRemove = [
-        'recim_invoices',
-        'recim_material_codes',
-        'recim_clients',
-        'recim_ingresos',
-        'recim_egresos'
-      ];
-      keysToRemove.forEach(k => localStorage.removeItem(k));
-
+      // Guardar sesión
       localStorage.setItem('recim_session', JSON.stringify(session));
-      showToast(`✅ Bienvenido de nuevo, ${found.name}`, 'success');
+      showToast(`✅ Bienvenido de nuevo, ${data.name}`, 'success');
+      
+      resetBtn();
       initApp(session);
     } catch (err) {
       console.error('Login error:', err);
@@ -170,73 +157,68 @@ async function handleSignup(evt) {
     return;
   }
 
-  // 1. ANTES DE REGISTRAR: Pull de la nube para no borrar a otros usuarios
-  let currentUsers = JSON.parse(localStorage.getItem('recim_users') || '[]');
-  if (isFirebaseActive && db) {
-    try {
-      const snapshot = await db.ref('users').get();
-      const cloudData = snapshot.val();
-      if (cloudData) {
-        currentUsers = parseFirebaseUsers(cloudData);
-      }
-    } catch (err) {
-      console.warn("No se pudo obtener lista de usuarios de la nube, usando local.");
-    }
-  }
-
-  const existsIdx = currentUsers.findIndex(u => u.email?.toLowerCase() === identity);
-  const exists = existsIdx >= 0 ? currentUsers[existsIdx] : null;
-
-  if (exists && exists.password) {
-    errorEl.textContent = 'Ya existe una cuenta con ese correo. Inicia sesión.';
-    errorEl.classList.remove('hidden');
-    return;
-  }
-
   btn.querySelector('span').classList.add('hidden');
   btn.querySelector('.btn-spinner').classList.remove('hidden');
   btn.disabled = true;
 
   setTimeout(async () => {
     try {
-      let session;
-
-      if (exists && !exists.password) {
-        // Upgrade old social account with a password
-        currentUsers[existsIdx] = { ...exists, name, password: btoa(password), provider: 'email', avatar: name[0].toUpperCase(), familyId: exists.familyId || null };
-        session = { name, email: exists.email, avatar: name[0].toUpperCase(), provider: 'email', accountId: exists.accountId, familyId: exists.familyId || null };
-        showToast('✅ Cuenta actualizada con contraseña', 'success');
-      } else {
-        // Brand-new account
-        const accountId = `ACC-${Date.now()}`;
-        const newUser = { name, email: identity, password: btoa(password), provider: 'email', accountId, avatar: name[0].toUpperCase(), createdAt: new Date().toISOString(), familyId: null };
-        currentUsers.push(newUser);
-        session = { name, email: identity, avatar: name[0].toUpperCase(), provider: 'email', accountId, familyId: null };
-        showToast('🎉 Cuenta creada exitosamente', 'success');
+      if (!isSupabaseActive || !supabaseClient) {
+        throw new Error("Supabase no está inicializado o no hay conexión de red.");
       }
 
-      // Clear any residue user storage before starting the new session
-      const keysToRemove = [
-        'recim_invoices',
-        'recim_material_codes',
-        'recim_clients',
-        'recim_ingresos',
-        'recim_egresos'
-      ];
-      keysToRemove.forEach(k => localStorage.removeItem(k));
+      // Check if email already exists in Supabase profiles
+      const { data: exists, error: checkError } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('email', identity)
+        .maybeSingle();
 
-      // Guardar localmente
-      localStorage.setItem('recim_users', JSON.stringify(currentUsers));
+      if (checkError) {
+        throw checkError;
+      }
+
+      if (exists) {
+        errorEl.textContent = 'Ya existe una cuenta con ese correo. Inicia sesión.';
+        errorEl.classList.remove('hidden');
+        resetBtn();
+        return;
+      }
+
+      const accountId = `ACC-${Date.now()}`;
+      const newProfile = {
+        id: accountId,
+        name: name,
+        email: identity,
+        password: btoa(password),
+        avatar: name[0].toUpperCase(),
+        family_id: null,
+        created_at: new Date().toISOString()
+      };
+
+      // Insert new profile into Supabase
+      const { error: insertError } = await supabaseClient
+        .from('profiles')
+        .insert([newProfile]);
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      const session = {
+        name: name,
+        email: identity,
+        avatar: name[0].toUpperCase(),
+        provider: 'email',
+        accountId: accountId,
+        familyId: null
+      };
+
+      // Guardar sesión localmente
       localStorage.setItem('recim_session', JSON.stringify(session));
+      showToast('🎉 Cuenta creada exitosamente', 'success');
 
-      // 2. DESPUÉS DE REGISTRAR: Push sincronizado
-      if (isFirebaseActive && db) {
-        await db.ref('users').set(currentUsers).catch(err => {
-          console.error("Error al sincronizar usuarios con la nube:", err);
-          showToast('⚠️ Error al sincronizar con la nube', 'warning');
-        });
-      }
-
+      resetBtn();
       initApp(session);
     } catch (err) {
       console.error('Signup error:', err);
@@ -251,25 +233,29 @@ async function handleSignup(evt) {
 function handleLogout() {
   if (!confirm('¿Seguro que deseas cerrar sesión?')) return;
   
-  // Clear session and all user database keys
+  // Clear only global non-namespaced keys and session.
+  // The namespaced user keys remain safe and intact in localStorage!
   const keysToRemove = [
-    'recim_session',
-    'recim_invoices',
-    'recim_material_codes',
-    'recim_clients',
-    'recim_ingresos',
-    'recim_egresos'
+    'recim_session'
   ];
   keysToRemove.forEach(k => localStorage.removeItem(k));
 
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
-  // Reset login form state
-  const btn = document.getElementById('login-btn');
-  if (btn) {
-    btn.querySelector('span')?.classList.remove('hidden');
-    btn.querySelector('.btn-spinner')?.classList.add('hidden');
-    btn.disabled = false;
+  
+  // Reset BOTH login and signup form button states (Resolves Bug 1!)
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) {
+    loginBtn.querySelector('span')?.classList.remove('hidden');
+    loginBtn.querySelector('.btn-spinner')?.classList.add('hidden');
+    loginBtn.disabled = false;
   }
+  const signupBtn = document.getElementById('signup-btn');
+  if (signupBtn) {
+    signupBtn.querySelector('span')?.classList.remove('hidden');
+    signupBtn.querySelector('.btn-spinner')?.classList.add('hidden');
+    signupBtn.disabled = false;
+  }
+
   showToast('👋 Sesión cerrada', 'success');
 }

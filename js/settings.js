@@ -2,7 +2,11 @@
    SETTINGS.JS – Página de Ajustes de la App
    ============================================= */
 
-const APP_VERSION = 'alpha 10.1';
+const APP_VERSION = 'v1.0.2';
+
+function isElectron() {
+  return typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.includes('Electron');
+}
 
 const LANGUAGES = [
   { code: 'es', label: '🇩🇴 Español' },
@@ -228,7 +232,7 @@ function renderSettingsPage(container) {
           </div>
           <div class="settings-item">
             <span class="settings-item-label">${t('set.version')}</span>
-            <span class="settings-item-value"><span style="background: linear-gradient(90deg, #ff007f, #7928ca, #ff007f); background-size: 200% auto; color: white; font-weight: 800; padding: 4px 10px; border-radius: 8px; animation: textShine 3s linear infinite;">🚀 ALPHA 10.1</span></span>
+            <span class="settings-item-value"><span style="background: linear-gradient(90deg, #007fff, #00d2ff, #007fff); background-size: 200% auto; color: white; font-weight: 800; padding: 4px 10px; border-radius: 8px; animation: textShine 3s linear infinite;">🚀 v1.0.2</span></span>
           </div>
           <div class="settings-item" style="grid-column: span 2; padding-top: 0; margin-top: -8px;">
             <p style="font-size: 0.8rem; color: var(--clr-text-muted); font-style: italic;">
@@ -237,7 +241,7 @@ function renderSettingsPage(container) {
           </div>
           <div class="settings-item">
             <span class="settings-item-label">${t('set.platform')}</span>
-            <span class="settings-item-value">Web (PWA)</span>
+            <span class="settings-item-value">${isElectron() ? 'PC (Escritorio)' : 'Web (PWA)'}</span>
           </div>
           <div class="settings-item">
             <span class="settings-item-label">${t('set.storage')}</span>
@@ -250,7 +254,7 @@ function renderSettingsPage(container) {
         </div>
 
         <div style="margin-top:20px; display:flex; flex-direction:column; gap:12px;">
-          ${deferredPrompt ? `
+          ${isElectron() ? '' : (deferredPrompt ? `
             <div style="padding: 16px; background: var(--clr-primary-glow); border: 1px dashed var(--clr-primary); border-radius: var(--r-md); margin-bottom: 4px; text-align:center;">
               <p style="font-size:0.85rem; color:var(--clr-text-secondary); margin-bottom:12px; font-weight:500;">${t('set.install_desc')}</p>
               <button class="btn-primary" style="width:100%;justify-content:center;height:48px;font-size:1rem;background:linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark));box-shadow:0 4px 15px var(--clr-primary-glow);" onclick="handleInstallApp()">
@@ -261,7 +265,7 @@ function renderSettingsPage(container) {
             <div style="padding: 12px; background: var(--clr-surface-2); border: 1px solid var(--clr-border); border-radius: var(--r-md); text-align:center; opacity:0.8;">
               <p style="font-size:0.75rem; color:var(--clr-text-muted);">📱 La app ya está instalada o tu navegador no soporta instalación directa.</p>
             </div>
-          `}
+          `)}
           <button class="btn-danger" style="width:100%;justify-content:center;margin-top:10px;" onclick="handleClearData()">
             ${t('set.clear_data')}
           </button>
@@ -358,9 +362,9 @@ async function handleClearCache(category) {
   
   group.baseKeys.forEach(k => localStorage.removeItem(userKey(k)));
   
-  // Force cloud sync immediately so data doesn't return on refresh
+  // Force cloud sync in the background without blocking the UI (Resolves Bug 1!)
   if (window.forceSync) {
-    await window.forceSync();
+    window.forceSync();
   }
   
   showToast('🗑 Datos eliminados de local y nube', 'success');
@@ -422,13 +426,15 @@ function saveAccountName() {
   session.avatar = newName[0].toUpperCase();
   localStorage.setItem('recim_session', JSON.stringify(session));
 
-  // Update the stored user record so the name persists on next login
-  const users = JSON.parse(localStorage.getItem('recim_users') || '[]');
-  const idx = users.findIndex(u => u.accountId === session.accountId);
-  if (idx !== -1) {
-    users[idx].name = newName;
-    users[idx].avatar = newName[0].toUpperCase();
-    localStorage.setItem('recim_users', JSON.stringify(users));
+  // Update profile in Supabase profiles so it persists on next login
+  if (isSupabaseActive && supabaseClient) {
+    supabaseClient
+      .from('profiles')
+      .update({ name: newName, avatar: newName[0].toUpperCase() })
+      .eq('id', session.accountId)
+      .then(({ error }) => {
+        if (error) console.error("Error updating profile in Supabase:", error);
+      });
   }
 
   // Update the UI immediately (no full re-render needed)
@@ -565,12 +571,6 @@ function handleExcelExport() {
 // COMPARTIR EN FAMILIA – RENDER & HANDLERS
 // =============================================
 
-function parseFirebaseUsersLocal(data) {
-  if (!data) return [];
-  if (Array.isArray(data)) return data;
-  return Object.values(data);
-}
-
 async function updateFamilyMembersDOM(familyId, myAccountId) {
   const listContainer = document.getElementById('family-members-list');
   if (!listContainer) return;
@@ -602,26 +602,31 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
     }).join('');
   };
 
-  // 1. Load from local cache initially
-  const localUsers = JSON.parse(localStorage.getItem('recim_users') || '[]');
-  const localMembers = localUsers.filter(u => u.familyId === familyId);
-  renderList(localMembers);
-
-  // 2. Fetch the latest list from Firebase in the background
-  if (isFirebaseActive && db) {
+  // Fetch members from Supabase in real-time
+  if (isSupabaseActive && supabaseClient) {
     try {
-      const snapshot = await db.ref('users').get();
-      const cloudUsers = parseFirebaseUsersLocal(snapshot.val());
+      const { data: cloudUsers, error } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('family_id', familyId);
       
-      // Update local storage cache
-      localStorage.setItem('recim_users', JSON.stringify(cloudUsers));
+      if (error) throw error;
 
-      // Filter and render the latest members
-      const updatedMembers = cloudUsers.filter(u => u.familyId === familyId);
-      renderList(updatedMembers);
+      const members = (cloudUsers || []).map(m => ({
+        accountId: m.id,
+        name: m.name,
+        email: m.email,
+        avatar: m.avatar,
+        familyId: m.family_id
+      }));
+
+      renderList(members);
     } catch (err) {
-      console.warn("Error actualizando lista de miembros familiares desde Firebase:", err);
+      console.warn("Error actualizando lista de miembros familiares desde Supabase:", err);
+      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-danger);">Error al cargar miembros familiares.</div>`;
     }
+  } else {
+    listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">Sin conexión con el servidor.</div>`;
   }
 }
 
@@ -659,7 +664,6 @@ function renderFamilySection() {
       </div>
     `;
 
-    // Render family members (first from local cache, then update from Firebase)
     setTimeout(() => updateFamilyMembersDOM(familyId, session.accountId), 0);
   } else {
     container.innerHTML = `
@@ -716,30 +720,44 @@ async function handleCreateFamily() {
   session.familyId = code;
   localStorage.setItem('recim_session', JSON.stringify(session));
 
-  // Update in users list
-  const users = JSON.parse(localStorage.getItem('recim_users') || '[]');
-  const idx = users.findIndex(u => u.accountId === session.accountId);
-  if (idx !== -1) {
-    users[idx].familyId = code;
-    localStorage.setItem('recim_users', JSON.stringify(users));
-  }
-
-  // Sincronizar en la nube
-  if (isFirebaseActive && db) {
+  // Sincronizar en la nube (Supabase)
+  if (isSupabaseActive && supabaseClient) {
     try {
       showToast('📡 Registrando familia en el servidor...', 'info');
-      // 1. Guardar en usuarios de Firebase
-      await db.ref('users').set(users);
       
-      // 2. Copiar los datos actuales a la ruta de la familia en Firebase
-      const currentDataSnapshot = await db.ref(`data/${session.accountId}`).get();
-      if (currentDataSnapshot.exists()) {
-        await db.ref(`data/family_${code}`).set(currentDataSnapshot.val());
+      // 1. Guardar family_id en tabla profiles del usuario
+      const { error: profileError } = await supabaseClient
+        .from('profiles')
+        .update({ family_id: code })
+        .eq('id', session.accountId);
+
+      if (profileError) throw profileError;
+      
+      // 2. Copiar los datos actuales a la ruta de la familia en Supabase user_data
+      const { data: currentData, error: dataError } = await supabaseClient
+        .from('user_data')
+        .select('data')
+        .eq('id', session.accountId)
+        .maybeSingle();
+
+      if (dataError) throw dataError;
+
+      if (currentData && currentData.data) {
+        const { error: upsertError } = await supabaseClient
+          .from('user_data')
+          .upsert({
+            id: `family_${code}`,
+            data: currentData.data,
+            updated_at: new Date().toISOString()
+          });
+        if (upsertError) throw upsertError;
       }
       
       console.log('Familia creada y datos migrados.');
     } catch (err) {
-      console.error("Error al crear familia en Firebase:", err);
+      console.error("Error al crear familia en Supabase:", err);
+      showToast('❌ Error de conexión al crear familia', 'error');
+      return;
     }
   }
 
@@ -765,51 +783,39 @@ async function submitJoinFamily() {
     return;
   }
 
-  if (isFirebaseActive && db) {
+  if (isSupabaseActive && supabaseClient) {
     try {
       showToast('📡 Validando código de familia...', 'info');
       
-      // Fetch users from Firebase
-      const snapshot = await db.ref('users').get();
-      const cloudUsers = parseFirebaseUsersLocal(snapshot.val());
+      // Fetch users with this family ID
+      const { data: cloudUsers, error: checkError } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('family_id', code);
+
+      if (checkError) throw checkError;
       
       // Find if anyone belongs to this family
-      const familyExists = cloudUsers.some(u => u.familyId === code);
+      const familyExists = cloudUsers && cloudUsers.length > 0;
       if (!familyExists) {
         showToast('❌ El código de familia no es válido o no existe.', 'error');
         return;
       }
 
-      // Valid: Join!
+      // Valid: Join! Update profiles table
       const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+      
+      const { error: updateError } = await supabaseClient
+        .from('profiles')
+        .update({ family_id: code })
+        .eq('id', session.accountId);
+
+      if (updateError) throw updateError;
+
       session.familyId = code;
       localStorage.setItem('recim_session', JSON.stringify(session));
-
-      // Update in local users array and Firebase
-      const localUsers = JSON.parse(localStorage.getItem('recim_users') || '[]');
-      const myIdx = localUsers.findIndex(u => u.accountId === session.accountId);
-      if (myIdx !== -1) {
-        localUsers[myIdx].familyId = code;
-        localStorage.setItem('recim_users', JSON.stringify(localUsers));
-      }
       
-      // Update global user array on Firebase
-      const cloudIdx = cloudUsers.findIndex(u => u.accountId === session.accountId);
-      if (cloudIdx !== -1) {
-        cloudUsers[cloudIdx].familyId = code;
-      } else {
-        cloudUsers.push({
-          accountId: session.accountId,
-          name: session.name,
-          email: session.email,
-          avatar: session.avatar,
-          provider: session.provider,
-          familyId: code
-        });
-      }
-      await db.ref('users').set(cloudUsers);
-
-      // Clear local database to load the family data cleanly
+      // Clear local database keys before pulling new ones
       const keysToRemove = [
         'recim_invoices',
         'recim_material_codes',
@@ -817,7 +823,7 @@ async function submitJoinFamily() {
         'recim_ingresos',
         'recim_egresos'
       ];
-      keysToRemove.forEach(k => localStorage.removeItem(k));
+      keysToRemove.forEach(k => localStorage.removeItem(userKey(k)));
 
       // Force Sync pull immediately
       if (window.syncPullData) {
@@ -839,24 +845,22 @@ async function handleLeaveFamily() {
   if (!confirm('¿Estás seguro de que deseas salir de la familia? Perderás acceso a la base de datos compartida y volverás a tu base de datos privada.')) return;
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+  const oldFamilyId = session.familyId;
   session.familyId = null;
   localStorage.setItem('recim_session', JSON.stringify(session));
 
-  // Update in local users
-  const users = JSON.parse(localStorage.getItem('recim_users') || '[]');
-  const idx = users.findIndex(u => u.accountId === session.accountId);
-  if (idx !== -1) {
-    users[idx].familyId = null;
-    localStorage.setItem('recim_users', JSON.stringify(users));
-  }
-
-  // Update in Firebase
-  if (isFirebaseActive && db) {
+  // Update in Supabase
+  if (isSupabaseActive && supabaseClient) {
     try {
       showToast('📡 Saliendo de la familia...', 'info');
-      await db.ref('users').set(users);
+      const { error } = await supabaseClient
+        .from('profiles')
+        .update({ family_id: null })
+        .eq('id', session.accountId);
+      
+      if (error) throw error;
     } catch (err) {
-      console.error("Error al actualizar usuario en Firebase:", err);
+      console.error("Error al actualizar usuario en Supabase:", err);
     }
   }
 
@@ -868,9 +872,9 @@ async function handleLeaveFamily() {
     'recim_ingresos',
     'recim_egresos'
   ];
-  keysToRemove.forEach(k => localStorage.removeItem(k));
+  keysToRemove.forEach(k => localStorage.removeItem(userKey(k)));
 
-  // Pull user's private data from cloud
+  // Pull user's private data from Supabase
   if (window.syncPullData) {
     await window.syncPullData(session.accountId);
   }

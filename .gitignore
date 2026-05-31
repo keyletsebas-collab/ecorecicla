@@ -9,5 +9,7 @@ supabase_schema.sql
 init_db.sql
 db_config.php
 www/
-android/
+# android/
 package-lock.json
+
+out/

@@ -111,7 +111,7 @@
         } catch (_) { }
     }
 
-    // ---- Cloud Sync Logic (Firebase) ----
+    // ---- Cloud Sync Logic (Supabase) ----
 
     /**
      * Returns the appropriate cloud database ID (either family ID or user account ID).
@@ -127,17 +127,17 @@
     }
 
     /**
-     * Push current localStorage data to Firebase.
+     * Push current localStorage data to Supabase.
      */
     async function syncPushData() {
-        if (!isFirebaseActive || !db) return;
+        if (!isSupabaseActive || !supabaseClient) return;
         const dbId = getSyncDbId();
         if (!dbId) return;
 
         const dataToSync = {};
         let hasData = false;
         WATCHED_KEYS.forEach(k => {
-            const val = localStorage.getItem(k.pattern);
+            const val = localStorage.getItem(userKey(k.pattern));
             if (val) {
                 dataToSync[k.pattern] = JSON.parse(val);
                 hasData = true;
@@ -145,64 +145,77 @@
         });
 
         try {
-            // Use null if no data to ensure the cloud path is cleared
-            const finalData = hasData ? dataToSync : null;
-            await db.ref(`data/${dbId}`).set(finalData);
-            console.log(`☁️ Firebase Push: ${hasData ? 'Datos actualizados' : 'Nube limpiada (vacío)'} para DB: ${dbId}`);
+            const finalData = hasData ? dataToSync : {};
+            const { error } = await supabaseClient
+                .from('user_data')
+                .upsert({
+                    id: dbId,
+                    data: finalData,
+                    updated_at: new Date().toISOString()
+                });
+
+            if (error) throw error;
+            console.log(`☁️ Supabase Push: ${hasData ? 'Datos actualizados' : 'Nube limpiada (vacío)'} para DB: ${dbId}`);
             return true;
         } catch (err) {
-            console.error('Firebase Sync Push Error:', err);
+            console.error('Supabase Sync Push Error:', err);
             return false;
         }
     }
 
     /**
-     * Pull data from Firebase and update localStorage.
+     * Pull data from Supabase and update localStorage.
      */
     async function syncPullData(dbId) {
-        if (!isFirebaseActive || !db) return;
+        if (!isSupabaseActive || !supabaseClient) return;
         if (!dbId) {
             dbId = getSyncDbId();
         }
         if (!dbId) return;
 
         try {
-            const snapshot = await db.ref(`data/${dbId}`).get();
-            const remoteData = snapshot.val() || {}; // Fallback to empty object
+            const { data, error } = await supabaseClient
+                .from('user_data')
+                .select('data')
+                .eq('id', dbId)
+                .maybeSingle();
 
+            if (error) throw error;
+            
+            const remoteData = (data && data.data) ? data.data : {};
             let changed = false;
 
             // 1. Update or clear local data based on remote state
             WATCHED_KEYS.forEach(k => {
                 const remoteVal = remoteData[k.pattern];
-                const localVal = localStorage.getItem(k.pattern);
+                const localVal = localStorage.getItem(userKey(k.pattern));
                 
                 if (remoteVal === undefined) {
                     // Missing in cloud = should be missing in local
                     if (localVal !== null) {
-                        localStorage.removeItem(k.pattern);
+                        localStorage.removeItem(userKey(k.pattern));
                         changed = true;
-                        console.log(`☁️ Firebase Pull: Eliminando ${k.label} localmente (Sincronizado)`);
+                        console.log(`☁️ Supabase Pull: Eliminando ${k.label} localmente (Sincronizado)`);
                     }
                 } else {
                     // Exists in cloud = update local if different
                     const remoteStr = JSON.stringify(remoteVal);
                     if (localVal !== remoteStr) {
-                        localStorage.setItem(k.pattern, remoteStr);
+                        localStorage.setItem(userKey(k.pattern), remoteStr);
                         changed = true;
-                        console.log(`☁️ Firebase Pull: Actualizando ${k.label} (Datos remotos)`);
+                        console.log(`☁️ Supabase Pull: Actualizando ${k.label} (Datos remotos)`);
                     }
                 }
             });
 
             if (changed) {
-                console.log('☁️ Firebase Pull: Cambios aplicados, renderizando...');
+                console.log('☁️ Supabase Pull: Cambios aplicados, renderizando...');
                 try { rerenderCurrentPage(); } catch (_) { }
             } else {
-                console.log('☁️ Firebase Pull: Local sincronizado con nube (sin cambios)');
+                console.log('☁️ Supabase Pull: Local sincronizado con nube (sin cambios)');
             }
         } catch (err) {
-            console.error('Firebase Pull Error:', err);
+            console.error('Supabase Pull Error:', err);
         }
     }
 
@@ -254,7 +267,7 @@
         }
 
         for (const watched of WATCHED_KEYS) {
-            if (key === watched.pattern) {
+            if (key === userKey(watched.pattern)) {
                 maybeRerender(watched.pages, watched.label);
                 return;
             }
@@ -267,8 +280,8 @@
         originalSetItem.apply(this, arguments);
 
         // If the key is one of our watched keys, push to cloud
-        if (isFirebaseActive && key.startsWith('recim_')) {
-            const isWatched = WATCHED_KEYS.some(wk => wk.pattern === key);
+        if (isSupabaseActive && key.startsWith('recim_')) {
+            const isWatched = WATCHED_KEYS.some(wk => userKey(wk.pattern) === key);
             if (isWatched) {
                 debouncedSyncPush();
             }
@@ -280,8 +293,8 @@
         originalRemoveItem.apply(this, arguments);
 
         // If a watched key is removed, sync the empty state to cloud
-        if (isFirebaseActive && key.startsWith('recim_')) {
-            const isWatched = WATCHED_KEYS.some(wk => wk.pattern === key);
+        if (isSupabaseActive && key.startsWith('recim_')) {
+            const isWatched = WATCHED_KEYS.some(wk => userKey(wk.pattern) === key);
             if (isWatched) {
                 debouncedSyncPush();
             }
@@ -292,9 +305,9 @@
     window.addEventListener('load', () => {
         const dbId = getSyncDbId();
         if (dbId) {
-            // Give it a moment to ensure isFirebaseActive is set
+            // Give it a moment to ensure isSupabaseActive is set
             setTimeout(() => {
-                if (isFirebaseActive) syncPullData(dbId);
+                if (isSupabaseActive) syncPullData(dbId);
             }, 1000);
         }
     });

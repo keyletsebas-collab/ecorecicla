@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Reciminsa App</string>
+    <string name="title_activity_main">Reciminsa App</string>
+    <string name="package_name">com.reciminsa.app</string>
+    <string name="custom_url_scheme">com.reciminsa.app</string>
+</resources>
