@@ -118,7 +118,7 @@
       </form>
 
       <!-- Forgot Password Form -->
-      <form id="form-forgot" class="auth-form hidden" onsubmit="handleForgotPassword(event)">
+      <form id="form-forgot" class="auth-form hidden" onsubmit="event.preventDefault();">
         <h3 class="auth-form-title">Recuperar Contraseña</h3>
         
         <!-- Step 1: Request Code -->
@@ -126,10 +126,11 @@
           <p class="auth-step-description">Introduce tu correo electrónico. Te enviaremos un código de verificación de 6 dígitos para restablecer tu contraseña.</p>
           <div class="form-group">
             <label class="form-label">Correo electrónico</label>
-            <input id="forgot-email" type="email" class="form-input" placeholder="correo@ejemplo.com" required />
+            <input id="forgot-email" type="email" class="form-input" placeholder="correo@ejemplo.com" required 
+                   onkeydown="if(event.key==='Enter') { event.preventDefault(); handleForgotPassword(event); }" />
           </div>
           <p class="auth-error hidden" id="forgot-email-error"></p>
-          <button type="submit" class="btn-primary" id="forgot-send-btn">
+          <button type="button" class="btn-primary" id="forgot-send-btn" onclick="handleForgotPassword(event)">
             <span>Enviar Código por Gmail</span>
             <div class="btn-spinner hidden"></div>
           </button>
@@ -140,7 +141,8 @@
           <p class="auth-step-description">Hemos enviado un código a tu correo electrónico. Por favor introdúcelo a continuación para continuar.</p>
           <div class="form-group">
             <label class="form-label">Código de verificación</label>
-            <input id="forgot-code" type="text" class="form-input text-center-input" placeholder="••••••" maxlength="6" />
+            <input id="forgot-code" type="text" class="form-input text-center-input" placeholder="••••••" maxlength="6" 
+                   onkeydown="if(event.key==='Enter') { event.preventDefault(); handleVerifyCode(event); }" />
           </div>
           <p class="auth-error hidden" id="forgot-code-error"></p>
           <button type="button" class="btn-primary" id="forgot-verify-btn" onclick="handleVerifyCode(event)">
@@ -155,7 +157,8 @@
           <div class="form-group">
             <label class="form-label">Nueva Contraseña</label>
             <div class="input-password-wrap">
-              <input id="forgot-new-password" type="password" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" />
+              <input id="forgot-new-password" type="password" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" 
+                     onkeydown="if(event.key==='Enter') { event.preventDefault(); handleResetPassword(event); }" />
               <button type="button" class="password-toggle" onclick="togglePassword('forgot-new-password', this)">👁</button>
             </div>
           </div>
