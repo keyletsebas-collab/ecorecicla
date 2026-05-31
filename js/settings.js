@@ -547,7 +547,7 @@ async function sendGDriveWelcomeEmail() {
         </div>
       </div>
     `,
-    textBody: \`Hola \${userName},\n\nTu cuenta de Reciminsa ha sido vinculada exitosamente con tu carpeta de Google Drive.\n\nA partir de ahora, tus datos se respaldarán automáticamente de forma segura en tu propio Google Drive.\n\nGracias por utilizar Reciminsa.\n\nEste correo fue generado automáticamente. Por favor no respondas a esta dirección.\`
+    textBody: `Hola ${userName},\n\nTu cuenta de Reciminsa ha sido vinculada exitosamente con tu carpeta de Google Drive.\n\nA partir de ahora, tus datos se respaldarán automáticamente de forma segura en tu propio Google Drive.\n\nGracias por utilizar Reciminsa.\n\nEste correo fue generado automáticamente. Por favor no respondas a esta dirección.`
   };
 
   try {
