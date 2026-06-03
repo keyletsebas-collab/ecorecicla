@@ -2,7 +2,7 @@
    SETTINGS.JS – Página de Ajustes de la App
    ============================================= */
 
-const APP_VERSION = 'v1.0.2';
+const APP_VERSION = 'v1.0.5';
 
 function isElectron() {
   return typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.includes('Electron');
@@ -270,7 +270,7 @@ function renderSettingsPage(container) {
           </div>
           <div class="settings-item">
             <span class="settings-item-label">${t('set.version')}</span>
-            <span class="settings-item-value"><span style="background: linear-gradient(90deg, #007fff, #00d2ff, #007fff); background-size: 200% auto; color: white; font-weight: 800; padding: 4px 10px; border-radius: 8px; animation: textShine 3s linear infinite;">🚀 v1.0.2</span></span>
+            <span class="settings-item-value"><span style="background: linear-gradient(90deg, #007fff, #00d2ff, #007fff); background-size: 200% auto; color: white; font-weight: 800; padding: 4px 10px; border-radius: 8px; animation: textShine 3s linear infinite;">🚀 v1.0.5</span></span>
           </div>
           <div class="settings-item" style="grid-column: span 2; padding-top: 0; margin-top: -8px;">
             <p style="font-size: 0.8rem; color: var(--clr-text-muted); font-style: italic;">

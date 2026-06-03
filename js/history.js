@@ -8,7 +8,7 @@ function renderHistoryPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h2 class="section-title">${t('hist.title')}<span class="version-indicator-mobile">v1.0.4</span></h2>
+        <h2 class="section-title">${t('hist.title')}<span class="version-indicator-mobile">v1.0.5</span></h2>
         <p class="section-subtitle">${t('hist.subtitle')}</p>
       </div>
     </div>
