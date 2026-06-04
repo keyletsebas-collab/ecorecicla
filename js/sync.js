@@ -314,11 +314,111 @@
         return await syncPushData();
     }
 
+    /**
+     * Push Google Drive settings to Supabase user_data table under gdrive_${accountId}.
+     */
+    async function syncPushGDriveSettings(accountId) {
+        if (!isSupabaseActive || !supabaseClient) return false;
+        if (!accountId) {
+            try {
+                const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+                accountId = session.accountId;
+            } catch (_) {}
+        }
+        if (!accountId) return false;
+
+        const folder = localStorage.getItem(userKey('recim_gdrive_folder')) || '';
+        const scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url')) || '';
+        const status = localStorage.getItem(userKey('recim_gdrive_status')) || '';
+
+        try {
+            const { error } = await supabaseClient
+                .from('user_data')
+                .upsert({
+                    id: `gdrive_${accountId}`,
+                    data: { folder, scriptUrl, status },
+                    updated_at: new Date().toISOString()
+                });
+            if (error) throw error;
+            console.log(`☁️ Supabase: Guardados ajustes de Google Drive para el usuario ${accountId}`);
+            return true;
+        } catch (err) {
+            console.error('Error syncing Google Drive settings (push):', err);
+            return false;
+        }
+    }
+
+    /**
+     * Pull Google Drive settings from Supabase user_data table under gdrive_${accountId} and update localStorage.
+     */
+    async function syncPullGDriveSettings(accountId) {
+        if (!isSupabaseActive || !supabaseClient) return false;
+        if (!accountId) {
+            try {
+                const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+                accountId = session.accountId;
+            } catch (_) {}
+        }
+        if (!accountId) return false;
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('user_data')
+                .select('data')
+                .eq('id', `gdrive_${accountId}`)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (data && data.data) {
+                const remote = data.data;
+                const localFolder = localStorage.getItem(userKey('recim_gdrive_folder')) || '';
+                const localScriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url')) || '';
+                const localStatus = localStorage.getItem(userKey('recim_gdrive_status')) || '';
+
+                if (remote.folder !== localFolder || remote.scriptUrl !== localScriptUrl || remote.status !== localStatus) {
+                    if (remote.folder) {
+                        localStorage.setItem(userKey('recim_gdrive_folder'), remote.folder);
+                    } else {
+                        localStorage.removeItem(userKey('recim_gdrive_folder'));
+                    }
+
+                    if (remote.scriptUrl) {
+                        localStorage.setItem(userKey('recim_gdrive_script_url'), remote.scriptUrl);
+                    } else {
+                        localStorage.removeItem(userKey('recim_gdrive_script_url'));
+                    }
+
+                    if (remote.status) {
+                        localStorage.setItem(userKey('recim_gdrive_status'), remote.status);
+                    } else {
+                        localStorage.removeItem(userKey('recim_gdrive_status'));
+                    }
+
+                    console.log("☁️ Supabase: Cargados ajustes de Google Drive remotamente.");
+
+                    // Re-render settings if active
+                    if (typeof activePage === 'function' && activePage() === 'ajustes') {
+                        try {
+                            rerenderCurrentPage();
+                        } catch (_) {}
+                    }
+                    return true;
+                }
+            }
+        } catch (err) {
+            console.error('Error syncing Google Drive settings (pull):', err);
+        }
+        return false;
+    }
+
     // Export to window
     window.syncPushData = syncPushData;
     window.syncPullData = syncPullData;
     window.forceSync = forceSync;
     window.syncPushGDrive = syncPushGDrive;
+    window.syncPushGDriveSettings = syncPushGDriveSettings;
+    window.syncPullGDriveSettings = syncPullGDriveSettings;
 
     // ---- Main storage event listener ----
     window.addEventListener('storage', function (event) {

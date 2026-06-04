@@ -36,6 +36,34 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.sidebar-logo:hover {
+    opacity: 0.95;
+}
+
+#sidebar-logo-img {
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-logo:hover #sidebar-logo-img {
+    transform: scale(1.12) rotate(180deg);
+}
+
+.sidebar-logo:active #sidebar-logo-img {
+    transform: scale(0.92) rotate(180deg);
+}
+
+/* Continuous rotation animation when refreshing class is active */
+#sidebar-logo-img.refreshing {
+    animation: logo-spin 1.2s linear infinite !important;
+}
+
+@keyframes logo-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .sidebar-brand {

@@ -1,6 +1,6 @@
 {
   "name": "reciminsa-app-pc-port",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "author": "Keylet Sebastian",
   "description": "Aplicacion de escritorio para la gestion de materiales reciclables en RECIMINSA.",
   "main": "main.js",
@@ -9,8 +9,7 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
-    "build": "node build.js",
-    "clean": "node -e \"const fs=require('fs'); ['www','out'].forEach(d=>fs.existsSync(d)&&fs.rmSync(d,{recursive:true,force:true})); console.log('🧹 Carpetas www y out eliminadas.');\""
+    "build": ""
   },
   "repository": {
     "type": "git",

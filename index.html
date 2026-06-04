@@ -190,8 +190,8 @@
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-logo">
-          <img src="logo-no-white-lines.png" alt="Reciminsa Logo" style="width:32px; height:32px; object-fit:contain; border-radius:50%; margin-right:8px;" />
+        <div class="sidebar-logo" onclick="handleAppRefresh()" title="Actualizar aplicación y limpiar caché" style="cursor: pointer;">
+          <img id="sidebar-logo-img" src="logo-no-white-lines.png" alt="Reciminsa Logo" style="width:32px; height:32px; object-fit:contain; border-radius:50%; margin-right:8px;" />
           <span class="sidebar-brand">Reciminsa</span>
         </div>
         <button class="sidebar-close" id="sidebar-close" onclick="toggleSidebar()">✕</button>

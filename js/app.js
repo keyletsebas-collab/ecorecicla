@@ -139,6 +139,11 @@ function initApp(user) {
         const dbId = user.familyId ? `family_${user.familyId}` : user.accountId;
         window.syncPullData(dbId);
     }
+
+    // Pull Google Drive settings from Supabase on boot
+    if (window.syncPullGDriveSettings) {
+        window.syncPullGDriveSettings(user.accountId);
+    }
 }
 
 // ---- Restore session on load ----
@@ -150,23 +155,61 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const user = JSON.parse(session);
             
-            // Verificación asíncrona de bloqueo en Supabase
+            // Verificación asíncrona y actualización de perfil en Supabase
             if (user && user.accountId && typeof isSupabaseActive !== 'undefined' && isSupabaseActive && supabaseClient) {
                 supabaseClient
                     .from('profiles')
-                    .select('family_id')
+                    .select('*')
                     .eq('id', user.accountId)
                     .maybeSingle()
                     .then(({ data, error }) => {
-                        if (!error && data && data.family_id === 'BLOCKED') {
-                            localStorage.removeItem('recim_session');
-                            showToast('🔴 Tu cuenta ha sido bloqueada por el administrador.', 'error');
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1500);
+                        if (error) throw error;
+                        if (data) {
+                            if (data.family_id === 'BLOCKED') {
+                                localStorage.removeItem('recim_session');
+                                showToast('🔴 Tu cuenta ha sido bloqueada por el administrador.', 'error');
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 1500);
+                                return;
+                            }
+
+                            // Update cached session if different
+                            const cachedSession = JSON.parse(localStorage.getItem('recim_session') || '{}');
+                            const oldFamilyId = cachedSession.familyId || null;
+                            const newFamilyId = data.family_id || null;
+                            const oldName = cachedSession.name || '';
+                            const newName = data.name || '';
+                            const oldAvatar = cachedSession.avatar || '';
+                            const newAvatar = (data.avatar || data.name || 'U')[0].toUpperCase();
+
+                            if (oldFamilyId !== newFamilyId || oldName !== newName || oldAvatar !== newAvatar) {
+                                cachedSession.familyId = newFamilyId;
+                                cachedSession.name = newName;
+                                cachedSession.avatar = newAvatar;
+                                localStorage.setItem('recim_session', JSON.stringify(cachedSession));
+                                
+                                // Update sidebar UI directly
+                                const nameEl = document.getElementById('sidebar-user-name');
+                                const avatarEl = document.getElementById('sidebar-avatar');
+                                if (nameEl) nameEl.textContent = newName;
+                                if (avatarEl) avatarEl.textContent = newAvatar;
+
+                                // If familyId changed, we need to trigger sync pull for the new ID
+                                if (oldFamilyId !== newFamilyId) {
+                                    const newDbId = newFamilyId ? `family_${newFamilyId}` : cachedSession.accountId;
+                                    showToast('🔄 Tu estado familiar ha cambiado. Actualizando datos...', 'info');
+                                    if (window.syncPullData) {
+                                        window.syncPullData(newDbId);
+                                    }
+                                    if (typeof getCurrentPage === 'function' && getCurrentPage() === 'ajustes') {
+                                        rerenderCurrentPage();
+                                    }
+                                }
+                            }
                         }
                     })
-                    .catch(err => console.error('Error checking block status:', err));
+                    .catch(err => console.error('Error verifying profile:', err));
             }
             
             initApp(user);
@@ -179,3 +222,54 @@ document.addEventListener('DOMContentLoaded', () => {
     setTopbarDate();
     setInterval(setTopbarDate, 60000);
 });
+
+// ---- App hard refresh & cache clear ----
+async function handleAppRefresh() {
+    // 1. Show notification that refresh is in progress
+    const msg = typeof t === 'function' ? t('toast.refreshing') : '🔄 Actualizando aplicación y sincronizando datos...';
+    showToast(msg, 'info');
+
+    // 2. Add rotation animation to the sidebar logo image
+    const logoImg = document.getElementById('sidebar-logo-img');
+    if (logoImg) {
+        logoImg.classList.add('refreshing');
+    }
+
+    // 3. Trigger database synchronization pull
+    try {
+        if (window.syncPullData) {
+            const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+            const dbId = session.familyId ? `family_${session.familyId}` : session.accountId;
+            if (dbId) {
+                await window.syncPullData(dbId);
+            }
+        }
+    } catch (e) {
+        console.error('Error syncing during hard refresh:', e);
+    }
+
+    // 4. Delete Service Worker registrations and Cache storage
+    try {
+        if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let reg of registrations) {
+                await reg.unregister();
+            }
+        }
+        if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            for (let name of cacheNames) {
+                await caches.delete(name);
+            }
+        }
+        console.log('SW and Cache storage cleared.');
+    } catch (e) {
+        console.error('Error clearing cache storage:', e);
+    }
+
+    // 5. Reload the page after 1.2 seconds to let the user see the rotation and feedback
+    setTimeout(() => {
+        window.location.reload();
+    }, 1200);
+}
+

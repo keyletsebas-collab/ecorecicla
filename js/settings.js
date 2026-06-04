@@ -456,6 +456,7 @@ function updateGDriveStatusDOM() {
 }
 
 async function handleGDriveSave() {
+  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   const folderInput = document.getElementById('settings-gdrive-folder');
   const folderVal = folderInput ? folderInput.value.trim() : '';
   
@@ -471,6 +472,9 @@ async function handleGDriveSave() {
     localStorage.removeItem(userKey('recim_gdrive_status'));
     updateGDriveStatusDOM();
     showToast('⚠️ Dirección de Google Drive eliminada', 'warning');
+    if (window.syncPushGDriveSettings) {
+      window.syncPushGDriveSettings(session.accountId);
+    }
     return;
   }
 
@@ -479,6 +483,11 @@ async function handleGDriveSave() {
   localStorage.setItem(userKey('recim_gdrive_script_url'), scriptVal);
   localStorage.setItem(userKey('recim_gdrive_status'), 'pending');
   updateGDriveStatusDOM();
+
+  // Push to Supabase immediately when they save, setting status to 'pending'
+  if (window.syncPushGDriveSettings) {
+    window.syncPushGDriveSettings(session.accountId);
+  }
 
   // 2. Mostrar spinner e indicar carga
   if (btn) btn.disabled = true;
@@ -522,11 +531,21 @@ async function handleGDriveSave() {
           folderInput.style.pointerEvents = 'none';
         }
 
+        // Push status to Supabase
+        if (window.syncPushGDriveSettings) {
+          window.syncPushGDriveSettings(session.accountId);
+        }
+
         // Send Welcome Email
         sendGDriveWelcomeEmail();
       } else {
         localStorage.setItem(userKey('recim_gdrive_status'), 'error');
         showToast(t('toast.gdrive_error') + 'Verifica Apps Script', 'error');
+
+        // Push status to Supabase
+        if (window.syncPushGDriveSettings) {
+          window.syncPushGDriveSettings(session.accountId);
+        }
       }
     } else {
       throw new Error('Módulo de sincronización de Google Drive no cargado aún.');
@@ -535,6 +554,11 @@ async function handleGDriveSave() {
     console.error('Error saving Google Drive settings:', err);
     localStorage.setItem(userKey('recim_gdrive_status'), 'error');
     showToast(t('toast.gdrive_error') + err.message, 'error');
+
+    // Push status to Supabase
+    if (window.syncPushGDriveSettings) {
+      window.syncPushGDriveSettings(session.accountId);
+    }
   } finally {
     if (btn) btn.disabled = false;
     if (spinner) spinner.classList.add('hidden');
