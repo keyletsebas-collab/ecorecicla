@@ -532,6 +532,9 @@ async function handleGDriveSave() {
       const success = await window.syncPushGDrive(dataToSync);
       
       if (success) {
+        if (typeof window.syncPushGDriveExcel === 'function') {
+          window.syncPushGDriveExcel();
+        }
         localStorage.setItem(userKey('recim_gdrive_status'), 'success');
         showToast(t('toast.gdrive_success'), 'success');
         

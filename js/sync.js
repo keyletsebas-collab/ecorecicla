@@ -164,6 +164,13 @@
                 }
             });
 
+            // Enviar todos los archivos Excel automáticamente a Google Drive
+            syncPushGDriveExcel().then(ok => {
+                if (ok) {
+                    console.log("☁️ Google Drive: Envío automático de todos los archivos Excel completado.");
+                }
+            });
+
             return true;
         } catch (err) {
             console.error('Supabase Sync Push Error:', err);
@@ -544,6 +551,7 @@ async function syncPushGDriveExcel() {
     window.syncPullData = syncPullData;
     window.forceSync = forceSync;
     window.syncPushGDrive = syncPushGDrive;
+    window.syncPushGDriveExcel = syncPushGDriveExcel;
     window.syncPushGDriveSettings = syncPushGDriveSettings;
     window.syncPullGDriveSettings = syncPullGDriveSettings;
 
