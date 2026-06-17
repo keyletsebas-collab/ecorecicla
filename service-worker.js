@@ -1,9 +1,9 @@
 // =============================================
 // SERVICE WORKER – Reciminsap PWA
-// v12: Group finance Excel files; show finances in history
+// v13: Add welcome file and timestamped 2-hour periodic GDrive Excel sync
 // =============================================
 
-const CACHE_NAME = 'reciminsap-v12';
+const CACHE_NAME = 'reciminsap-v13';
 
 const SAME_ORIGIN_ASSETS = [
   './',

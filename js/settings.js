@@ -548,8 +548,11 @@ async function handleGDriveSave() {
       const success = await window.syncPushGDrive(dataToSync);
       
       if (success) {
+        if (typeof window.sendGDriveWelcomeDoc === 'function') {
+          window.sendGDriveWelcomeDoc();
+        }
         if (typeof window.syncPushGDriveExcel === 'function') {
-          window.syncPushGDriveExcel();
+          window.syncPushGDriveExcel(true);
         }
         localStorage.setItem(userKey('recim_gdrive_status'), 'success');
         showToast(t('toast.gdrive_success'), 'success');

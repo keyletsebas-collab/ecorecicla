@@ -247,7 +247,7 @@
  * Push ALL Excel files (Facturas, Ingresos, Egresos, Materiales) to Google Drive.
  * Generates them with SheetJS and sends as base64, always regardless of data state.
  */
-async function syncPushGDriveExcel() {
+async function syncPushGDriveExcel(force = false) {
     if (typeof XLSX === 'undefined') return false;
 
     const folderInput = localStorage.getItem(userKey('recim_gdrive_folder'));
@@ -255,6 +255,19 @@ async function syncPushGDriveExcel() {
 
     const folderId = extractFolderId(folderInput);
     if (!folderId) return false;
+
+    // Check 2-hour rate limit if not forced
+    const now = Date.now();
+    if (!force) {
+        const lastSync = localStorage.getItem(userKey('recim_last_excel_sync'));
+        if (lastSync) {
+            const elapsed = now - parseInt(lastSync, 10);
+            if (elapsed < 2 * 60 * 60 * 1000) {
+                console.log("⏳ Google Drive Excel: Omitiendo auto-envío (límite de 2 horas activo).");
+                return false;
+            }
+        }
+    }
 
     let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
     if (!scriptUrl) {
@@ -324,23 +337,28 @@ async function syncPushGDriveExcel() {
         Código: m.id || m.code || '', Nombre: m.name || '', Unidad: m.unit || 'kg'
     }));
 
-    const today = new Date().toISOString().split('T')[0];
+    // Format date and time for filename (e.g., YYYY-MM-DD_HH-mm)
+    const nowObj = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const datePart = nowObj.getFullYear() + '-' + pad(nowObj.getMonth() + 1) + '-' + pad(nowObj.getDate());
+    const timePart = pad(nowObj.getHours()) + '-' + pad(nowObj.getMinutes());
+    const timestampLabel = `${datePart}_${timePart}`;
 
     // Define the Excel files to send (Ingresos and Egresos are combined in Finanzas)
     const excelFiles = [
         {
-            fileName: `Reciminsap_Facturas_${accountId}_${today}.xlsx`,
+            fileName: `Reciminsap_Facturas_${accountId}_${timestampLabel}.xlsx`,
             sheets: [{ name: 'Facturas', data: invRows }]
         },
         {
-            fileName: `Reciminsap_Finanzas_${accountId}_${today}.xlsx`,
+            fileName: `Reciminsap_Finanzas_${accountId}_${timestampLabel}.xlsx`,
             sheets: [
                 { name: 'Ingresos', data: incRows },
                 { name: 'Egresos', data: expRows }
             ]
         },
         {
-            fileName: `Reciminsap_Materiales_${accountId}_${today}.xlsx`,
+            fileName: `Reciminsap_Materiales_${accountId}_${timestampLabel}.xlsx`,
             sheets: [{ name: 'Catálogo_Materiales', data: matRows }]
         }
     ];
@@ -366,7 +384,51 @@ async function syncPushGDriveExcel() {
             allSuccess = false;
         }
     }
+
+    if (allSuccess) {
+        localStorage.setItem(userKey('recim_last_excel_sync'), now.toString());
+    }
     return allSuccess;
+}
+
+/**
+ * Send a welcome document to Google Drive.
+ */
+async function sendGDriveWelcomeDoc() {
+    const folderInput = localStorage.getItem(userKey('recim_gdrive_folder'));
+    if (!folderInput) return false;
+
+    const folderId = extractFolderId(folderInput);
+    if (!folderId) return false;
+
+    let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
+    if (!scriptUrl) {
+        if (typeof getAppsScriptUrl === 'function') {
+            scriptUrl = getAppsScriptUrl();
+        } else {
+            scriptUrl = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
+        }
+    }
+
+    try {
+        await fetch(scriptUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8'
+            },
+            body: JSON.stringify({
+                action: 'backup',
+                folderId: folderId,
+                fileName: 'Bienvenido_a_Reciminsap.txt',
+                content: '¡Bienvenido a Reciminsap!\n\nTu carpeta de Google Drive ha sido vinculada correctamente.\nAquí se guardarán tus copias de seguridad de datos (.json) y tus reportes de Excel (.xlsx) automáticamente.\n\nFecha de vinculación: ' + new Date().toLocaleString()
+            })
+        });
+        return true;
+    } catch (err) {
+        console.error('Error sending welcome document:', err);
+        return false;
+    }
 }
 
     /**
@@ -551,6 +613,7 @@ async function syncPushGDriveExcel() {
     window.forceSync = forceSync;
     window.syncPushGDrive = syncPushGDrive;
     window.syncPushGDriveExcel = syncPushGDriveExcel;
+    window.sendGDriveWelcomeDoc = sendGDriveWelcomeDoc;
     window.syncPushGDriveSettings = syncPushGDriveSettings;
     window.syncPullGDriveSettings = syncPullGDriveSettings;
 
