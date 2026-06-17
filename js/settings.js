@@ -201,6 +201,12 @@ function renderSettingsPage(container) {
             ${t('set.gdrive_instructions')}
           </div>
 
+          <div style="margin-top: 2px;">
+            <button class="btn-secondary" style="width:100%; justify-content:center; gap:6px; font-size:0.85rem; padding: 8px;" onclick="copyGDriveScriptCode()">
+              📋 Copiar código de Google Apps Script
+            </button>
+          </div>
+
           <div class="form-group" style="margin-top:4px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
               <label class="form-label" style="font-size:0.75rem; margin-bottom:0; font-weight:600;">${t('set.gdrive_folder')}</label>
