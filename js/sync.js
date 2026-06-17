@@ -229,12 +229,139 @@
             });
 
             console.log('☁️ Google Drive Sync: Respaldo enviado con éxito.');
-            return true;
-        } catch (err) {
-            console.error('Google Drive Sync Push Error:', err);
-            return false;
+        return true;
+    } catch (err) {
+        console.error('Google Drive Sync Push Error:', err);
+        return false;
+    }
+}
+
+/**
+ * Push ALL Excel files (Facturas, Ingresos, Egresos, Materiales) to Google Drive.
+ * Generates them with SheetJS and sends as base64, always regardless of data state.
+ */
+async function syncPushGDriveExcel() {
+    if (typeof XLSX === 'undefined') return false;
+
+    const folderInput = localStorage.getItem(userKey('recim_gdrive_folder'));
+    if (!folderInput) return false;
+
+    const folderId = extractFolderId(folderInput);
+    if (!folderId) return false;
+
+    let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
+    if (!scriptUrl) {
+        if (typeof getAppsScriptUrl === 'function') {
+            scriptUrl = getAppsScriptUrl();
+        } else {
+            scriptUrl = 'https://script.google.com/macros/s/AKfycbzrwE5FXgHuCGMIwiZE34DZChQP4zhvxaicj5eXcXKFw7qrew_jU6dVc2e50VxBQxP6/exec';
         }
     }
+
+    let accountId = 'default';
+    try {
+        const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+        accountId = session.accountId || 'default';
+    } catch (_) {}
+
+    // Helper: build an Excel workbook for a given dataset and return base64 string
+    function buildAndEncodeWorkbook(sheets) {
+        const wb = XLSX.utils.book_new();
+        sheets.forEach(({ name, data }) => {
+            if (data.length === 0) {
+                // Add an empty sheet with just a header row so the file always exists
+                const ws = XLSX.utils.aoa_to_sheet([['Sin datos']]);
+                XLSX.utils.book_append_sheet(wb, ws, name);
+            } else {
+                const ws = XLSX.utils.json_to_sheet(data);
+                XLSX.utils.book_append_sheet(wb, ws, name);
+            }
+        });
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+        return wbout;
+    }
+
+    // Gather all data
+    const invoices = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
+    const ingresos = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
+    const egresos  = JSON.parse(localStorage.getItem(userKey('recim_egresos'))  || '[]');
+    const mats     = (typeof getMaterialCodes === 'function') ? getMaterialCodes() : [];
+
+    // Build invoice rows (flatten items)
+    const invRows = [];
+    invoices.forEach(inv => {
+        (inv.items || []).forEach(item => {
+            invRows.push({
+                ID: inv.id, Fecha: inv.date,
+                Cliente: inv.client || inv.company || '—',
+                Tipo: inv.type || 'basic',
+                Material: item.name || item.desc || '',
+                Cantidad: item.qty || 0, Unidad: item.unit || 'kg',
+                Precio_Compra: item.priceBuy || item.uprice || 0,
+                Precio_Venta: item.priceSell || 0,
+                Subtotal: (item.qty || 0) * (item.priceBuy || item.uprice || 0),
+                Notas: inv.notes || ''
+            });
+        });
+    });
+
+    const incRows = ingresos.map(i => ({
+        ID: i.id, Fecha: i.date, Concepto: i.concept,
+        Monto: i.amount, Categoria: i.category || 'General'
+    }));
+    const expRows = egresos.map(e => ({
+        ID: e.id, Fecha: e.date, Concepto: e.concept,
+        Monto: e.amount, Categoria: e.category || 'General'
+    }));
+    const matRows = mats.map(m => ({
+        Código: m.id || m.code || '', Nombre: m.name || '', Unidad: m.unit || 'kg'
+    }));
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Define the Excel files to send
+    const excelFiles = [
+        {
+            fileName: `Reciminsap_Facturas_${accountId}_${today}.xlsx`,
+            sheets: [{ name: 'Facturas', data: invRows }]
+        },
+        {
+            fileName: `Reciminsap_Ingresos_${accountId}_${today}.xlsx`,
+            sheets: [{ name: 'Ingresos', data: incRows }]
+        },
+        {
+            fileName: `Reciminsap_Egresos_${accountId}_${today}.xlsx`,
+            sheets: [{ name: 'Egresos', data: expRows }]
+        },
+        {
+            fileName: `Reciminsap_Materiales_${accountId}_${today}.xlsx`,
+            sheets: [{ name: 'Catálogo_Materiales', data: matRows }]
+        }
+    ];
+
+    let allSuccess = true;
+    for (const fileInfo of excelFiles) {
+        try {
+            const base64Content = buildAndEncodeWorkbook(fileInfo.sheets);
+            await fetch(scriptUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'excel',
+                    folderId: folderId,
+                    fileName: fileInfo.fileName,
+                    base64Content: base64Content
+                })
+            });
+            console.log(`☁️ Google Drive: Excel enviado → ${fileInfo.fileName}`);
+        } catch (err) {
+            console.error(`Google Drive Excel Push Error (${fileInfo.fileName}):`, err);
+            allSuccess = false;
+        }
+    }
+    return allSuccess;
+}
 
     /**
      * Pull data from Supabase and update localStorage.

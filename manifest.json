@@ -1,6 +1,6 @@
 {
-    "name": "Reciminsa App",
-    "short_name": "Reciminsa",
+    "name": "Reciminsap",
+    "short_name": "Reciminsap",
     "description": "Gestión inteligente de materiales reciclables",
     "start_url": "/index.html",
     "display": "standalone",
