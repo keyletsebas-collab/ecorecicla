@@ -1,9 +1,9 @@
 // =============================================
 // SERVICE WORKER – Reciminsap PWA
-// v11: Update Google Apps Script URL
+// v12: Group finance Excel files; show finances in history
 // =============================================
 
-const CACHE_NAME = 'reciminsap-v11';
+const CACHE_NAME = 'reciminsap-v12';
 
 const SAME_ORIGIN_ASSETS = [
   './',

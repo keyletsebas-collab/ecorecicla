@@ -1,14 +1,40 @@
 /* =============================================
-   HISTORY.JS – Historial de facturas
+   HISTORY.JS – Historial de facturas, ingresos y egresos
    ============================================= */
 
-function renderHistoryPage(container) {
+function getAllHistoryItems() {
   const invoices = getAllInvoices();
+  const ingresos = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
+  const egresos = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
+
+  const normInvoices = invoices.map(i => ({ ...i, itemType: 'invoice' }));
+  const normIngresos = ingresos.map(i => ({
+    ...i,
+    itemType: 'ingreso',
+    type: 'ingreso',
+    typeName: 'Ingreso',
+    total: i.amount,
+    createdAt: i.createdAt || new Date(i.date + 'T12:00:00Z').toISOString()
+  }));
+  const normEgresos = egresos.map(e => ({
+    ...e,
+    itemType: 'egreso',
+    type: 'egreso',
+    typeName: 'Egreso',
+    total: e.amount,
+    createdAt: e.createdAt || new Date(e.date + 'T12:00:00Z').toISOString()
+  }));
+
+  return [...normInvoices, ...normIngresos, ...normEgresos];
+}
+
+function renderHistoryPage(container) {
+  const items = getAllHistoryItems();
 
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h2 class="section-title">${t('hist.title')}<span class="version-indicator-mobile">v1.0.9</span></h2>
+        <h2 class="section-title">${t('hist.title')}<span class="version-indicator-mobile">v1.1.0</span></h2>
         <p class="section-subtitle">${t('hist.subtitle')}</p>
       </div>
     </div>
@@ -16,23 +42,23 @@ function renderHistoryPage(container) {
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">${t('hist.total_inv')}</div>
-        <div class="stat-value stat-value--blue">${invoices.length}</div>
+        <div class="stat-value stat-value--blue">${items.filter(i => i.itemType === 'invoice').length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ingresos</div>
+        <div class="stat-value stat-value--green">${items.filter(i => i.type === 'ingreso').length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Egresos</div>
+        <div class="stat-value stat-value--red">${items.filter(i => i.type === 'egreso').length}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Bitácoras</div>
-        <div class="stat-value stat-value--green">${invoices.filter(i => i.type === 'basica').length}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Fact. Locales</div>
-        <div class="stat-value stat-value--blue">${invoices.filter(i => i.type === 'local').length}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Fact. Empresas</div>
-        <div class="stat-value stat-value--yellow">${invoices.filter(i => i.type === 'empresa').length}</div>
+        <div class="stat-value stat-value--green">${items.filter(i => i.type === 'basica').length}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">${t('hist.total_val')}</div>
-        <div class="stat-value stat-value--green">${formatMoney(invoices.reduce((s, i) => s + i.total, 0))}</div>
+        <div class="stat-value stat-value--green">${formatMoney(items.filter(i => i.itemType === 'invoice').reduce((s, i) => s + i.total, 0))}</div>
       </div>
     </div>
 
@@ -42,6 +68,8 @@ function renderHistoryPage(container) {
         <option value="basica">Bitácoras</option>
         <option value="local">Facturas Locales</option>
         <option value="empresa">Facturas Empresariales</option>
+        <option value="ingreso">Ingresos Financieros</option>
+        <option value="egreso">Egresos Financieros</option>
       </select>
       <input id="history-search" type="text" class="form-input" style="width:auto;min-width:200px;" placeholder="${t('hist.search')}" oninput="filterHistory()" />
       <button class="btn-secondary" onclick="exportFilteredHistoryToExcel()">📊 Exportar Excel</button>
@@ -49,13 +77,13 @@ function renderHistoryPage(container) {
     </div>
 
     <div id="history-list">
-      ${renderInvoiceCards(invoices)}
+      ${renderInvoiceCards(items)}
     </div>
   `;
 }
 
-function renderInvoiceCards(invoices) {
-  if (invoices.length === 0) {
+function renderInvoiceCards(items) {
+  if (items.length === 0) {
     return `
       <div class="empty-state">
         <div class="empty-state-icon">📋</div>
@@ -64,20 +92,23 @@ function renderInvoiceCards(invoices) {
   }
 
   // Sort by date (desc) and then by creation time (desc)
-  const sorted = [...invoices].sort((a, b) => {
+  const sorted = [...items].sort((a, b) => {
     if (b.date !== a.date) return b.date.localeCompare(a.date);
-    return b.createdAt.localeCompare(a.createdAt);
+    const timeA = a.createdAt || '';
+    const timeB = b.createdAt || '';
+    return timeB.localeCompare(timeA);
   });
 
   // Group by Month and then by Day
   const groups = {};
-  sorted.forEach(inv => {
-    const [y, m, d] = inv.date.split('-');
+  sorted.forEach(item => {
+    if (!item.date) return;
+    const [y, m, d] = item.date.split('-');
     const monthKey = `${y}-${m}`;
-    const dayKey = inv.date;
+    const dayKey = item.date;
     if (!groups[monthKey]) groups[monthKey] = {};
     if (!groups[monthKey][dayKey]) groups[monthKey][dayKey] = [];
-    groups[monthKey][dayKey].push(inv);
+    groups[monthKey][dayKey].push(item);
   });
 
   const monthNames = {
@@ -90,15 +121,15 @@ function renderInvoiceCards(invoices) {
   // Iterate months (desc)
   Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(mKey => {
     const [y, m] = mKey.split('-');
-    html += `<div class="history-month-header">${monthNames[m]} ${y}</div>`;
+    html += `<div class="history-month-header">${monthNames[m] || m} ${y}</div>`;
 
     // Iterate days (desc)
     Object.keys(groups[mKey]).sort((a, b) => b.localeCompare(a)).forEach(dKey => {
-      const dayInvoices = groups[mKey][dKey];
+      const dayItems = groups[mKey][dKey];
       html += `<div class="history-day-header">${formatDate(dKey)}</div>`;
 
-      dayInvoices.forEach(inv => {
-        html += renderSingleInvoiceCard(inv);
+      dayItems.forEach(item => {
+        html += renderSingleInvoiceCard(item);
       });
     });
   });
@@ -109,6 +140,8 @@ function renderInvoiceCards(invoices) {
 function renderSingleInvoiceCard(inv) {
   const isBasica = inv.type === 'basica';
   const isLocal = inv.type === 'local';
+  const isIngreso = inv.type === 'ingreso';
+  const isEgreso = inv.type === 'egreso';
   
   let badge, icon;
   if (isBasica) {
@@ -117,74 +150,127 @@ function renderSingleInvoiceCard(inv) {
   } else if (isLocal) {
     badge = `<span class="badge badge--blue">Fact. Local</span>`;
     icon = '🏠';
+  } else if (isIngreso) {
+    badge = `<span class="badge badge--green">Ingreso</span>`;
+    icon = '💰';
+  } else if (isEgreso) {
+    badge = `<span class="badge badge--red">Egreso</span>`;
+    icon = '💸';
   } else {
     badge = `<span class="badge badge--yellow">Fact. Empresa</span>`;
     icon = '🏢';
   }
 
-  const itemRows = isBasica
-    ? (inv.items || []).map(item => `
+  let itemRows = '';
+  if (isIngreso || isEgreso) {
+    itemRows = `
+      <tr>
+        <td><b>Concepto</b></td>
+        <td colspan="3">${inv.concept}</td>
+      </tr>
+      ${inv.category ? `
+      <tr>
+        <td><b>Categoría</b></td>
+        <td colspan="3">${inv.category}</td>
+      </tr>` : ''}
+    `;
+  } else if (isBasica) {
+    itemRows = (inv.items || []).map(item => `
         <tr>
-          <td>${item.icon} ${item.name}</td>
+          <td>${item.icon || '📦'} ${item.name}</td>
           <td>${item.qty} ${item.unit}</td>
           <td>${formatMoney(item.priceBuy || 0)}</td>
           <td><b>${formatMoney(item.totalCompra || 0)}</b></td>
-        </tr>`).join('')
-    : (inv.items || []).map(item => `
+        </tr>`).join('');
+  } else {
+    itemRows = (inv.items || []).map(item => `
         <tr>
           <td>${item.desc}</td>
           <td>${item.qty}</td>
           <td>${formatMoney(item.uprice)}</td>
           <td><b>${formatMoney(item.subtotal)}</b></td>
         </tr>`).join('');
+  }
 
-  const detailRows = isBasica ? `
-    <p><b>${t('hist.client')}</b> ${inv.client || '—'}</p>
-  ` : `
-    <div class="form-row" style="margin-bottom:12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-      <p><b>${t('hist.company')}</b> ${inv.company || '—'}</p>
-      <p><b>${t('hist.nit')}</b> ${inv.nit || '—'}</p>
-      <p><b>${t('hist.contact')}</b> ${inv.contact || '—'}</p>
-      <p><b>${t('hist.address')}</b> ${inv.address || '—'}</p>
-    </div>`;
+  let detailRows = '';
+  if (isIngreso || isEgreso) {
+    detailRows = `
+      <div style="margin-bottom:12px;">
+        <p style="margin: 4px 0;"><b>Concepto:</b> ${inv.concept || '—'}</p>
+        <p style="margin: 4px 0;"><b>Categoría:</b> ${inv.category || 'General'}</p>
+        ${inv.notes ? `<p style="margin: 4px 0;"><b>Notas:</b> ${inv.notes}</p>` : ''}
+      </div>
+    `;
+  } else if (isBasica) {
+    detailRows = `<p><b>${t('hist.client')}</b> ${inv.client || '—'}</p>`;
+  } else {
+    detailRows = `
+      <div class="form-row" style="margin-bottom:12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <p style="margin:0;"><b>${t('hist.company')}</b> ${inv.company || '—'}</p>
+        <p style="margin:0;"><b>${t('hist.nit')}</b> ${inv.nit || '—'}</p>
+        <p style="margin:0;"><b>${t('hist.contact')}</b> ${inv.contact || '—'}</p>
+        <p style="margin:0;"><b>${t('hist.address')}</b> ${inv.address || '—'}</p>
+      </div>`;
+  }
 
-  const totalsSection = isBasica ? `
-    <div class="invoice-summary" style="margin-top:12px;">
-      <div class="invoice-summary-row">
-        <span class="invoice-summary-label">Total Compra (Egreso)</span>
-        <span class="invoice-summary-value" style="color:#f87171;">-${formatMoney(inv.totalCompra)}</span>
+  let totalsSection = '';
+  if (isIngreso || isEgreso) {
+    totalsSection = `
+      <div class="invoice-summary" style="margin-top:12px;">
+        <div class="invoice-summary-row total">
+          <span class="invoice-summary-label">Monto</span>
+          <span class="invoice-summary-value" style="color:${isIngreso ? 'var(--clr-primary-light)' : '#f87171'}; font-size:1.2rem; font-weight:700;">
+            ${isIngreso ? '+' : '-'}${formatMoney(inv.total)}
+          </span>
+        </div>
       </div>
-      <div class="invoice-summary-row total">
-        <span class="invoice-summary-label">Balance Neto</span>
-        <span class="invoice-summary-value" style="color:${inv.balance >= 0 ? 'var(--clr-primary-light)' : '#f87171'}">${formatMoney(inv.balance)}</span>
-      </div>
-    </div>` : `
-    <div class="invoice-summary" style="margin-top:12px;">
-      <div class="invoice-summary-row">
-        <span class="invoice-summary-label">${t('lbl.subtotal')}</span>
-        <span class="invoice-summary-value">${formatMoney(inv.subtotal)}</span>
-      </div>
-      <div class="invoice-summary-row">
-        <span class="invoice-summary-label">${t('inv.iva')} (${inv.taxRate}%)</span>
-        <span class="invoice-summary-value">${formatMoney(inv.taxAmount)}</span>
-      </div>
-      <div class="invoice-summary-row total">
-        <span class="invoice-summary-label">${t('lbl.total')}</span>
-        <span class="invoice-summary-value">${formatMoney(inv.total)}</span>
-      </div>
-    </div>`;
+    `;
+  } else if (isBasica) {
+    totalsSection = `
+      <div class="invoice-summary" style="margin-top:12px;">
+        <div class="invoice-summary-row">
+          <span class="invoice-summary-label">Total Compra (Egreso)</span>
+          <span class="invoice-summary-value" style="color:#f87171;">-${formatMoney(inv.totalCompra)}</span>
+        </div>
+        <div class="invoice-summary-row total">
+          <span class="invoice-summary-label">Balance Neto</span>
+          <span class="invoice-summary-value" style="color:${inv.balance >= 0 ? 'var(--clr-primary-light)' : '#f87171'}">${formatMoney(inv.balance)}</span>
+        </div>
+      </div>`;
+  } else {
+    totalsSection = `
+      <div class="invoice-summary" style="margin-top:12px;">
+        <div class="invoice-summary-row">
+          <span class="invoice-summary-label">${t('lbl.subtotal')}</span>
+          <span class="invoice-summary-value">${formatMoney(inv.subtotal)}</span>
+        </div>
+        <div class="invoice-summary-row">
+          <span class="invoice-summary-label">${t('inv.iva')} (${inv.taxRate}%)</span>
+          <span class="invoice-summary-value">${formatMoney(inv.taxAmount)}</span>
+        </div>
+        <div class="invoice-summary-row total">
+          <span class="invoice-summary-label">${t('lbl.total')}</span>
+          <span class="invoice-summary-value">${formatMoney(inv.total)}</span>
+        </div>
+      </div>`;
+  }
+
+  const cardTitle = (isIngreso || isEgreso) ? (inv.concept) : (inv.id);
+  const cardMeta = (isIngreso || isEgreso) ? (`Finanzas &bull; Categoría: ${inv.category || 'General'}`) : (`${inv.client || inv.company || '—'} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}`);
+  const displayTotal = isEgreso ? `-${formatMoney(inv.total)}` : (isIngreso ? `+${formatMoney(inv.total)}` : formatMoney(inv.total));
+  const totalColor = isEgreso ? '#f87171' : (isIngreso ? 'var(--clr-primary-light)' : 'inherit');
 
   return `
   <div class="history-card" id="hcard-${inv.id}">
     <div class="history-card-header" onclick="toggleHistoryCard('${inv.id}')">
       <div class="history-card-icon">${icon}</div>
       <div class="history-card-info">
-        <div class="history-card-title">${inv.id} &nbsp; ${badge}</div>
+        <div class="history-card-title">${cardTitle} &nbsp; ${badge}</div>
         <div class="history-card-meta">
-          ${inv.client || inv.company || '—'} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}
+          ${cardMeta}
         </div>
       </div>
-      <div class="history-card-total">${formatMoney(inv.total)}</div>
+      <div class="history-card-total" style="color:${totalColor};">${displayTotal}</div>
       <span class="history-card-chevron">▼</span>
     </div>
     <div class="history-card-body">
@@ -192,14 +278,14 @@ function renderSingleInvoiceCard(inv) {
         <div class="pdf-only-header" style="display:none; text-align:center; padding-bottom:20px; border-bottom:2px solid #3b82f6; margin-bottom:20px;">
            <h1 style="color:#3b82f6; margin:0;">RECIMINSA</h1>
            <p style="margin:5px 0;">Gestión de Materiales Reciclables</p>
-           <h2 style="margin:15px 0 5px 0;">FACTURA ${inv.typeName.toUpperCase()}</h2>
+           <h2 style="margin:15px 0 5px 0;">${inv.typeName || inv.type.toUpperCase()}</h2>
            <p>ID: ${inv.id} | Fecha: ${formatDate(inv.date)}</p>
         </div>
         ${detailRows}
         <div style="overflow-x:auto; margin-top:10px;">
           <table class="data-table">
             <thead><tr>
-              <th>${t('hist.col_desc')}</th><th>${t('hist.col_qty')}</th><th>${t('hist.col_unit')}</th><th>${t('hist.col_total')}</th>
+              <th>Detalle</th><th>Cantidad / Info</th><th></th><th></th>
             </tr></thead>
             <tbody>${itemRows}</tbody>
           </table>
@@ -208,14 +294,12 @@ function renderSingleInvoiceCard(inv) {
         ${inv.notes ? `<p style="margin-top:12px; font-size:0.83rem; color:var(--clr-text-secondary);">📝 ${inv.notes}</p>` : ''}
       </div>
       <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:8px;">
-        ${!isBasica ? `<button class="btn-secondary" onclick="generatePDFInvoice(getAllInvoices().find(i => i.id === '${inv.id}'))">📄 PDF</button>` : ''}
-        <button class="btn-danger" onclick="deleteInvoice('${inv.id}')">${t('hist.del_inv')}</button>
+        ${(!isBasica && !isIngreso && !isEgreso) ? `<button class="btn-secondary" onclick="generatePDFInvoice(getAllInvoices().find(i => i.id === '${inv.id}'))">📄 PDF</button>` : ''}
+        <button class="btn-danger" onclick="deleteHistoryItem('${inv.type}', '${inv.id}')">${t('hist.del_inv')}</button>
       </div>
     </div>
   </div>`;
 }
-
-// generatePDFInvoice is called from invoices.js
 
 function toggleHistoryCard(id) {
   const card = document.getElementById(`hcard-${id}`);
@@ -225,35 +309,44 @@ function toggleHistoryCard(id) {
 function filterHistory() {
   const typeFilter = document.getElementById('history-filter-type')?.value || 'all';
   const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
-  let invoices = getAllInvoices();
+  let items = getAllHistoryItems();
 
-  if (typeFilter !== 'all') invoices = invoices.filter(i => i.type === typeFilter);
-  if (searchQuery) invoices = invoices.filter(i =>
+  if (typeFilter !== 'all') items = items.filter(i => i.type === typeFilter);
+  if (searchQuery) items = items.filter(i =>
     (i.id || '').toLowerCase().includes(searchQuery) ||
     (i.client || '').toLowerCase().includes(searchQuery) ||
-    (i.company || '').toLowerCase().includes(searchQuery)
+    (i.company || '').toLowerCase().includes(searchQuery) ||
+    (i.concept || '').toLowerCase().includes(searchQuery) ||
+    (i.category || '').toLowerCase().includes(searchQuery)
   );
 
   const list = document.getElementById('history-list');
-  if (list) list.innerHTML = renderInvoiceCards(invoices);
+  if (list) list.innerHTML = renderInvoiceCards(items);
 }
 
-function deleteInvoice(id) {
-  if (!confirm(t('confirm.del_inv'))) return;
-  const invoices = getAllInvoices().filter(i => i.id !== id);
-  // Use setItem (not removeItem) so the sync.js localStorage override fires and pushes to Firebase
-  localStorage.setItem(userKey('recim_invoices'), JSON.stringify(invoices));
-  showToast(t('toast.del_inv'), 'success');
+function deleteHistoryItem(type, id) {
+  if (type === 'ingreso' || type === 'egreso') {
+    if (!confirm('¿Estás seguro de que deseas eliminar este registro financiero?')) return;
+    const baseKey = type === 'ingreso' ? 'recim_ingresos' : 'recim_egresos';
+    const list = JSON.parse(localStorage.getItem(userKey(baseKey)) || '[]').filter(e => e.id !== id);
+    localStorage.setItem(userKey(baseKey), JSON.stringify(list));
+    showToast('Registro financiero eliminado con éxito', 'success');
+  } else {
+    if (!confirm(t('confirm.del_inv'))) return;
+    const invoices = getAllInvoices().filter(i => i.id !== id);
+    localStorage.setItem(userKey('recim_invoices'), JSON.stringify(invoices));
+    showToast(t('toast.del_inv'), 'success');
+  }
   rerenderCurrentPage();
 }
 
 function clearHistory() {
-  if (!confirm(t('confirm.clear_hist'))) return;
-  // Write empty array so sync.js can detect the change and push null to Firebase
+  if (!confirm('¿Estás seguro de que deseas limpiar todo el historial (Facturas, Bitácoras, Ingresos y Egresos)?')) return;
   localStorage.setItem(userKey('recim_invoices'), JSON.stringify([]));
-  // Also force an immediate sync to ensure cloud is cleared
+  localStorage.setItem(userKey('recim_ingresos'), JSON.stringify([]));
+  localStorage.setItem(userKey('recim_egresos'), JSON.stringify([]));
   if (typeof forceSync === 'function') forceSync();
-  showToast(t('toast.clear_hist'), 'success');
+  showToast('Todo el historial ha sido limpiado', 'success');
   rerenderCurrentPage();
 }
 
@@ -275,29 +368,24 @@ function formatDateTime(isoStr) {
 function exportFilteredHistoryToExcel() {
     const typeFilter = document.getElementById('history-filter-type')?.value || 'all';
     const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
-    let invoices = getAllInvoices();
+    let items = getAllHistoryItems();
 
-    if (typeFilter !== 'all') invoices = invoices.filter(i => i.type === typeFilter);
-    if (searchQuery) invoices = invoices.filter(i =>
+    if (typeFilter !== 'all') items = items.filter(i => i.type === typeFilter);
+    if (searchQuery) items = items.filter(i =>
         (i.id || '').toLowerCase().includes(searchQuery) ||
         (i.client || '').toLowerCase().includes(searchQuery) ||
-        (i.company || '').toLowerCase().includes(searchQuery)
+        (i.company || '').toLowerCase().includes(searchQuery) ||
+        (i.concept || '').toLowerCase().includes(searchQuery)
     );
 
-    if (invoices.length === 0) {
+    if (items.length === 0) {
         showToast('⚠️ No hay datos para exportar', 'warning');
         return;
     }
 
-    // Si solo hay bitácoras, usamos el exportador específico
     if (typeFilter === 'basica') {
-        exportBitacorasListToExcel(invoices);
+        exportBitacorasListToExcel(items.filter(i => i.type === 'basica'));
     } else {
-        // Para otros tipos o mixto, usamos el exportador general
         exportSelectedDataToExcel({ invoices: true }); 
-        // Nota: exportSelectedDataToExcel exporta TODO de localStorage. 
-        // Deberíamos pasarle el arreglo filtrado si quisiéramos ser exactos.
-        // Pero para no complicar excel-utils.js ahora, si es bitacora usamos el nuevo.
-        // Si el usuario quiere exportar todo lo demás, ya existe la opción en ajustes.
     }
 }

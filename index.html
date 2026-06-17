@@ -41,7 +41,7 @@
         // 2. Register the fresh service worker
         navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
           .then(reg => {
-            console.log('✅ SW Registered (v11)', reg);
+            console.log('✅ SW Registered (v12)', reg);
             reg.update();
           })
           .catch(err => console.warn('SW Error', err));
@@ -50,7 +50,7 @@
     async function isOldSW(reg) {
       try {
         const keys = await caches.keys();
-        return keys.some(k => k.startsWith('reciminsa-') && !k.startsWith('reciminsap-v11'));
+        return keys.some(k => k.startsWith('reciminsa-') && !k.startsWith('reciminsap-v12'));
       } catch { return false; }
     }
   </script>

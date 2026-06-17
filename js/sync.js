@@ -326,19 +326,18 @@ async function syncPushGDriveExcel() {
 
     const today = new Date().toISOString().split('T')[0];
 
-    // Define the Excel files to send
+    // Define the Excel files to send (Ingresos and Egresos are combined in Finanzas)
     const excelFiles = [
         {
             fileName: `Reciminsap_Facturas_${accountId}_${today}.xlsx`,
             sheets: [{ name: 'Facturas', data: invRows }]
         },
         {
-            fileName: `Reciminsap_Ingresos_${accountId}_${today}.xlsx`,
-            sheets: [{ name: 'Ingresos', data: incRows }]
-        },
-        {
-            fileName: `Reciminsap_Egresos_${accountId}_${today}.xlsx`,
-            sheets: [{ name: 'Egresos', data: expRows }]
+            fileName: `Reciminsap_Finanzas_${accountId}_${today}.xlsx`,
+            sheets: [
+                { name: 'Ingresos', data: incRows },
+                { name: 'Egresos', data: expRows }
+            ]
         },
         {
             fileName: `Reciminsap_Materiales_${accountId}_${today}.xlsx`,
