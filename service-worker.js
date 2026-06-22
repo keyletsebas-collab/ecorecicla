@@ -3,7 +3,7 @@
 // v14: Upgrade Excel exports with styling, currencies, auto column widths, formulas
 // =============================================
 
-const CACHE_NAME = 'reciminsaap-v20';
+const CACHE_NAME = 'reciminsaap-v21';
 
 const SAME_ORIGIN_ASSETS = [
   './',

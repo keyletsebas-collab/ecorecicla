@@ -2,16 +2,7 @@
    MATERIALS.JS – Códigos de Materiales
    ============================================= */
 
-const DEFAULT_MATERIALS = [
-  { id: 'mat-default-1', code: 'CART', name: 'Cartón', icon: '📦', unit: 'kg' },
-  { id: 'mat-default-2', code: 'PLAS', name: 'Plástico', icon: '🧴', unit: 'kg' },
-  { id: 'mat-default-3', code: 'VIDRIO', name: 'Vidrio', icon: '🍶', unit: 'kg' },
-  { id: 'mat-default-4', code: 'ALUM', name: 'Aluminio', icon: '🥫', unit: 'kg' },
-  { id: 'mat-default-5', code: 'COBR', name: 'Cobre', icon: '🔩', unit: 'kg' },
-  { id: 'mat-default-6', code: 'HIER', name: 'Hierro/Acero', icon: '⚙️', unit: 'kg' },
-  { id: 'mat-default-7', code: 'PAPE', name: 'Papel blanco', icon: '📄', unit: 'kg' },
-  { id: 'mat-default-8', code: 'ELEC', name: 'Electrónicos', icon: '💻', unit: 'kg' },
-];
+const DEFAULT_MATERIALS = [];
 
 function getCustomCodes() {
   const local = JSON.parse(localStorage.getItem(userKey('recim_material_codes')) || '[]');
@@ -104,16 +95,6 @@ function renderCodigosPage(container) {
             ${renderCustomCodesList(codes)}
           </div>
         </div>
-
-        <div class="card">
-          <h3 class="section-title" style="margin-bottom:12px;font-size:1rem;">${t('mat.defaults')}</h3>
-          ${DEFAULT_MATERIALS.map(m => `
-          <div class="material-item" style="gap:10px;">
-            <span style="font-size:1.2rem;">${m.icon}</span>
-            <span class="material-item-name">${m.name}</span>
-            <span class="badge">${m.code}</span>
-          </div>`).join('')}
-        </div>
       </div>
     </div>
   `;
@@ -121,7 +102,7 @@ function renderCodigosPage(container) {
 
 function renderCustomCodesList(codes) {
   if (codes.length === 0) {
-    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">${t('mat.no_codes')} ${t('mat.use_defaults')}</p>`;
+    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">No tienes códigos creados.</p>`;
   }
 
   return codes.map(c => `
