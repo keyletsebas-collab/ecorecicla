@@ -131,7 +131,7 @@ function renderEcologyPage(container) {
     <div class="page-header">
       <div>
         <h2 class="section-title">🌱 Impacto medioambiental e Impacto Verde</h2>
-        <p class="section-subtitle">Visualiza el ahorro de recursos naturales y genera Certificados Ecológicos para tus clientes.</p>
+        <p class="section-subtitle">Visualiza el ahorro de recursos naturales y genera Certificados de Impacto Medioambiental para tus clientes.</p>
       </div>
     </div>
 
@@ -190,7 +190,7 @@ function renderEcologyPage(container) {
 
       <!-- Right side: Green certificate generator -->
       <div class="card card--elevated">
-        <h3 class="section-title" style="margin-bottom: 8px; font-size: 1.05rem;">📄 Generador de Certificado Ecológico</h3>
+        <h3 class="section-title" style="margin-bottom: 8px; font-size: 1.05rem;">📄 Generador de Certificado de Impacto Medioambiental</h3>
         <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-bottom: 16px;">
           Emite certificados oficiales de impacto verde para tus clientes corporativos o particulares para sus auditorías RSE.
         </p>
@@ -248,7 +248,7 @@ function generateEcoCertificatePDF() {
   const stats = calculateEcoImpact(invoices, clientName, startDate, endDate);
 
   if (stats.totalWeight === 0) {
-    showToast('❌ No se encontraron facturas o aportes de reciclaje en el periodo seleccionado.', 'error');
+    showToast('❌ No se encontraron facturas o impactos medioambientales registrados en el periodo seleccionado.', 'error');
     return;
   }
 
@@ -336,7 +336,7 @@ function generateEcoCertificatePDF() {
         </div>
 
         <p style="font-size: 0.72rem; color: #6b7280; line-height: 1.4; max-width: 500px; margin: 0 auto 30px auto;">
-          Este aporte contribuye directamente a los Objetivos de Desarrollo Sostenible (ODS) y mitiga la degradación de recursos naturales vitales de nuestra región.
+          Este impacto medioambiental contribuye directamente a los Objetivos de Desarrollo Sostenible (ODS) y mitiga la degradación de recursos naturales vitales de nuestra región.
         </p>
 
         <!-- Signature Spot -->
@@ -359,7 +359,7 @@ function generateEcoCertificatePDF() {
   // Generate PDF via html2pdf
   const opt = {
     margin:       0.3,
-    filename:     `Certificado_Ecológico_${clientName || 'General'}_${new Date().toISOString().split('T')[0]}.pdf`,
+    filename:     `Certificado_Impacto_${clientName || 'General'}_${new Date().toISOString().split('T')[0]}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { scale: 2, useCORS: true },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
