@@ -38,3 +38,7 @@ ALTER TABLE public.support_chats ENABLE ROW LEVEL SECURITY;
 /* Políticas de seguridad para chats */
 CREATE POLICY "Permitir acceso publico a chats" 
 ON public.support_chats FOR ALL USING (true);
+
+/* HABILITAR REALTIME PARA EL CHAT */
+/* Esto es obligatorio para que los mensajes lleguen en vivo sin recargar la página */
+ALTER PUBLICATION supabase_realtime ADD TABLE public.support_chats;
