@@ -15,9 +15,30 @@ public partial class MainPage : ContentPage
         blazorWebView.BlazorWebViewInitialized += BlazorWebView_BlazorWebViewInitialized;
     }
 
-    private void BlazorWebView_BlazorWebViewInitialized(object sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
+    private async void BlazorWebView_BlazorWebViewInitialized(object sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
     {
         e.WebView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+        e.WebView.CoreWebView2.NavigationStarting += CoreWebView2_NavigationStarting;
+        
+        try
+        {
+            // Forzar limpieza de Service Workers y Cache que puedan estar causando que se vea la versión antigua
+            await e.WebView.CoreWebView2.Profile.ClearBrowsingDataAsync(Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.ServiceWorkers | Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.CacheStorage);
+            await e.WebView.CoreWebView2.ExecuteScriptAsync("if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); }");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error limpiando cache: " + ex.Message);
+        }
+    }
+
+    private void CoreWebView2_NavigationStarting(object sender, Microsoft.Web.WebView2.Core.CoreWebView2NavigationStartingEventArgs e)
+    {
+        // Si intenta navegar a un blob: (por ejemplo al darle click a un PDF mal generado), lo bloqueamos para evitar la pantalla blanca
+        if (e.Uri != null && e.Uri.StartsWith("blob:"))
+        {
+            e.Cancel = true;
+        }
     }
 
     private async void CoreWebView2_WebMessageReceived(object sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
