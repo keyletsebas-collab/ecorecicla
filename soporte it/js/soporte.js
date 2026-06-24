@@ -321,12 +321,13 @@ function appendMessageToUI(msg) {
   const bubbleClass = isMe ? 'me' : 'other';
   
   const timeStr = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  const statusIcon = isMe ? `<span style="margin-left:5px; font-size:0.75rem; font-weight:bold; opacity:0.8;">✓✓</span>` : '';
 
   const div = document.createElement('div');
   div.className = `chat-bubble ${bubbleClass}`;
   div.innerHTML = `
     ${msg.message}
-    <span class="chat-timestamp">${timeStr}</span>
+    <span class="chat-timestamp">${timeStr} ${statusIcon}</span>
   `;
   
   container.appendChild(div);
