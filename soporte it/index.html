@@ -108,8 +108,11 @@
     <div class="modal-card chat-modal-card">
       <!-- Header -->
       <div class="chat-header">
-        <h4 id="chat-title">Chat de Soporte</h4>
-        <button class="btn-secondary" style="padding:4px 10px;" onclick="closeChat()">✕</button>
+        <h3 style="font-size:1.1rem;">Soporte IT</h3>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="button" class="btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; background: var(--clr-surface-3); border: 1px solid var(--clr-border);" id="btn-close-ticket" onclick="closeTicket()">Cerrar Ticket</button>
+          <button type="button" class="btn-icon" onclick="closeChat()">✕</button>
+        </div>
       </div>
       
       <!-- Ticket Context -->
@@ -123,7 +126,7 @@
 
       <!-- Input -->
       <form id="chat-form" class="chat-form" style="padding:15px; border-top:1px solid var(--clr-border); background:var(--clr-surface-2); display:flex; gap:10px; align-items: center;" onsubmit="sendChatMessage(event)">
-        <textarea id="chat-input" class="form-input" placeholder="Escribe un mensaje aquí..." style="flex:1; min-width:0; padding:15px; font-size:1rem; resize:none; border-radius: 24px;" rows="1" required autocomplete="off" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('btn-send-msg').click(); }"></textarea>
+        <textarea id="chat-input" class="form-input" placeholder="Escribe un mensaje aquí..." style="flex:1; min-width:0; padding:12px 15px; box-sizing: border-box; font-size:1rem; line-height: 1.4; resize:none; border-radius: 24px;" rows="1" required autocomplete="off" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('btn-send-msg').click(); }"></textarea>
         <button type="submit" class="btn-primary" style="padding:0; font-size:1.2rem; height: 50px; width: 50px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center;" id="btn-send-msg" title="Enviar">
           <svg id="send-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           <div class="btn-spinner hidden" id="spinner-send"></div>

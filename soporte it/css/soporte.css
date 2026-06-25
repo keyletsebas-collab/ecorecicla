@@ -195,5 +195,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
+}
+
+/* Estilos de estado de mensaje */
+.msg-status {
+  margin-left: 5px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+.msg-sent {
+  opacity: 0.8;
+  color: inherit;
+}
+.msg-read {
+  color: #3b82f6; /* Azul brillante */
 }

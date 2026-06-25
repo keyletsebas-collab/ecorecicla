@@ -271,8 +271,44 @@ async function openChat(ticket) {
   // Load existing messages
   await loadChatMessages();
   
+  // Marcar como leídos los mensajes recibidos
+  markMessagesAsRead();
+  
   // Subscribe to new messages
   subscribeToChat();
+}
+
+async function closeTicket() {
+  if (!currentChatTicketId || !supabaseClient) return;
+  const confirmClose = confirm("¿Estás seguro de que deseas cerrar el ticket? Se borrarán todos los mensajes del chat.");
+  if (!confirmClose) return;
+
+  try {
+    // Borrar todos los mensajes de este ticket
+    await supabaseClient
+      .from('support_chats')
+      .delete()
+      .eq('ticket_id', currentChatTicketId);
+
+    // Marcar ticket como resuelto
+    await supabaseClient
+      .from('support_tickets')
+      .update({ status: 'resolved' })
+      .eq('id', currentChatTicketId);
+
+    alert("Ticket cerrado correctamente.");
+    closeChat();
+    
+    // Refrescar la lista de tickets
+    if (isAdmin) {
+      loadAllTickets();
+    } else {
+      loadMyTickets();
+    }
+  } catch (err) {
+    console.error("Error al cerrar ticket:", err);
+    alert("Hubo un error al cerrar el ticket.");
+  }
 }
 
 function closeChat() {
@@ -311,6 +347,20 @@ async function loadChatMessages() {
   }
 }
 
+async function markMessagesAsRead() {
+  if (!currentChatTicketId || !supabaseClient) return;
+  try {
+    await supabaseClient
+      .from('support_chats')
+      .update({ is_read: true })
+      .eq('ticket_id', currentChatTicketId)
+      .neq('sender_email', session.email)
+      .eq('is_read', false);
+  } catch (err) {
+    console.error("Error al marcar como leído:", err);
+  }
+}
+
 function appendMessageToUI(msg) {
   const container = document.getElementById('chat-messages');
   // Eliminar mensaje temporal si existe
@@ -321,11 +371,21 @@ function appendMessageToUI(msg) {
   const bubbleClass = isMe ? 'me' : 'other';
   
   const timeStr = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-  const statusIcon = isMe ? `<span style="margin-left:5px; font-size:0.75rem; font-weight:bold; opacity:0.8;">✓✓</span>` : '';
+  
+  let statusIcon = '';
+  if (isMe) {
+    if (msg.is_read) {
+      statusIcon = `<span class="msg-status msg-read">✓✓</span>`;
+    } else {
+      statusIcon = `<span class="msg-status msg-sent">✓</span>`;
+    }
+  }
 
   const div = document.createElement('div');
+  div.id = `msg-${msg.id}`;
   div.className = `chat-bubble ${bubbleClass}`;
   div.innerHTML = `
+    ${!isMe ? `<div style="font-weight:bold; font-size:0.75rem; margin-bottom:2px;">${msg.sender_name}</div>` : ''}
     ${msg.message}
     <span class="chat-timestamp">${timeStr} ${statusIcon}</span>
   `;
@@ -391,6 +451,26 @@ function subscribeToChat() {
     }, payload => {
       appendMessageToUI(payload.new);
       scrollToBottom();
+      // Si el mensaje lo envió la otra persona, marcarlo como leído automáticamente
+      if (payload.new.sender_email !== session.email) {
+        markMessagesAsRead();
+      }
+    })
+    .on('postgres_changes', { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'support_chats',
+      filter: `ticket_id=eq.${currentChatTicketId}`
+    }, payload => {
+      const msg = payload.new;
+      const msgDiv = document.getElementById(`msg-${msg.id}`);
+      if (msgDiv && msg.is_read && msg.sender_email === session.email) {
+        const iconSpan = msgDiv.querySelector('.msg-status');
+        if (iconSpan) {
+          iconSpan.className = 'msg-status msg-read';
+          iconSpan.textContent = '✓✓';
+        }
+      }
     })
     .subscribe();
 }

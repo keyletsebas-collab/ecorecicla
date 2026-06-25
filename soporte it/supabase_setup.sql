@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.support_chats (
     sender_email TEXT NOT NULL,
     sender_name TEXT,
     message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
