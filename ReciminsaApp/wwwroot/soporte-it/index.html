@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Soporte IT - Reciminsaap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/main.css?v=30" />
+  <link rel="stylesheet" href="../css/app.css?v=30" />
+  <link rel="stylesheet" href="css/soporte.css" />
+</head>
+
+<body>
+  <div class="app-screen" style="display:flex; flex-direction:column; height:100vh; position:relative;">
+    <!-- Topbar -->
+    <header class="topbar">
+      <button class="btn-secondary" onclick="window.history.back()" style="padding: 6px 12px; font-size: 0.9rem;">
+        ← Volver
+      </button>
+      <h2 class="topbar-title" style="flex:1; text-align:center;">Soporte IT</h2>
+      <div style="width: 70px;"></div> <!-- Spacer -->
+    </header>
+
+    <main class="main-content" style="flex:1; overflow-y:auto; padding: 20px;">
+      
+      <!-- Loading State -->
+      <div id="loading-state" style="text-align:center; padding:40px;">
+        <div class="btn-spinner" style="display:inline-block; border-color:#22c55e; border-right-color:transparent; width:30px; height:30px;"></div>
+        <p style="margin-top:10px; color:var(--clr-text-muted);">Verificando credenciales...</p>
+      </div>
+
+      <!-- User View (Submit Ticket) -->
+      <div id="user-view" class="hidden">
+        <div class="card card--elevated">
+          <h3 class="section-title" style="margin-bottom: 20px;">Reportar un Problema</h3>
+          
+          <form id="ticket-form" onsubmit="submitTicket(event)">
+            <div class="form-group">
+              <label class="form-label">Usuario que tiene el problema</label>
+              <!-- It could be a dropdown, but we default to current user if they are normal user. -->
+              <input type="text" id="ticket-user" class="form-input" list="users-list" placeholder="Busca un usuario o escribe su correo..." required />
+              <datalist id="users-list"></datalist>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Módulo donde ocurrió el problema</label>
+              <select id="ticket-module" class="form-input" required>
+                <option value="" disabled selected>Selecciona un módulo...</option>
+                <option value="Historial">Historial</option>
+                <option value="Bitácoras de Recogida">Bitácoras de Recogida</option>
+                <option value="Facturación">Facturación</option>
+                <option value="Códigos de Materiales">Códigos de Materiales</option>
+                <option value="Clientes">Clientes</option>
+                <option value="Ingresos">Ingresos</option>
+                <option value="Egresos">Egresos</option>
+                <option value="Registro de Empresas">Registro de Empresas</option>
+                <option value="Impacto Medioambiental">Impacto medioambiental</option>
+                <option value="Ajustes">Ajustes</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Fecha desde cuando aparece el problema</label>
+              <input type="date" id="ticket-date" class="form-input" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Especificaciones del problema</label>
+              <textarea id="ticket-desc" class="form-input" rows="8" placeholder="Describe detalladamente lo que ocurrió..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary" style="width:100%; justify-content:center; padding:12px; margin-top:10px;" id="btn-submit-ticket">
+              <span>Enviar Reclamo</span>
+              <div class="btn-spinner hidden" id="spinner-submit"></div>
+            </button>
+          </form>
+        </div>
+
+        <div class="card card--elevated" style="margin-top:20px;">
+          <h3 class="section-title">Mis Reclamos</h3>
+          <div id="my-tickets-list" style="margin-top:15px; display:flex; flex-direction:column; gap:10px;">
+            <p style="color:var(--clr-text-muted); font-size:0.9rem;">Cargando tus reclamos...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin View (Dashboard) -->
+      <div id="admin-view" class="hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h3 class="section-title" style="margin:0;">Panel de Administración IT</h3>
+          <button class="btn-secondary" onclick="loadAllTickets()">🔄 Refrescar</button>
+        </div>
+        
+        <div id="admin-tickets-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+          <p style="color:var(--clr-text-muted); font-size:0.9rem;">Cargando reclamos...</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Chat Modal -->
+  <div id="chat-modal" class="modal-overlay hidden">
+    <div class="modal-card chat-modal-card">
+      <!-- Header -->
+      <div class="chat-header">
+        <h3 id="chat-title" style="font-size:1.1rem;">Soporte IT</h3>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="button" class="btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; background: var(--clr-surface-3); border: 1px solid var(--clr-border);" id="btn-close-ticket" onclick="closeTicket()">Cerrar Ticket</button>
+          <button type="button" class="btn-icon" onclick="closeChat()">✕</button>
+        </div>
+      </div>
+      
+      <!-- Ticket Context -->
+      <div id="chat-context" class="chat-context">
+      </div>
+
+      <!-- Messages -->
+      <div id="chat-messages" class="chat-messages">
+        <p style="text-align:center; color:var(--clr-text-muted); font-size:0.8rem; margin:auto;">Iniciando conexión segura...</p>
+      </div>
+
+      <!-- Preview de imagen (oculto por defecto) -->
+      <div id="image-preview-container" class="hidden" style="padding:10px; background:var(--clr-surface-2); border-top:1px solid var(--clr-border); display:flex; align-items:center; gap:10px;">
+        <img id="image-preview-img" src="" alt="Vista previa" style="height:50px; border-radius:4px; border:1px solid var(--clr-border);">
+        <button type="button" class="btn-icon" style="color:var(--clr-danger);" onclick="clearImageAttachment()">✕ Cancelar</button>
+      </div>
+
+      <!-- Input -->
+      <form id="chat-form" class="chat-form" style="padding:15px; border-top:1px solid var(--clr-border); background:var(--clr-surface-2); display:flex; gap:10px; align-items: center;" onsubmit="sendChatMessage(event)">
+        <input type="file" id="chat-file-input" accept="image/*" class="hidden" onchange="handleImageSelection(event)">
+        <button type="button" class="btn-secondary" style="padding:0; font-size:1.2rem; height: 50px; width: 50px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; background:transparent; border:none;" onclick="document.getElementById('chat-file-input').click()" title="Adjuntar imagen">
+          📎
+        </button>
+        <textarea id="chat-input" class="form-input" placeholder="Escribe un mensaje..." style="flex:1; min-width:0; padding:12px 15px; box-sizing: border-box; font-size:1rem; line-height: 1.4; resize:none; border-radius: 24px;" rows="1" autocomplete="off" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('btn-send-msg').click(); }"></textarea>
+        <button type="submit" class="btn-primary" style="padding:0; font-size:1.2rem; height: 50px; width: 50px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center;" id="btn-send-msg" title="Enviar">
+          <svg id="send-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          <div class="btn-spinner hidden" id="spinner-send"></div>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Image Viewer Modal -->
+  <div id="image-viewer-modal" class="modal-overlay hidden" style="z-index: 9999; background: rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center;" onclick="closeImageViewer()">
+    <button type="button" class="btn-icon" style="position: absolute; top: 20px; right: 20px; color: white; font-size: 2rem; background: rgba(0,0,0,0.5); border-radius: 50%; width: 50px; height: 50px; z-index: 10000; cursor:pointer;" onclick="closeImageViewer()">✕</button>
+    <img id="image-viewer-img" src="" alt="Vista previa en grande" style="max-width: 95vw; max-height: 95vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-config.js?v=30"></script>
+  <script src="js/soporte.js"></script>
+</body>
+</html>

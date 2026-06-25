@@ -13,6 +13,13 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         blazorWebView.BlazorWebViewInitialized += BlazorWebView_BlazorWebViewInitialized;
+
+#if ANDROID
+        Microsoft.AspNetCore.Components.WebView.Maui.BlazorWebViewHandler.BlazorWebViewMapper.AppendToMapping("NotificationInterface", (handler, view) =>
+        {
+            handler.PlatformView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(), "AndroidNative");
+        });
+#endif
     }
 
     private async void BlazorWebView_BlazorWebViewInitialized(object sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)

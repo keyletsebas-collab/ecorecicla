@@ -738,7 +738,69 @@ async function sendGDriveWelcomeDoc() {
         if (dbId) {
             // Give it a moment to ensure isSupabaseActive is set
             setTimeout(() => {
-                if (isSupabaseActive) syncPullData(dbId);
+                if (isSupabaseActive) {
+                    syncPullData(dbId);
+                    
+                    // Activate Realtime Database listeners
+                    supabaseClient.channel('custom-all-channel')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `id=eq.${dbId}` }, payload => {
+                            console.log('🔄 Cambio detectado en Realtime Database:', payload);
+                            // Avoid unnecessary push loop by just pulling new data
+                            syncPullData(dbId);
+                        })
+                        .subscribe((status) => {
+                            if (status === 'SUBSCRIBED') {
+                                console.log('📡 Conectado a Supabase Realtime Database exitosamente.');
+                            }
+                        });
+                        
+                    // Activar notificaciones Push para Soporte IT
+                    supabaseClient.channel('global:support_notifications')
+                        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_chats' }, payload => {
+                            try {
+                                const sessionStr = localStorage.getItem('recim_session');
+                                if (!sessionStr) return;
+                                const sessionObj = JSON.parse(sessionStr);
+                                
+                                // Solo notificar si el mensaje es de la otra persona y es para el ticket o admin
+                                // Para simplificar: notificar si NO somos el emisor
+                                if (payload.new.sender_email === sessionObj.email) return;
+
+                                const title = 'Soporte IT: Nuevo Mensaje';
+                                const body = `${payload.new.sender_name}: ${payload.new.message}`;
+
+                                // Mostrar notificación push nativa si estamos en móvil
+                                if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.Plugins.LocalNotifications) {
+                                    Capacitor.Plugins.LocalNotifications.requestPermissions().then((result) => {
+                                        if (result.display === 'granted') {
+                                            Capacitor.Plugins.LocalNotifications.schedule({
+                                                notifications: [{
+                                                    title: title,
+                                                    body: body,
+                                                    id: new Date().getTime(),
+                                                    schedule: { at: new Date(Date.now() + 500) }
+                                                }]
+                                            });
+                                        }
+                                    });
+                                } else {
+                                    // Web Notification (PWA / Desktop)
+                                    if ('Notification' in window && document.visibilityState !== 'visible') {
+                                        if (Notification.permission === 'granted') {
+                                            new Notification(title, { body: body });
+                                        } else if (Notification.permission !== 'denied') {
+                                            Notification.requestPermission().then(p => {
+                                                if (p === 'granted') new Notification(title, { body: body });
+                                            });
+                                        }
+                                    } else if (document.visibilityState === 'visible' && typeof showToast === 'function') {
+                                        // Si estamos en la app y no estamos en la página de soporte (donde no hay sync.js), mostramos toast
+                                        showToast(`💬 Soporte IT: ${payload.new.sender_name} ha respondido.`, 'info', 5000);
+                                    }
+                                }
+                            } catch (e) { console.error('Push error:', e); }
+                        }).subscribe();
+                }
             }, 1000);
         }
     });

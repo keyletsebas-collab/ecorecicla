@@ -340,6 +340,15 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
+      <!-- ===== SOPORTE IT ===== -->
+      <div class="card card--elevated settings-section" style="grid-column: span 2;">
+        <h3 class="settings-section-title">🛠️ Soporte IT</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">¿Tienes algún problema con la aplicación? Contáctanos para recibir ayuda.</p>
+        <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #10b981, #059669);" onclick="window.location.href='soporte-it/index.html'">
+          Acceder a Soporte IT
+        </button>
+      </div>
+
       <!-- ===== INFORMACIÓN ===== -->
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
         <h3 class="settings-section-title">${t('set.info')}</h3>
@@ -1039,7 +1048,8 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
     }
     listContainer.innerHTML = members.map(m => {
       const isMe = m.accountId === myAccountId;
-      const initial = (m.avatar || m.name || 'U')[0].toUpperCase();
+      const cName = m.name ? m.name.split(' | ')[0].trim() : 'Usuario';
+      const initial = (m.avatar || cName || 'U')[0].toUpperCase();
       return `
         <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:var(--r-md);">
           <div style="width:32px; height:32px; border-radius:50%; background:var(--clr-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
@@ -1047,7 +1057,7 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
           </div>
           <div style="flex:1; min-width:0;">
             <div style="font-size:0.84rem; font-weight:600; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px;">
-              <span>${m.name}</span>
+              <span>${cName}</span>
               ${isMe ? `<span class="badge badge--green" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px;">Tú</span>` : ''}
             </div>
             <div style="font-size:0.74rem; color:var(--clr-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">

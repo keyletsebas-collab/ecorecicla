@@ -344,7 +344,7 @@ function renderSettingsPage(container) {
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
         <h3 class="settings-section-title">🛠️ Soporte IT</h3>
         <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">¿Tienes algún problema con la aplicación? Contáctanos para recibir ayuda.</p>
-        <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #10b981, #059669);" onclick="window.location.href='soporte it/index.html'">
+        <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #10b981, #059669);" onclick="window.location.href='soporte-it/index.html'">
           Acceder a Soporte IT
         </button>
       </div>

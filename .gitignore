@@ -14,3 +14,17 @@ package-lock.json
 
 out/
 landing 2/
+
+# MAUI and Build outputs
+**/bin/
+**/obj/
+**/AppPackages/
+*.apk
+*.aab
+*.apks
+*.msix
+*.exe
+*.zip
+*.log
+*.props
+*.cache

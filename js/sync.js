@@ -738,7 +738,22 @@ async function sendGDriveWelcomeDoc() {
         if (dbId) {
             // Give it a moment to ensure isSupabaseActive is set
             setTimeout(() => {
-                if (isSupabaseActive) syncPullData(dbId);
+                if (isSupabaseActive) {
+                    syncPullData(dbId);
+                    
+                    // Activate Realtime Database listeners
+                    supabaseClient.channel('custom-all-channel')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `id=eq.${dbId}` }, payload => {
+                            console.log('🔄 Cambio detectado en Realtime Database:', payload);
+                            // Avoid unnecessary push loop by just pulling new data
+                            syncPullData(dbId);
+                        })
+                        .subscribe((status) => {
+                            if (status === 'SUBSCRIBED') {
+                                console.log('📡 Conectado a Supabase Realtime Database exitosamente.');
+                            }
+                        });
+                }
             }, 1000);
         }
     });

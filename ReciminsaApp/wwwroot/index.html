@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet" />
-  <link rel="stylesheet" href="css/main.css?v=30" />
-  <link rel="stylesheet" href="css/auth.css?v=30" />
-  <link rel="stylesheet" href="css/app.css?v=30" />
-  <link rel="stylesheet" href="css/index.css?v=30">
+  <link rel="stylesheet" href="css/main.css?v=31" />
+  <link rel="stylesheet" href="css/auth.css?v=31" />
+  <link rel="stylesheet" href="css/app.css?v=31" />
+  <link rel="stylesheet" href="css/index.css?v=31">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#22c55e">
   <link rel="icon" type="image/png" href="icon-192.png">
@@ -41,7 +41,7 @@
         // 2. Register the fresh service worker
         navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
           .then(reg => {
-            console.log('✅ SW Registered (v16)', reg);
+            console.log('✅ SW Registered (v23)', reg);
             reg.update();
           })
           .catch(err => console.warn('SW Error', err));
@@ -50,7 +50,7 @@
     async function isOldSW(reg) {
       try {
         const keys = await caches.keys();
-        return keys.some(k => k.startsWith('reciminsa-') && !k.startsWith('reciminsaap-v16'));
+        return keys.some(k => k.startsWith('reciminsa-') && !k.startsWith('reciminsaap-v23'));
       } catch { return false; }
     }
   </script>
@@ -336,23 +336,24 @@
 
   <!-- Scripts (Supabase SDK & App Logic) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=30"></script>
-  <script src="js/i18n.js?v=30"></script>
-  <script src="js/auth.js?v=30"></script>
-  <script src="js/security.js?v=30"></script>
-  <script src="js/materials.js?v=30"></script>
-  <script src="js/clients.js?v=30"></script>
-  <script src="js/bitacoras.js?v=30"></script>
-  <script src="js/dgii-api.js?v=30"></script>
-  <script src="js/invoices.js?v=30"></script>
-  <script src="js/history.js?v=30"></script>
-  <script src="js/finance.js?v=30"></script>
-  <script src="js/settings.js?v=30"></script>
-  <script src="js/ecology.js?v=30"></script>
-  <script src="js/sidebar.js?v=30"></script>
-  <script src="js/app.js?v=30"></script>
-  <script src="js/excel-utils.js?v=30"></script>
-  <script src="js/sync.js?v=30"></script>
+  <script src="js/supabase-config.js?v=31"></script>
+  <script src="js/pdf-utils.js?v=31"></script>
+  <script src="js/i18n.js?v=31"></script>
+  <script src="js/auth.js?v=31"></script>
+  <script src="js/security.js?v=31"></script>
+  <script src="js/materials.js?v=31"></script>
+  <script src="js/clients.js?v=31"></script>
+  <script src="js/bitacoras.js?v=31"></script>
+  <script src="js/dgii-api.js?v=31"></script>
+  <script src="js/invoices.js?v=31"></script>
+  <script src="js/history.js?v=31"></script>
+  <script src="js/finance.js?v=31"></script>
+  <script src="js/settings.js?v=31"></script>
+  <script src="js/ecology.js?v=31"></script>
+  <script src="js/sidebar.js?v=31"></script>
+  <script src="js/app.js?v=31"></script>
+  <script src="js/excel-utils.js?v=31"></script>
+  <script src="js/sync.js?v=31"></script>
 </body>
 
 </html>

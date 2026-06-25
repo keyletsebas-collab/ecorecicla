@@ -171,14 +171,14 @@ function buildMaterialsSheet() {
 // ---------------------------------------------------------
 
 function downloadExcel(wb, filename) {
-    if (window.DotNet) {
+    if (window.chrome && window.chrome.webview) {
         const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-        window.DotNet.invokeMethodAsync('ReciminsaApp', 'DownloadFile', filename, base64Data)
-            .then(() => showToast('✅ Excel abierto en tu dispositivo', 'success'))
-            .catch(e => {
-                console.error(e);
-                showToast('❌ Error al descargar Excel', 'error');
-            });
+        window.chrome.webview.postMessage(JSON.stringify({
+            action: 'download',
+            filename: filename,
+            data: base64Data
+        }));
+        showToast('✅ Excel abierto en tu programa predeterminado', 'success');
     } else {
         XLSX.writeFile(wb, filename);
         showToast('✅ Excel descargado correctamente', 'success');

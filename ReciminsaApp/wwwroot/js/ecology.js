@@ -366,29 +366,29 @@ function generateEcoCertificatePDF() {
   };
 
   html2pdf().from(htmlContent).set(opt).output('blob').then((pdfBlob) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(pdfBlob);
-    reader.onloadend = () => {
-        const base64data = reader.result.split(',')[1];
-        if (window.DotNet) {
-            window.DotNet.invokeMethodAsync('ReciminsaApp', 'DownloadFile', opt.filename, base64data)
-                .then(() => showToast('✅ Certificado abierto en tu dispositivo', 'success'))
-                .catch(e => {
-                    console.error(e);
-                    showToast('❌ Error al abrir certificado', 'error');
-                });
-        } else {
-            const url = URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = opt.filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(url), 100);
-            showToast('✅ Certificado descargado con éxito', 'success');
-        }
-    };
+    if (window.chrome && window.chrome.webview) {
+        const reader = new FileReader();
+        reader.readAsDataURL(pdfBlob);
+        reader.onloadend = () => {
+            const base64data = reader.result.split(',')[1];
+            window.chrome.webview.postMessage(JSON.stringify({
+                action: 'download',
+                filename: opt.filename,
+                data: base64data
+            }));
+            showToast('✅ Certificado abierto en tu programa predeterminado', 'success');
+        };
+    } else {
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = opt.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        showToast('✅ Certificado descargado con éxito', 'success');
+    }
   }).catch((err) => {
     console.error(err);
     showToast('❌ Error al generar el PDF del certificado', 'error');

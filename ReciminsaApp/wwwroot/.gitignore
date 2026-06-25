@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+.env
+.vercel/
+api/
+supabase_schema.sql
+init_db.sql
+db_config.php
+www/
+# android/
+package-lock.json
+
+out/
+landing 2/
