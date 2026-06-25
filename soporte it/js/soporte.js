@@ -383,6 +383,31 @@ async function markMessagesAsRead() {
   }
 }
 
+let selectedImageFile = null;
+
+function handleImageSelection(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  selectedImageFile = file;
+  const previewImg = document.getElementById('image-preview-img');
+  const previewContainer = document.getElementById('image-preview-container');
+  
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    previewImg.src = evt.target.result;
+    previewContainer.classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImageAttachment() {
+  selectedImageFile = null;
+  document.getElementById('chat-file-input').value = '';
+  document.getElementById('image-preview-container').classList.add('hidden');
+  document.getElementById('image-preview-img').src = '';
+}
+
 function appendMessageToUI(msg) {
   const container = document.getElementById('chat-messages');
   // Eliminar mensaje temporal si existe
@@ -403,12 +428,18 @@ function appendMessageToUI(msg) {
     }
   }
 
+  let imageHtml = '';
+  if (msg.image_url) {
+    imageHtml = `<div style="margin-bottom:8px;"><img src="${msg.image_url}" alt="Attachment" style="max-width:100%; border-radius:8px;"></div>`;
+  }
+
   const div = document.createElement('div');
   div.id = `msg-${msg.id}`;
   div.className = `chat-bubble ${bubbleClass}`;
   div.innerHTML = `
     ${!isMe ? `<div style="font-weight:bold; font-size:0.75rem; margin-bottom:2px;">${cleanUserName(msg.sender_name)}</div>` : ''}
-    ${msg.message}
+    ${imageHtml}
+    ${msg.message ? `<div>${msg.message}</div>` : ''}
     <span class="chat-timestamp">${timeStr} ${statusIcon}</span>
   `;
   
@@ -426,7 +457,7 @@ async function sendChatMessage(e) {
 
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
-  if(!text) return;
+  if(!text && !selectedImageFile) return;
 
   const btn = document.getElementById('btn-send-msg');
   const spinner = document.getElementById('spinner-send');
@@ -434,6 +465,24 @@ async function sendChatMessage(e) {
   spinner.classList.remove('hidden');
 
   try {
+    let uploadedImageUrl = null;
+
+    if (selectedImageFile) {
+      const fileExt = selectedImageFile.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const { data: uploadData, error: uploadError } = await supabaseClient.storage
+        .from('support_attachments')
+        .upload(fileName, selectedImageFile);
+      
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabaseClient.storage
+        .from('support_attachments')
+        .getPublicUrl(fileName);
+      
+      uploadedImageUrl = publicUrlData.publicUrl;
+    }
+
     // Insert into DB
     const { error } = await supabaseClient
       .from('support_chats')
@@ -442,13 +491,15 @@ async function sendChatMessage(e) {
           ticket_id: currentChatTicketId,
           sender_email: session.email,
           sender_name: session.name || session.email,
-          message: text
+          message: text,
+          image_url: uploadedImageUrl
         }
       ]);
 
     if (error) throw error;
     
     input.value = '';
+    clearImageAttachment();
     // Let the real-time subscription handle adding it to the UI
   } catch (err) {
     console.error("Error enviando mensaje:", err);

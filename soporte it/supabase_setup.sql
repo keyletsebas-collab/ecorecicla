@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.support_chats (
     sender_email TEXT NOT NULL,
     sender_name TEXT,
     message TEXT NOT NULL,
+    image_url TEXT,
     is_read BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -43,3 +44,12 @@ ON public.support_chats FOR ALL USING (true);
 /* HABILITAR REALTIME PARA EL CHAT */
 /* Esto es obligatorio para que los mensajes lleguen en vivo sin recargar la página */
 ALTER PUBLICATION supabase_realtime ADD TABLE public.support_chats;
+
+/* 4. Crear Storage Bucket para imágenes adjuntas (Se recomienda ejecutar esto si usas el dashboard, o crearlo manualmente) */
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('support_attachments', 'support_attachments', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Permitir acceso publico a imagenes"
+ON storage.objects FOR ALL
+USING (bucket_id = 'support_attachments');
