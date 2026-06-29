@@ -212,13 +212,14 @@ function generateInvoicePDF(invoice) {
         jsPDF: { unit: 'mm', format: 'a4', orientation: isBasica ? 'portrait' : 'landscape' }
     };
 
-    // Crear contenedor temporal fuera de pantalla
+    // Crear contenedor temporal
     const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
+    container.style.position = 'fixed';
+    container.style.left = '0';
     container.style.top = '0';
     container.style.width = isBasica ? '800px' : '1000px';
-    container.style.background = '#fff';
+    container.style.height = '0';
+    container.style.overflow = 'hidden';
     container.style.zIndex = '-9999';
     container.style.pointerEvents = 'none';
     document.body.appendChild(container);
@@ -236,50 +237,58 @@ function generateInvoicePDF(invoice) {
             container.parentNode.removeChild(container);
         }
 
-        const base64Data = pdfBase64.split(',')[1];
-
-        // 1. Android MAUI (vía AddJavascriptInterface)
-        if (window.AndroidNative && window.AndroidNative.DownloadFile) {
+        // 1. Integración con MAUI Android (puente AndroidNative)
+        if (typeof AndroidNative !== 'undefined' && typeof AndroidNative.DownloadFile === 'function') {
+            const base64Data = pdfBase64.split(',')[1];
+            AndroidNative.DownloadFile(opt.filename, base64Data);
+            showToast('📄 PDF guardado y abierto', 'success');
+        }
+        // 2. Integración con Capacitor Móviles (por si acaso se usa en esa rama)
+        else if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
             try {
-                window.AndroidNative.DownloadFile(opt.filename, base64Data);
-                showToast('📄 PDF guardado en Descargas y abriendo...', 'success');
+                const base64Data = pdfBase64.split(',')[1];
+                const fileName = `Factura_${invoice.id}.pdf`;
+                
+                const result = await Capacitor.Plugins.Filesystem.writeFile({
+                    path: fileName,
+                    data: base64Data,
+                    directory: Capacitor.Plugins.Filesystem.Directory.Documents
+                });
+                
+                await Capacitor.Plugins.Share.share({
+                    title: 'Factura',
+                    text: 'Adjunto factura generada.',
+                    url: result.uri,
+                    dialogTitle: 'Compartir Factura'
+                });
+                showToast('📄 Factura lista', 'success');
             } catch (err) {
-                console.error('AndroidNative Error:', err);
-                showToast('❌ Error usando el puente nativo Android', 'error');
+                console.error('Error guardando PDF en Android', err);
+                showToast('❌ Error guardando el PDF en tu móvil', 'error');
             }
-        } 
-        // 2. Windows MAUI (WebView2)
+        }
+        // 3. Integración con WebView2 (Windows Desktop App)
         else if (window.chrome && window.chrome.webview) {
+            const base64Data = pdfBase64.split(',')[1];
             window.chrome.webview.postMessage(JSON.stringify({
                 action: 'download',
                 filename: opt.filename,
                 data: base64Data
             }));
-            showToast('📄 Factura abierta en tu programa predeterminado', 'success');
-        } 
-        // 3. Web Estándar / Fallback
+            showToast('📄 Abriendo PDF en tu lector predeterminado...', 'success');
+        }
+        // 4. Descarga Web / PC normal (incluido Linux / Electron)
         else {
             try {
-                // Convertir Base64 a Blob manualmente (fetch falla en muchos WebViews con data URI grandes)
-                const byteCharacters = atob(base64Data);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: 'application/pdf' });
-                
-                const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
-                link.href = url;
+                link.href = pdfBase64; // Cargar directamente como URI Base64
                 link.download = opt.filename;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 100);
                 showToast('📄 PDF descargado', 'success');
             } catch (err) {
-                console.error('Error creando Blob manual:', err);
+                console.error('Error al descargar PDF:', err);
                 showToast('❌ Error al guardar PDF', 'error');
             }
         }

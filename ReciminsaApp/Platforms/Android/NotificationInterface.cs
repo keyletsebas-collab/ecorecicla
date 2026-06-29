@@ -31,32 +31,53 @@ namespace ReciminsaApp.Platforms.Android
             try
             {
                 byte[] fileBytes = Convert.FromBase64String(base64Data);
-                string downloadsPath = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads).AbsolutePath;
-                string filePath = System.IO.Path.Combine(downloadsPath, filename);
+                string filePath = "";
                 
-                int count = 1;
-                string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filename);
-                string extension = System.IO.Path.GetExtension(filename);
-                while (System.IO.File.Exists(filePath))
+                try
                 {
-                    filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
-                    count++;
+                    // Intentar guardar en Descargas públicas
+                    string downloadsPath = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads).AbsolutePath;
+                    filePath = System.IO.Path.Combine(downloadsPath, filename);
+                    
+                    int count = 1;
+                    string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filename);
+                    string extension = System.IO.Path.GetExtension(filename);
+                    while (System.IO.File.Exists(filePath))
+                    {
+                        filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
+                        count++;
+                    }
+                    System.IO.File.WriteAllBytes(filePath, fileBytes);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error al guardar en Descargas públicas, usando caché de la app: " + ex.Message);
+                    // Fallback a la caché privada de la app que no requiere permisos
+                    string cachePath = FileSystem.Current.CacheDirectory;
+                    filePath = System.IO.Path.Combine(cachePath, filename);
+                    System.IO.File.WriteAllBytes(filePath, fileBytes);
                 }
 
-                System.IO.File.WriteAllBytes(filePath, fileBytes);
-
-                // Use MAUI Launcher to open it
+                // Usar MAUI Launcher para abrir el archivo
+                string finalPath = filePath;
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await Launcher.OpenAsync(new OpenFileRequest
+                    try
                     {
-                        File = new ReadOnlyFile(filePath)
-                    });
+                        await Launcher.OpenAsync(new OpenFileRequest
+                        {
+                            File = new ReadOnlyFile(finalPath)
+                        });
+                    }
+                    catch (Exception launchEx)
+                    {
+                        Console.WriteLine("Error al abrir archivo con Launcher: " + launchEx.Message);
+                    }
                 });
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error downloading file: " + ex.Message);
+                Console.WriteLine("Error general en DownloadFile: " + ex.Message);
             }
         }
     }

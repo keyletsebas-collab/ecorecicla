@@ -62,6 +62,8 @@ public partial class MainPage : ContentPage
                 if (message != null && message.Action == "download")
                 {
                     string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                    Directory.CreateDirectory(downloadsPath); // Asegurar que la carpeta Descargas exista
+                    
                     string safeFileName = message.Filename.Replace("/", "_").Replace("\\", "_");
                     string filePath = Path.Combine(downloadsPath, safeFileName);
                     
@@ -78,10 +80,25 @@ public partial class MainPage : ContentPage
                     byte[] fileBytes = Convert.FromBase64String(message.Data);
                     await File.WriteAllBytesAsync(filePath, fileBytes);
 
-                    // Abrir en el navegador/programa por defecto
-                    await Launcher.OpenAsync(new OpenFileRequest
+                    // Intentar abrir con el programa por defecto del sistema
+                    try
                     {
-                        File = new ReadOnlyFile(filePath)
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true });
+                    }
+                    catch (Exception)
+                    {
+                        // Fallback a Launcher.OpenAsync de MAUI
+                        await Launcher.OpenAsync(new OpenFileRequest
+                        {
+                            File = new ReadOnlyFile(filePath)
+                        });
+                    }
+
+                    // Mostrar confirmación visual en pantalla al usuario
+                    string finalPath = filePath;
+                    MainThread.BeginInvokeOnMainThread(async () =>
+                    {
+                        await DisplayAlert("Factura Guardada", $"El archivo PDF se ha descargado y guardado en tu carpeta de Descargas:\n\n{finalPath}", "OK");
                     });
                 }
             }

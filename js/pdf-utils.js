@@ -237,11 +237,17 @@ function generateInvoicePDF(invoice) {
             container.parentNode.removeChild(container);
         }
 
-        // Integración Capacitor para Móviles
-        if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+        // 1. Integración con MAUI Android (puente AndroidNative)
+        if (typeof AndroidNative !== 'undefined' && typeof AndroidNative.DownloadFile === 'function') {
+            const base64Data = pdfBase64.split(',')[1];
+            AndroidNative.DownloadFile(opt.filename, base64Data);
+            showToast('📄 PDF guardado y abierto', 'success');
+        }
+        // 2. Integración con Capacitor Móviles (por si acaso se usa en esa rama)
+        else if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
             try {
                 const base64Data = pdfBase64.split(',')[1];
-                const fileName = \`Factura_\${invoice.id}.pdf\`;
+                const fileName = `Factura_${invoice.id}.pdf`;
                 
                 const result = await Capacitor.Plugins.Filesystem.writeFile({
                     path: fileName,
@@ -260,34 +266,31 @@ function generateInvoicePDF(invoice) {
                 console.error('Error guardando PDF en Android', err);
                 showToast('❌ Error guardando el PDF en tu móvil', 'error');
             }
-        } else if (window.chrome && window.chrome.webview) {
-            // WebView2 (Windows Desktop App)
+        }
+        // 3. Integración con WebView2 (Windows Desktop App)
+        else if (window.chrome && window.chrome.webview) {
             const base64Data = pdfBase64.split(',')[1];
             window.chrome.webview.postMessage(JSON.stringify({
                 action: 'download',
                 filename: opt.filename,
                 data: base64Data
             }));
-            showToast('📄 Factura abierta en tu programa predeterminado', 'success');
-        } else {
-            // Descarga Web / PC normal
-            fetch(pdfBase64)
-                .then(res => res.blob())
-                .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = opt.filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    setTimeout(() => URL.revokeObjectURL(url), 100);
-                    showToast('📄 PDF descargado', 'success');
-                })
-                .catch(err => {
-                    console.error('Error Blob:', err);
-                    showToast('❌ Error al guardar PDF', 'error');
-                });
+            showToast('📄 Abriendo PDF en tu lector predeterminado...', 'success');
+        }
+        // 4. Descarga Web / PC normal (incluido Linux / Electron)
+        else {
+            try {
+                const link = document.createElement('a');
+                link.href = pdfBase64; // Cargar directamente como URI Base64
+                link.download = opt.filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('📄 PDF descargado', 'success');
+            } catch (err) {
+                console.error('Error al descargar PDF:', err);
+                showToast('❌ Error al guardar PDF', 'error');
+            }
         }
     }).catch(err => {
         if (container.parentNode) {

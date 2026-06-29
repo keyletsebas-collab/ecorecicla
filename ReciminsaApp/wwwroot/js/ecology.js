@@ -366,29 +366,42 @@ function generateEcoCertificatePDF() {
   };
 
   html2pdf().from(htmlContent).set(opt).output('blob').then((pdfBlob) => {
-    if (window.chrome && window.chrome.webview) {
-        const reader = new FileReader();
-        reader.readAsDataURL(pdfBlob);
-        reader.onloadend = () => {
-            const base64data = reader.result.split(',')[1];
+    const reader = new FileReader();
+    reader.readAsDataURL(pdfBlob);
+    reader.onloadend = () => {
+        const base64data = reader.result.split(',')[1];
+        
+        // 1. Integración con MAUI Android (puente AndroidNative)
+        if (typeof AndroidNative !== 'undefined' && typeof AndroidNative.DownloadFile === 'function') {
+            AndroidNative.DownloadFile(opt.filename, base64data);
+            showToast('✅ Certificado guardado en Descargas', 'success');
+        }
+        // 2. Integración con WebView2 (Windows Desktop App)
+        else if (window.chrome && window.chrome.webview) {
             window.chrome.webview.postMessage(JSON.stringify({
                 action: 'download',
                 filename: opt.filename,
                 data: base64data
             }));
-            showToast('✅ Certificado abierto en tu programa predeterminado', 'success');
-        };
-    } else {
-        const url = URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = opt.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-        showToast('✅ Certificado descargado con éxito', 'success');
-    }
+            showToast('✅ Certificado abierto en tu lector predeterminado...', 'success');
+        }
+        // 3. Descarga Web / PC normal (incluido Linux / Electron)
+        else {
+            try {
+                const link = document.createElement('a');
+                link.href = reader.result; // Cargar directamente como URI Base64
+                link.download = opt.filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('✅ Certificado descargado con éxito', 'success');
+            } catch (err) {
+                console.error('Error al descargar Certificado:', err);
+                showToast('❌ Error al guardar Certificado', 'error');
+            }
+        }
+    };
+  })
   }).catch((err) => {
     console.error(err);
     showToast('❌ Error al generar el PDF del certificado', 'error');
