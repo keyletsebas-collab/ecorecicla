@@ -326,7 +326,6 @@ async function showColabForm(colabIndex = null) {
         <button id="tab-btn-identidad" class="colab-tab-btn active" onclick="switchColabTab('identidad')">Identidad</button>
         <button id="tab-btn-contacto" class="colab-tab-btn" onclick="switchColabTab('contacto')">Contacto</button>
         <button id="tab-btn-laboral" class="colab-tab-btn" onclick="switchColabTab('laboral')">Laboral</button>
-        <button id="tab-btn-financiero" class="colab-tab-btn" onclick="switchColabTab('financiero')">Financiero</button>
         <button id="tab-btn-logistica" class="colab-tab-btn" onclick="switchColabTab('logistica')">Logística</button>
       </div>
 
@@ -458,36 +457,7 @@ async function showColabForm(colabIndex = null) {
           </div>
         </div>
 
-        <!-- PESTAÑA 4: FINANCIERO -->
-        <div id="tab-sec-financiero" class="colab-form-section">
-          <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:20px;">
-            <h4 style="margin:0; font-size:0.95rem; color:var(--clr-primary-light); font-weight:700;">💳 Información Financiera</h4>
-          </div>
-          <div class="colab-grid-2" style="margin-bottom:20px;">
-            <div class="form-group">
-              <label class="form-label">${isEn ? 'Payment Type' : 'Tipo de Pago'}</label>
-              <select id="colab-payment-type" class="form-select" style="background:var(--clr-surface-3);">
-                <option value="Efectivo" ${paymentType === 'Efectivo' ? 'selected' : ''}>Efectivo</option>
-                <option value="Transferencia" ${paymentType === 'Transferencia' ? 'selected' : ''}>Transferencia Bancaria</option>
-                <option value="Cheque" ${paymentType === 'Cheque' ? 'selected' : ''}>Cheque</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">${isEn ? 'Bank Name' : 'Banco'}</label>
-              <input type="text" id="colab-bank-name" class="form-input" style="background:var(--clr-surface-3);" value="${bankName}" placeholder="Ej: Banco Popular, Banreservas" />
-            </div>
-          </div>
-          <div class="colab-grid-2">
-            <div class="form-group">
-              <label class="form-label">${isEn ? 'Bank Account Number' : 'Número de Cuenta'}</label>
-              <input type="text" id="colab-bank-account" class="form-input" style="background:var(--clr-surface-3);" value="${bankAccount}" placeholder="Número de cuenta de ahorros/corriente" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">${isEn ? 'Salary' : 'Salario Mensual'}</label>
-              <input type="number" id="colab-salary" class="form-input" style="background:var(--clr-surface-3);" value="${salary}" placeholder="0.00" step="0.01" />
-            </div>
-          </div>
-        </div>
+
 
         <!-- PESTAÑA 5: LOGÍSTICA (ASIGNACIÓN DE USUARIO Y PERMISOS) -->
         <div id="tab-sec-logistica" class="colab-form-section">
@@ -670,10 +640,10 @@ function saveCollaborator() {
   const hireDate = document.getElementById('colab-hiredate').value;
   const status = document.getElementById('colab-status').value;
 
-  const paymentType = document.getElementById('colab-payment-type').value;
-  const bankName = document.getElementById('colab-bank-name').value.trim();
-  const bankAccount = document.getElementById('colab-bank-account').value.trim();
-  const salary = parseFloat(document.getElementById('colab-salary').value) || 0;
+  const paymentType = 'Efectivo';
+  const bankName = '';
+  const bankAccount = '';
+  const salary = 0;
 
   const linkedAccountId = document.getElementById('colab-linked-account').value;
 
