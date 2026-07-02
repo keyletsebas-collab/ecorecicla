@@ -1190,8 +1190,21 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
     if (companyAdminId && companyAdminId.startsWith('"') && companyAdminId.endsWith('"')) {
       try { companyAdminId = JSON.parse(companyAdminId); } catch (_) {}
     }
+
+    // Auto-reparar si no está asignado o es Desconocido buscando a keyletsebas@gmail.com
+    if (!companyAdminId || companyAdminId === 'Desconocido') {
+      const defaultFounder = members.find(m => m.email === 'keyletsebas@gmail.com');
+      if (defaultFounder) {
+        companyAdminId = defaultFounder.accountId;
+        localStorage.setItem(userKey('recim_company_admin'), JSON.stringify(companyAdminId));
+        if (window.syncPushData) {
+          window.syncPushData(true);
+        }
+      }
+    }
+
     const founder = members.find(m => m.accountId === companyAdminId);
-    const founderName = founder ? (founder.name ? founder.name.split(' | ')[0].trim() : founder.email) : 'Desconocido';
+    const founderName = founder ? (founder.name ? founder.name.split(' | ')[0].trim() : founder.email) : 'keylet';
 
     let listHtml = `<div style="font-size:0.8rem; margin-bottom: 12px; color:var(--clr-text-muted);"><strong>Fundador de la Empresa:</strong> <span style="color:var(--clr-primary-light); font-weight:600;">${founderName}</span></div>`;
 
