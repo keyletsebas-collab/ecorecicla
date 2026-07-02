@@ -183,21 +183,51 @@ async function getChatbotResponse(userMessage) {
         console.error('Error fetching local app data for chatbot context:', e);
     }
 
-    const formattedClients = clients.map(c => `* ${c.name || 'Sin nombre'} (RNC/Cédula/NIT: ${c.nit || 'No especificado'}, Tipo: ${c.type || 'local'}, Contacto: ${c.contact || 'No especificado'})`).join('\n');
+    const todayIso = new Date().toISOString().split('T')[0];
+    const todayFormatted = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Filtrar y formatear clientes distinguiendo local de empresa
+    const formattedClients = clients.map(c => 
+        `* Nombre: ${c.name || 'Sin nombre'} (RNC/Cédula/NIT: ${c.nit || 'No especificado'}, Tipo: ${c.type || 'local'}, Contacto: ${c.contact || 'No especificado'})`
+    ).join('\n');
+
+    // Filtrar las últimas 30 facturas y bitácoras
+    const sortedInvoices = [...invoices].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const recentInvoices = sortedInvoices.slice(0, 30);
+    const formattedInvoices = recentInvoices.map(inv => {
+        const typeStr = inv.type === 'basica' ? 'Bitácora de Recogida' : 'Factura Estándar';
+        const materialsStr = (inv.items || []).map(it => 
+            `${it.materialName || it.name || 'Material'} (Cant: ${it.qty || 0}kg, Compra: $${it.costPrice || 0}, Venta: $${it.sellPrice || 0})`
+        ).join(', ');
+        return `* [Fecha: ${inv.date}] ${typeStr} ID: ${inv.id} - Cliente/Empresa: ${inv.client} - Compra: $${inv.totalCompra || inv.total || 0}, Venta: $${inv.totalVenta || 0}, Ganancia: $${inv.balance || 0} - Notas: ${inv.notes || 'Ninguna'} - Materiales: [${materialsStr}]`;
+    }).join('\n');
+
     const formattedCodes = codes.map(c => `${c.code}: ${c.name}`).join(', ');
     const totalIncomes = incomes.reduce((sum, item) => sum + (item.amount || 0), 0);
     const totalExpenses = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
 
     // Prompt enriquecido de forma invisible con la información en tiempo real de la app del usuario
     const contextPrompt = `
-[CONTEXTO DEL USUARIO EN LA APP - DATOS EN TIEMPO REAL]:
+[CONTEXTO EN TIEMPO REAL DEL USUARIO EN LA APP]:
+- Fecha de hoy en el sistema: ${todayFormatted} (${todayIso})
 - Clientes y proveedores registrados (total: ${clients.length}):
 ${formattedClients || 'Ninguno registrado aún'}
-- Facturas en el historial: ${invoices.length} factura(s)
+- Historial de Facturas y Bitácoras de Recogida recientes (últimas 30 registradas):
+${formattedInvoices || 'Ninguna factura o bitácora registrada aún'}
 - Catálogo de Materiales configurados: ${formattedCodes || 'Ninguno'} (total: ${codes.length})
-- Ingresos: ${incomes.length} registro(s) por un total de $${totalIncomes.toFixed(2)}
-- Egresos: ${expenses.length} registro(s) por un total de $${totalExpenses.toFixed(2)}
-- Balance Neto: $${(totalIncomes - totalExpenses).toFixed(2)}
+- Resumen Financiero: Ingresos $${totalIncomes.toFixed(2)}, Egresos $${totalExpenses.toFixed(2)}, Balance Neto $${(totalIncomes - totalExpenses).toFixed(2)}
+
+[DIRECTIVAS DE FORMATO Y RESPUESTA PARA LA IA]:
+1. Si el usuario te pide que le digas o liste los clientes, proveedores o empresas, DEBES presentarlos estrictamente separados en dos grupos usando este formato exacto en tu respuesta:
+CLIENTES:
+- [Nombre del cliente local A]
+- [Nombre del cliente local B]
+
+EMPRESAS:
+- [Nombre de la empresa A]
+- [Nombre de la empresa B]
+
+2. Si te piden información sobre la "bitácora de recogida del último mes" (o cualquier rango de fechas), filtra los registros provistos arriba que correspondan (la fecha actual del sistema es ${todayIso}), procesa los materiales, cantidades y montos, y responde detallando claramente las bitácoras encontradas de ese período.
 
 Pregunta del usuario: ${userMessage}
 `;
@@ -224,7 +254,6 @@ Pregunta del usuario: ${userMessage}
         return data.reply || data.response || data.text || JSON.stringify(data);
     } catch (error) {
         console.error('Chatbot API Error:', error);
-        // Fallback elegante al motor local de ayuda para no dejar al usuario sin respuesta
         console.warn('Falling back to local help responses due to API error.');
         return getLocalHelpResponse(userMessage);
     }
@@ -253,12 +282,35 @@ function getLocalHelpResponse(message) {
     const totalIncomes = incomes.reduce((sum, item) => sum + (item.amount || 0), 0);
     const totalExpenses = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
 
-    if (lower.includes('cliente') || lower.includes('proveedor')) {
+    if (lower.includes('cliente') || lower.includes('proveedor') || lower.includes('empresa')) {
         if (clients.length === 0) {
             return '👥 Clientes y Empresas:\n\nActualmente no tienes ningún cliente o proveedor registrado en la aplicación. Puedes agregarlos desde el módulo "Clientes / Empresas" en la barra lateral.';
         }
-        return `👥 Tus Clientes y Empresas registrados:\n\nTienes ${clients.length} cliente(s):\n` + 
-            clients.map((c, i) => `${i + 1}. ${c.name || 'Sin nombre'} (${c.nit || 'Sin RNC/Cédula'})`).join('\n');
+        
+        const localClients = clients.filter(c => c.type !== 'empresa');
+        const companyClients = clients.filter(c => c.type === 'empresa');
+
+        let responseText = '👥 Tus Clientes y Empresas registrados:\n\n';
+        
+        responseText += 'CLIENTES:\n';
+        if (localClients.length > 0) {
+            localClients.forEach(c => {
+                responseText += `- ${c.name || 'Sin nombre'} (${c.nit || 'Sin RNC/Cédula'})\n`;
+            });
+        } else {
+            responseText += '(Ninguno registrado)\n';
+        }
+
+        responseText += '\nEMPRESAS:\n';
+        if (companyClients.length > 0) {
+            companyClients.forEach(c => {
+                responseText += `- ${c.name || 'Sin nombre'} (${c.nit || 'Sin RNC/Cédula'})\n`;
+            });
+        } else {
+            responseText += '(Ninguna registrada)\n';
+        }
+
+        return responseText;
     }
     
     if (lower.includes('factura')) {
@@ -284,8 +336,31 @@ function getLocalHelpResponse(message) {
         return '¡Hola de nuevo! ¿Qué módulo de Reciminsa App te gustaría explorar o tienes alguna duda sobre su funcionamiento?';
     }
     
-    if (lower.includes('bitacora') || lower.includes('recogida') || lower.includes('viaje') || lower.includes('camion') || lower.includes('chofer')) {
-        return '🚛 Módulo de Bitácoras de Recogida:\n\nDiseñado para registrar los traslados y pesajes de materiales. Puedes seleccionar el camión, conductor, ruta y peso inicial/final. El sistema calcula automáticamente la merma neta y permite generar informes imprimibles de cada recogida.';
+    if (lower.includes('bitacora') || lower.includes('recogida') || lower.includes('viaje')) {
+        const basicInvoices = invoices.filter(i => i.type === 'basica');
+        
+        if (lower.includes('mes') || lower.includes('reciente') || lower.includes('ultimo') || lower.includes('último')) {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            const recentBitacoras = basicInvoices.filter(b => new Date(b.date) >= thirtyDaysAgo);
+            
+            if (recentBitacoras.length === 0) {
+                return '🚛 Bitácoras de Recogida:\n\nNo se encontraron bitácoras de recogida registradas en los últimos 30 días.';
+            }
+            
+            let responseText = `🚛 Bitácoras de Recogida del último mes (últimos 30 días):\n\n`;
+            recentBitacoras.forEach((b, idx) => {
+                const materialsStr = (b.items || []).map(it => `${it.materialName || 'Material'}: ${it.qty || 0}kg`).join(', ');
+                responseText += `${idx + 1}. [${b.date}] ID: ${b.id} - Cliente: ${b.client} - Compra: $${b.totalCompra || 0}, Venta: $${b.totalVenta || 0}\n   Materiales: ${materialsStr}\n`;
+            });
+            return responseText;
+        }
+
+        if (basicInvoices.length === 0) {
+            return '🚛 Módulo de Bitácoras de Recogida:\n\nActualmente no tienes ninguna bitácora registrada. Puedes crearlas en el menú de "Bitácoras de Recogida" seleccionando el camión, conductor y materiales.';
+        }
+        return `🚛 Módulo de Bitácoras de Recogida:\n\nTienes un total de ${basicInvoices.length} bitácora(s) registrada(s). Puedes pedirme detalles sobre las del "último mes" para mostrártelas.`;
     }
 
     if (lower.includes('ecolog') || lower.includes('medio') || lower.includes('co2') || lower.includes('arbol') || lower.includes('ahorro')) {
