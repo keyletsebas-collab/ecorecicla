@@ -171,50 +171,17 @@ function buildMaterialsSheet() {
 // ---------------------------------------------------------
 
 function downloadExcel(wb, filename) {
-    const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-
-    // 1. Android MAUI (vía AddJavascriptInterface)
-    if (window.AndroidNative && window.AndroidNative.DownloadFile) {
-        try {
-            window.AndroidNative.DownloadFile(filename, base64Data);
-            showToast('📊 Excel guardado en Descargas', 'success');
-        } catch (err) {
-            console.error('AndroidNative Excel Error:', err);
-            showToast('❌ Error usando el puente nativo Android', 'error');
-        }
-    }
-    // 2. Windows MAUI (WebView2)
-    else if (window.chrome && window.chrome.webview) {
+    if (window.chrome && window.chrome.webview) {
+        const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
         window.chrome.webview.postMessage(JSON.stringify({
             action: 'download',
             filename: filename,
             data: base64Data
         }));
         showToast('✅ Excel abierto en tu programa predeterminado', 'success');
-    }
-    // 3. Web / Fallback: convertir Base64 a Blob manualmente
-    else {
-        try {
-            const byteCharacters = atob(base64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(url), 100);
-            showToast('✅ Excel descargado correctamente', 'success');
-        } catch (err) {
-            console.error('Error creando Blob Excel:', err);
-            showToast('❌ Error al guardar Excel', 'error');
-        }
+    } else {
+        XLSX.writeFile(wb, filename);
+        showToast('✅ Excel descargado correctamente', 'success');
     }
 }
 

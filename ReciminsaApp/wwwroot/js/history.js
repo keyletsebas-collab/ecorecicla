@@ -258,7 +258,10 @@ function renderSingleInvoiceCard(inv) {
   }
 
   const cardTitle = (isIngreso || isEgreso) ? (inv.concept) : (inv.id);
-  const cardMeta = (isIngreso || isEgreso) ? (`Finanzas &bull; Categoría: ${inv.category || 'General'}`) : (`${inv.client || inv.company || '—'} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}`);
+  let cardMeta = (isIngreso || isEgreso) ? (`Finanzas &bull; Categoría: ${inv.category || 'General'}`) : (`${inv.client || inv.company || '—'} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}`);
+  if (inv.collaborator) {
+    cardMeta += ` &bull; 👤 Colaborador: ${inv.collaborator}`;
+  }
   const displayTotal = isEgreso ? `-${formatMoney(inv.total)}` : (isIngreso ? `+${formatMoney(inv.total)}` : formatMoney(inv.total));
   const totalColor = isEgreso ? '#f87171' : (isIngreso ? 'var(--clr-primary-light)' : 'inherit');
 

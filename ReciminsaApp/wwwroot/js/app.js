@@ -31,7 +31,8 @@ const PAGE_TITLE_KEYS = {
     ajustes: 'page.ajustes',
     empresas: 'page.empresas',
     ecologia: 'page.ecologia',
-    precios: 'page.precios'
+    precios: 'page.precios',
+    colaboradores: 'page.colaboradores'
 };
 
 // ---- Current page tracker (used by sync.js) ----
@@ -69,11 +70,31 @@ function rerenderCurrentPage() {
         case 'ajustes': renderSettingsPage(target); break;
         case 'ecologia': renderEcologyPage(target); break;
         case 'precios': renderPricesPage(target); break;
+        case 'colaboradores': renderCollaboratorsPage(target); break;
     }
 }
 
 // ---- Navigation ----
 function navigate(pageName, subTab = null) {
+    // Block navigation if mandatory settings are missing
+    if (pageName !== 'ajustes') {
+        const settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+        const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
+        const isShared = (sharedSettings.sharedMode === true);
+
+        const rnc = (isShared ? sharedSettings.companyRNC : settings.companyRNC || '').trim();
+        const phone = (isShared ? sharedSettings.userPhone : settings.userPhone || '').trim();
+        const email = (isShared ? sharedSettings.userEmail : settings.userEmail || '').trim();
+        
+        if (!rnc || !phone || !email) {
+            showToast('⚠️ Por favor ingresa tu RNC, Teléfono y Email en Ajustes antes de continuar.', 'error');
+            setTimeout(() => {
+                navigate('ajustes');
+            }, 100);
+            return;
+        }
+    }
+
     // Block navigation if subscription is expired or device is cloned
     if (typeof verifyDeviceAndSubscription === 'function') {
         const verification = verifyDeviceAndSubscription();
@@ -128,6 +149,7 @@ function navigate(pageName, subTab = null) {
         case 'ajustes': renderSettingsPage(target); break;
         case 'ecologia': renderEcologyPage(target); break;
         case 'precios': renderPricesPage(target); break;
+        case 'colaboradores': renderCollaboratorsPage(target); break;
     }
 }
 
@@ -135,10 +157,19 @@ function navigate(pageName, subTab = null) {
 function setTopbarDate() {
     const el = document.getElementById('topbar-date');
     if (!el) return;
-    const lang = (getSettings().language) || 'es';
-    el.textContent = new Date().toLocaleDateString(lang, {
-        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
-    });
+
+    const now = new Date();
+    const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+    
+    // Get language from settings
+    let lang = 'es';
+    try {
+        const settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+        lang = settings.language || 'es';
+    } catch (_) {}
+    
+    const locale = lang === 'en' ? 'en-US' : 'es-ES';
+    el.textContent = now.toLocaleDateString(locale, options);
 }
 
 // ---- Init app after login ----
@@ -253,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // If familyId changed, we need to trigger sync pull for the new ID
                                 if (oldFamilyId !== newFamilyId) {
                                     const newDbId = newFamilyId ? `family_${newFamilyId}` : cachedSession.accountId;
-                                    showToast('🔄 Tu estado familiar ha cambiado. Actualizando datos...', 'info');
+                                    showToast('🔄 Tu vinculación con la empresa ha cambiado. Actualizando datos...', 'info');
                                     if (window.syncPullData) {
                                         window.syncPullData(newDbId);
                                     }

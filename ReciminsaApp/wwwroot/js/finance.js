@@ -39,9 +39,9 @@ function renderCategoryBreakdown(entries, isIncome) {
       const pct = Math.round((amt / grand) * 100);
       return `
       <div style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;font-size:0.82rem;margin-bottom:4px;">
-          <span style="font-weight:600;flex-shrink:0;">${cat}</span>
-          <span style="color:var(--clr-text-muted);flex-shrink:0;white-space:nowrap;">${formatMoney(amt)} <span style="font-size:0.75rem;">(${pct}%)</span></span>
+        <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:4px;">
+          <span style="font-weight:600;">${cat}</span>
+          <span style="color:var(--clr-text-muted);">${formatMoney(amt)} <span style="font-size:0.75rem;">(${pct}%)</span></span>
         </div>
         <div style="background:var(--clr-surface-3);border-radius:4px;height:7px;overflow:hidden;">
           <div style="height:100%;background:${color};width:${pct}%;transition:width .4s;"></div>
@@ -49,7 +49,7 @@ function renderCategoryBreakdown(entries, isIncome) {
       </div>`;
     }).join('');
   return `
-    <div class="card" style="margin-bottom:16px;overflow:visible;">
+    <div class="card" style="margin-bottom:16px;">
       <h3 class="section-title" style="margin-bottom:14px;font-size:0.95rem;">📊 Por categoría</h3>
       ${rows}
     </div>`;
@@ -233,17 +233,17 @@ function renderFinanceList(entries, type) {
 
   const isIncome = type === 'ingreso';
 
-  return `<div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;overflow-x:hidden;">
+  return `<div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;">
     ${entries.map(e => `
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 10px;background:var(--clr-surface-3);border-radius:var(--r-sm);border:1px solid var(--clr-border);min-width:0;">
-        <div style="flex:1;min-width:0;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--clr-surface-3);border-radius:var(--r-sm);border:1px solid var(--clr-border);">
+        <div style="flex:1;min-width:0;">
           <div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.concept}</div>
-          <div style="font-size:0.75rem;color:var(--clr-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${formatDate(e.date)} &bull; ${e.category || '—'}${e.notes ? ' &bull; ' + e.notes : ''}</div>
+          <div style="font-size:0.75rem;color:var(--clr-text-muted);">${formatDate(e.date)} &bull; ${e.category || '—'}${e.notes ? ' &bull; ' + e.notes : ''}</div>
         </div>
-        <div style="font-weight:700;color:${isIncome ? 'var(--clr-primary-light)' : '#f87171'};white-space:nowrap;flex-shrink:0;font-size:0.88rem;">
+        <div style="font-weight:700;color:${isIncome ? 'var(--clr-primary-light)' : '#f87171'};white-space:nowrap;">
           ${isIncome ? '+' : '-'}${formatMoney(e.amount)}
         </div>
-        <button class="btn-danger" style="padding:4px 6px;font-size:0.75rem;flex-shrink:0;" onclick="deleteFinanceEntry('${type}','${e.id}')">✕</button>
+        <button class="btn-danger" style="padding:5px 8px;font-size:0.75rem;" onclick="deleteFinanceEntry('${type}','${e.id}')">✕</button>
       </div>`).join('')}
   </div>`;
 }
