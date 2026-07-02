@@ -158,7 +158,11 @@
         WATCHED_KEYS.forEach(k => {
             const val = localStorage.getItem(userKey(k.pattern));
             if (val) {
-                dataToSync[k.pattern] = JSON.parse(val);
+                try {
+                    dataToSync[k.pattern] = JSON.parse(val);
+                } catch (_) {
+                    dataToSync[k.pattern] = val;
+                }
                 hasData = true;
             }
         });

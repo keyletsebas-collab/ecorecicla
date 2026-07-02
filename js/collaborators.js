@@ -9,6 +9,29 @@ let currentSearchQuery = '';
 let currentColabsPage = 1;
 const ITEMS_PER_PAGE = 5;
 
+function isCurrentUserAdminOrFounder() {
+  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+  if (!session.accountId) return false;
+
+  // 1. ¿Es el creador / fundador original de la empresa?
+  let companyAdminId = localStorage.getItem(userKey('recim_company_admin'));
+  if (companyAdminId && companyAdminId.startsWith('"') && companyAdminId.endsWith('"')) {
+    try { companyAdminId = JSON.parse(companyAdminId); } catch (_) {}
+  }
+  if (session.accountId === companyAdminId) {
+    return true;
+  }
+
+  // 2. ¿Es un colaborador vinculado a esta cuenta de usuario con rol de Administrador?
+  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+  const linked = colabs.find(c => c.linkedAccountId === session.accountId);
+  if (linked && linked.isAdminColab === true) {
+    return true;
+  }
+
+  return false;
+}
+
 // Inyección de estilos CSS específicos para la vista de colaboradores
 const colabStyles = `
 <style id="colab-custom-styles">
@@ -102,13 +125,14 @@ function showColabsList() {
   if (!contentDiv) return;
 
   const isEn = (getSettings().language === 'en');
+  const hasEditPermissions = isCurrentUserAdminOrFounder();
   
   contentDiv.innerHTML = `
     <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
       <div>
         <h2 class="section-title" style="margin:0; font-size:1.6rem; font-weight:700;">${isEn ? 'Collaborators' : 'Colaboradores'}</h2>
       </div>
-      <div style="display:flex; gap:10px;">
+      <div style="display:flex; gap:10px; ${hasEditPermissions ? '' : 'display:none;'}">
         <button class="btn-secondary" onclick="handleImportCollaborators()" style="gap:6px; font-size:0.85rem; font-weight:600; padding:8px 14px;">
           📤 ${isEn ? 'Import' : 'Importar'}
         </button>
@@ -167,6 +191,7 @@ function renderCollaboratorsTable() {
 
   const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
   const isEn = (getSettings().language === 'en');
+  const hasEditPermissions = isCurrentUserAdminOrFounder();
 
   // Filtrado
   let filtered = colabs;
@@ -219,12 +244,14 @@ function renderCollaboratorsTable() {
           </span>
         </td>
         <td style="padding:14px 16px; text-align:center; display:flex; justify-content:center; gap:8px;">
+          ${hasEditPermissions ? `
           <button class="btn-icon" onclick="showColabForm(${originalIndex})" style="background:transparent; border:none; cursor:pointer; color:var(--clr-primary-light); font-size:1.1rem; padding:4px;" title="Editar">
             ✏️
           </button>
           <button class="btn-icon" onclick="deleteCollaborator(${originalIndex})" style="background:transparent; border:none; cursor:pointer; color:var(--clr-danger); font-size:1.1rem; padding:4px;" title="Dar de Baja">
             🗑️
           </button>
+          ` : '<span style="color:var(--clr-text-muted);">—</span>'}
         </td>
       </tr>
     `;
@@ -265,6 +292,10 @@ function handleSearchCollaborators(val) {
 
 // ---- MÓDULO FORMULARIO CON PESTAÑAS ----
 async function showColabForm(colabIndex = null) {
+  if (!isCurrentUserAdminOrFounder()) {
+    showToast('❌ No tienes permisos para realizar esta acción', 'error');
+    return;
+  }
   currentEditingIndex = colabIndex;
   activeFormTab = 'identidad';
 
@@ -302,6 +333,7 @@ async function showColabForm(colabIndex = null) {
   const salary = colab.salary || 0;
 
   const linkedAccountId = colab.linkedAccountId || '';
+  const isAdminColab = colab.isAdminColab === true;
   const modules = colab.modules || {};
 
   contentDiv.innerHTML = `
@@ -469,6 +501,13 @@ async function showColabForm(colabIndex = null) {
             <select id="colab-linked-account" class="form-select" style="background:var(--clr-surface-3); width:100%;">
               <option value="">${isEn ? '-- Select user to link --' : '-- Seleccionar cuenta para vincular --'}</option>
             </select>
+            
+            <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px; background: rgba(59, 130, 246, 0.1); border: 1px dashed rgba(59, 130, 246, 0.3); padding: 12px; border-radius: 6px;">
+              <input type="checkbox" id="colab-is-admin-colab" style="width:18px; height:18px; cursor:pointer;" ${isAdminColab ? 'checked' : ''} />
+              <label for="colab-is-admin-colab" style="font-size:0.82rem; font-weight:600; cursor:pointer; color:var(--clr-text); margin: 0;">
+                🛡️ Asignar rol de Administrador de la Empresa (Permite crear y editar colaboradores)
+              </label>
+            </div>
           </div>
 
           <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:14px; margin-top:20px;">
@@ -586,6 +625,10 @@ function generateNextEmployeeCode(colabs) {
 
 // ---- MÓDULO GUARDAR Y VALIDAR ----
 function saveCollaborator() {
+  if (!isCurrentUserAdminOrFounder()) {
+    showToast('❌ No tienes permisos para realizar esta acción', 'error');
+    return;
+  }
   const firstNameEl = document.getElementById('colab-first-name');
   const lastNameEl = document.getElementById('colab-last-name');
   const cedulaEl = document.getElementById('colab-cedula');
@@ -646,6 +689,7 @@ function saveCollaborator() {
   const salary = 0;
 
   const linkedAccountId = document.getElementById('colab-linked-account').value;
+  const isAdminColab = document.getElementById('colab-is-admin-colab')?.checked === true;
 
   // Módulos
   const modules = {};
@@ -691,6 +735,7 @@ function saveCollaborator() {
       bankAccount,
       salary,
       linkedAccountId,
+      isAdminColab,
       modules,
       createdAt: new Date().toISOString()
     };
@@ -726,6 +771,7 @@ function saveCollaborator() {
       bankAccount,
       salary,
       linkedAccountId,
+      isAdminColab,
       modules,
       updatedAt: new Date().toISOString()
     };
@@ -744,6 +790,10 @@ function saveCollaborator() {
 
 // ---- DAR DE BAJA ----
 function deleteCollaborator(index) {
+  if (!isCurrentUserAdminOrFounder()) {
+    showToast('❌ No tienes permisos para realizar esta acción', 'error');
+    return;
+  }
   if (!confirm('¿Estás seguro de que deseas dar de baja a este colaborador?')) return;
 
   const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
@@ -797,3 +847,4 @@ window.deleteCollaborator = deleteCollaborator;
 window.handleSearchCollaborators = handleSearchCollaborators;
 window.handleImportCollaborators = handleImportCollaborators;
 window.changeColabsPage = changeColabsPage;
+window.isCurrentUserAdminOrFounder = isCurrentUserAdminOrFounder;

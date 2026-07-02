@@ -1195,25 +1195,38 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
 
     let listHtml = `<div style="font-size:0.8rem; margin-bottom: 12px; color:var(--clr-text-muted);"><strong>Fundador de la Empresa:</strong> <span style="color:var(--clr-primary-light); font-weight:600;">${founderName}</span></div>`;
 
-    const isAdmin = (myAccountId === companyAdminId);
     const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
 
     listHtml += members.map(m => {
       const isMe = m.accountId === myAccountId;
       const isFounder = m.accountId === companyAdminId;
+      
+      // Determinar si este miembro es un colaborador con rol de administrador
+      const linkedColab = colabs.find(c => c.linkedAccountId === m.accountId);
+      const isColabAdmin = linkedColab && (linkedColab.isAdminColab === true);
+
       const cName = m.name ? m.name.split(' | ')[0].trim() : 'Usuario';
       const initial = (m.avatar || cName || 'U')[0].toUpperCase();
 
+      let badgeHtml = '';
+      if (isFounder) {
+        badgeHtml = `<span class="badge badge--orange" style="padding:2px 6px; font-size:0.62rem; font-weight:700; border-radius:4px; background-color:#eab308; color:#fff;">👑 Creador</span>`;
+      } else if (isColabAdmin) {
+        badgeHtml = `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.62rem; font-weight:700; border-radius:4px; background-color:#3b82f6; color:#fff;">🛡️ Admin</span>`;
+      } else {
+        badgeHtml = `<span class="badge badge--gray" style="padding:2px 6px; font-size:0.62rem; font-weight:normal; border-radius:4px; background-color:#6b7280; color:#fff;">Miembro</span>`;
+      }
+
       return `
         <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:var(--r-md); width:100%;">
-          <div style="width:32px; height:32px; border-radius:50%; background:${isFounder ? '#eab308' : 'var(--clr-primary)'}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position:relative;">
+          <div style="width:32px; height:32px; border-radius:50%; background:${isFounder ? '#eab308' : (isColabAdmin ? '#3b82f6' : 'var(--clr-primary)')}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position:relative;">
             ${initial}
             ${isFounder ? '<span style="position:absolute; top:-7px; right:-6px; font-size:0.8rem;">👑</span>' : ''}
           </div>
           <div style="flex:1; min-width:0;">
             <div style="font-size:0.84rem; font-weight:600; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
               <span>${cName}</span>
-              ${isFounder ? `<span class="badge badge--orange" style="padding:2px 6px; font-size:0.62rem; font-weight:normal; border-radius:4px; background-color:#f97316; color:#fff;">👑 Fundador</span>` : ''}
+              ${badgeHtml}
               ${isMe ? `<span class="badge badge--green" style="padding:2px 6px; font-size:0.62rem; font-weight:normal; border-radius:4px;">Tú</span>` : ''}
             </div>
             <div style="font-size:0.74rem; color:var(--clr-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -1346,7 +1359,7 @@ async function handleCreateFamily() {
   localStorage.setItem('recim_session', JSON.stringify(session));
   
   // Set creator as the admin of the company
-  localStorage.setItem(userKey('recim_company_admin'), session.accountId);
+  localStorage.setItem(userKey('recim_company_admin'), JSON.stringify(session.accountId));
 
   // Sincronizar en la nube (Supabase)
   if (isSupabaseActive && supabaseClient) {
@@ -1817,12 +1830,17 @@ function getModuleConfig() {
     accountId = session.accountId || 'default';
   } catch (e) {}
 
-  // 1. Si el usuario es el administrador de la empresa (fundador), tiene todos los módulos activos
+  // 1. Si el usuario es el creador/fundador de la empresa, cargamos su configuración local (permitiendo auto-ocultarse)
   let companyAdmin = localStorage.getItem(userKey('recim_company_admin'));
   if (companyAdmin && companyAdmin.startsWith('"') && companyAdmin.endsWith('"')) {
     try { companyAdmin = JSON.parse(companyAdmin); } catch (_) {}
   }
   if (companyAdmin === accountId) {
+    const key = `recim_modules_${accountId}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
     const config = {};
     TOGGLEABLE_MODULES.forEach(m => config[m.id] = true);
     return config;
