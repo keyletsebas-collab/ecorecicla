@@ -32,7 +32,8 @@ const PAGE_TITLE_KEYS = {
     empresas: 'page.empresas',
     ecologia: 'page.ecologia',
     precios: 'page.precios',
-    colaboradores: 'page.colaboradores'
+    colaboradores: 'page.colaboradores',
+    superadmin: 'Control Global'
 };
 
 // ---- Current page tracker (used by sync.js) ----
@@ -71,13 +72,14 @@ function rerenderCurrentPage() {
         case 'ecologia': renderEcologyPage(target); break;
         case 'precios': renderPricesPage(target); break;
         case 'colaboradores': renderCollaboratorsPage(target); break;
+        case 'superadmin': if (typeof renderSuperAdminPage === 'function') renderSuperAdminPage(target); break;
     }
 }
 
 // ---- Navigation ----
 function navigate(pageName, subTab = null) {
-    // Block navigation if mandatory settings are missing
-    if (pageName !== 'ajustes') {
+    // Block navigation if mandatory settings are missing (skip for superadmin)
+    if (pageName !== 'ajustes' && pageName !== 'superadmin') {
         const settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
         const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
 
@@ -103,8 +105,8 @@ function navigate(pageName, subTab = null) {
         }
     }
 
-    // Block navigation if module is disabled by the user
-    if (pageName !== 'historial' && pageName !== 'ajustes' && typeof getModuleConfig === 'function') {
+    // Block navigation if module is disabled by the user (skip for superadmin)
+    if (pageName !== 'historial' && pageName !== 'ajustes' && pageName !== 'superadmin' && typeof getModuleConfig === 'function') {
         const config = getModuleConfig();
         if (config[pageName] === false) {
             navigate('historial');
@@ -149,6 +151,7 @@ function navigate(pageName, subTab = null) {
         case 'ecologia': renderEcologyPage(target); break;
         case 'precios': renderPricesPage(target); break;
         case 'colaboradores': renderCollaboratorsPage(target); break;
+        case 'superadmin': if (typeof renderSuperAdminPage === 'function') renderSuperAdminPage(target); break;
     }
 }
 
@@ -194,6 +197,19 @@ function initApp(user) {
     // Ensure modules visibility is applied based on user config
     if (typeof applyModuleVisibility === 'function') {
         applyModuleVisibility();
+    }
+
+    // Show superadmin nav link only for keylet or users granted superadmin access
+    const superAdminLink = document.getElementById('nav-link-superadmin');
+    if (superAdminLink) {
+        const isSuperAdmin = user.email === 'keyletsebas@gmail.com';
+        const grantedSuperAdmins = JSON.parse(localStorage.getItem('recim_superadmin_granted') || '[]');
+        const isGranted = grantedSuperAdmins.includes(user.accountId);
+        if (isSuperAdmin || isGranted) {
+            superAdminLink.style.display = '';
+        } else {
+            superAdminLink.style.display = 'none';
+        }
     }
     
     // Default page (Restricted to Ingresos/Egresos on mobile)

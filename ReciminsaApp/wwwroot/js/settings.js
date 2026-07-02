@@ -96,11 +96,13 @@ function renderSettingsPage(container) {
   if (companyAdmin && companyAdmin.startsWith('"') && companyAdmin.endsWith('"')) {
     try { companyAdmin = JSON.parse(companyAdmin); } catch (_) {}
   }
-  if (!companyAdmin && session.email === 'keyletsebas@gmail.com') {
+  // Only auto-assign keylet as creator if this account has no company at all (no familyId)
+  const isSuperAdmin = session.email === 'keyletsebas@gmail.com';
+  if (!companyAdmin && isSuperAdmin && !session.familyId) {
     companyAdmin = session.accountId;
     localStorage.setItem(userKey('recim_company_admin'), JSON.stringify(companyAdmin));
   }
-  const isAdmin = companyAdmin === session.accountId || session.email === 'keyletsebas@gmail.com';
+  const isAdmin = companyAdmin === session.accountId;
   const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
   const isShared = (sharedSettings.sharedMode === true);
 
@@ -1208,11 +1210,10 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
       try { companyAdminId = JSON.parse(companyAdminId); } catch (_) {}
     }
 
-    // Auto-reparar si no está asignado o es Desconocido buscando a keyletsebas@gmail.com
+    // Auto-reparar solo si no hay creador asignado Y hay UN SOLO miembro (el dueño)
     if (!companyAdminId || companyAdminId === 'Desconocido') {
-      const defaultFounder = members.find(m => m.email === 'keyletsebas@gmail.com');
-      if (defaultFounder) {
-        companyAdminId = defaultFounder.accountId;
+      if (members.length === 1) {
+        companyAdminId = members[0].accountId;
         localStorage.setItem(userKey('recim_company_admin'), JSON.stringify(companyAdminId));
         if (window.syncPushData) {
           window.syncPushData(true);

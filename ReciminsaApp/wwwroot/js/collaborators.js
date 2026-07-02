@@ -19,18 +19,17 @@ function isCurrentUserAdminOrFounder() {
     try { companyAdminId = JSON.parse(companyAdminId); } catch (_) {}
   }
 
-  // Auto-detectar si el usuario actual es keyletsebas@gmail.com como creador por defecto si no está asignado
-  if (!companyAdminId || companyAdminId === 'Desconocido') {
+  // Auto-detectar si el usuario actual es keyletsebas@gmail.com como creador por defecto
+  // Solo si no hay empresa creada aún (no familyId)
+  if ((!companyAdminId || companyAdminId === 'Desconocido') && !session.familyId) {
     if (session.email === 'keyletsebas@gmail.com') {
       companyAdminId = session.accountId;
       localStorage.setItem(userKey('recim_company_admin'), JSON.stringify(companyAdminId));
-      if (window.syncPushData) {
-        window.syncPushData(true);
-      }
+      if (window.syncPushData) window.syncPushData(true);
     }
   }
 
-  if (session.accountId === companyAdminId || session.email === 'keyletsebas@gmail.com') {
+  if (session.accountId === companyAdminId) {
     return true;
   }
 
