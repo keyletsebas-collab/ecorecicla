@@ -96,7 +96,11 @@ function renderSettingsPage(container) {
   if (companyAdmin && companyAdmin.startsWith('"') && companyAdmin.endsWith('"')) {
     try { companyAdmin = JSON.parse(companyAdmin); } catch (_) {}
   }
-  const isAdmin = companyAdmin === session.accountId;
+  if (!companyAdmin && session.email === 'keyletsebas@gmail.com') {
+    companyAdmin = session.accountId;
+    localStorage.setItem(userKey('recim_company_admin'), JSON.stringify(companyAdmin));
+  }
+  const isAdmin = companyAdmin === session.accountId || session.email === 'keyletsebas@gmail.com';
   const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
   const isShared = (sharedSettings.sharedMode === true);
 
@@ -266,6 +270,19 @@ function renderSettingsPage(container) {
           <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
         </div>
       </div>
+
+      <!-- ===== MÓDULOS DE ADMINISTRADOR ===== -->
+      ${isAdmin ? `
+      <div class="card card--elevated settings-section">
+        <h3 class="settings-section-title">⚙️ Personalización de Módulos (Creador)</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:16px;">
+          Como creador de la empresa, puedes ocultar o mostrar módulos de tu propio menú de navegación lateral.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          ${renderModulesChecklist()}
+        </div>
+      </div>
+      ` : ''}
 
       <!-- ===== SUSCRIPCIÓN Y LICENCIA (ANTI-CLONACIÓN) ===== -->
       <!-- Oculto temporalmente porque el sistema de cobro está archivado -->
