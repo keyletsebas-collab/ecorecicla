@@ -2,7 +2,73 @@
    COLLABORATORS.JS – Gestión de Colaboradores
    ============================================= */
 
+// Variable para llevar control del colaborador en edición y la pestaña activa
+let currentEditingIndex = null;
+let activeFormTab = 'identidad';
+let currentSearchQuery = '';
+let currentColabsPage = 1;
+const ITEMS_PER_PAGE = 5;
+
+// Inyección de estilos CSS específicos para la vista de colaboradores
+const colabStyles = `
+<style id="colab-custom-styles">
+  .colab-tabs-container {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--clr-border, rgba(255,255,255,0.1));
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .colab-tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--clr-text-muted, #888);
+    padding: 10px 20px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+  }
+  .colab-tab-btn:hover {
+    color: var(--clr-text, #fff);
+    background: rgba(255,255,255,0.02);
+  }
+  .colab-tab-btn.active {
+    color: var(--clr-primary-light, #10b981);
+    border-bottom: 3px solid var(--clr-primary-light, #10b981);
+  }
+  .colab-form-section {
+    display: none;
+  }
+  .colab-form-section.active {
+    display: block;
+    animation: colabFadeIn 0.3s ease;
+  }
+  @keyframes colabFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .colab-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 768px) {
+    .colab-grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+`;
+
 async function renderCollaboratorsPage(container) {
+  // Asegurar que los estilos estén cargados
+  if (!document.getElementById('colab-custom-styles')) {
+    document.head.insertAdjacentHTML('beforeend', colabStyles);
+  }
+
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   const familyId = session.familyId;
 
@@ -20,182 +86,493 @@ async function renderCollaboratorsPage(container) {
     return;
   }
 
-  // Load collaborators and admin key
-  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
-  let companyAdmin = localStorage.getItem(userKey('recim_company_admin'));
-  if (companyAdmin && companyAdmin.startsWith('"') && companyAdmin.endsWith('"')) {
-    try { companyAdmin = JSON.parse(companyAdmin); } catch (_) {}
-  }
-  const isAdmin = companyAdmin === session.accountId;
-
-  const isEn = (getSettings().language === 'en');
-
-  // Render main card structures
   container.innerHTML = `
-    <div class="page-header">
-      <div>
-        <h2 class="section-title">${isEn ? '👥 Collaborator Management' : '👥 Gestión de Colaboradores'}</h2>
-        <p class="section-subtitle">${isEn ? 'Administration, roles and control of activities of your company collaborators.' : 'Administración, roles y control de actividades de los colaboradores de tu empresa.'}</p>
-      </div>
-    </div>
-
-    <div style="max-width: 950px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; padding-bottom: 40px;">
-      
-      <!-- SECCIÓN 1: GESTIÓN DE COLABORADORES -->
-      <div class="card card--elevated">
-        <h3 class="settings-section-title" style="margin-bottom: 6px; border-bottom: 2px solid var(--clr-primary); padding-bottom: 8px;">
-          ${isEn ? '👥 Section 1: Collaborator Management' : '👥 Sección 1: Gestión de Colaboradores'}
-        </h3>
-        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom: 20px;">
-          ${isEn ? 'Register new company collaborators and link them to their respective user accounts.' : 'Registra nuevos colaboradores de la empresa y asócialos con sus respectivas cuentas de usuario.'}
-        </p>
-        
-        <!-- Subsección 1.1: Registro de Colaborador -->
-        <div style="background: var(--clr-surface-3, #f5f5f5); border-radius: var(--r-md, 8px); padding: 18px; margin-bottom: 20px; border: 1px solid var(--clr-border);">
-          <h4 style="margin-top:0; margin-bottom: 14px; font-size: 0.92rem; color: var(--clr-primary-light); font-weight:700; display: flex; align-items: center; gap: 6px;">
-            <span>${isEn ? '➕ Subsection 1.1: Register New Collaborator' : '➕ Subsección 1.1: Registrar Nuevo Colaborador'}</span>
-          </h4>
-          <div id="colab-creation-container">
-            ${isAdmin ? `
-              <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 12px;">
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" style="font-size:0.75rem;">${isEn ? 'Full Name' : 'Nombre Completo'} <span style="color:#ef4444;">*</span></label>
-                  <input type="text" id="colab-reg-name" class="form-input" placeholder="${isEn ? 'Collaborator name' : 'Nombre del colaborador'}" />
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" style="font-size:0.75rem;">${isEn ? 'Role / Position' : 'Rol / Puesto'} <span style="color:#ef4444;">*</span></label>
-                  <input type="text" id="colab-reg-role" class="form-input" placeholder="${isEn ? 'Ej: Weigher, Operator, Cashier' : 'Ej: Pesador, Operario, Caja'}" />
-                </div>
-              </div>
-              <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 12px;">
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" style="font-size:0.75rem;">${isEn ? 'Contact Phone' : 'Teléfono de Contacto'}</label>
-                  <input type="text" id="colab-reg-phone" class="form-input" placeholder="Ej: 809-555-0199" />
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" style="font-size:0.75rem;">${isEn ? 'Email Address' : 'Correo Electrónico'}</label>
-                  <input type="email" id="colab-reg-email" class="form-input" placeholder="Ej: colaborador@empresa.com" />
-                </div>
-              </div>
-              <div class="form-row" style="grid-template-columns: 1fr; margin-bottom: 18px;">
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" style="font-size:0.75rem;">${isEn ? 'Link to Company Member Account' : 'Vincular a Cuenta de Miembro de Empresa'}</label>
-                  <select id="colab-reg-account" class="form-select">
-                    <option value="">${isEn ? '-- Load company members --' : '-- Cargar miembros de empresa --'}</option>
-                  </select>
-                </div>
-              </div>
-              <button class="btn-primary" style="width: 100%; justify-content: center; height: 42px;" onclick="handleCreateCollaborator()">
-                ${isEn ? '💾 Register Collaborator' : '💾 Registrar Colaborador'}
-              </button>
-            ` : `
-              <div style="text-align:center; padding: 12px; color: var(--clr-danger); font-size: 0.85rem; font-weight: 500;">
-                ${isEn ? '🔒 Only the Company Administrator (group creator) has permissions to register or discharge collaborators.' : '🔒 Solo el Administrador de la Empresa (quien creó el grupo) tiene permisos para registrar o dar de baja colaboradores.'}
-              </div>
-            `}
-          </div>
-        </div>
-
-        <!-- Subsección 1.2: Colaboradores Registrados -->
-        <div style="background: var(--clr-surface-3, #f5f5f5); border-radius: var(--r-md, 8px); padding: 18px; border: 1px solid var(--clr-border);">
-          <h4 style="margin-top:0; margin-bottom: 14px; font-size: 0.92rem; color: var(--clr-primary-light); font-weight:700; display: flex; align-items: center; gap: 6px;">
-            <span>${isEn ? '📋 Subsection 1.2: Active Collaborators' : '📋 Subsección 1.2: Colaboradores Activos'}</span>
-          </h4>
-          <div style="overflow-x: auto;">
-            <table class="data-table" style="width: 100%; font-size: 0.85rem;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">${isEn ? 'Name' : 'Nombre'}</th>
-                  <th style="text-align:left;">${isEn ? 'Role' : 'Rol'}</th>
-                  <th style="text-align:left;">${isEn ? 'Phone / Email' : 'Teléfono / Email'}</th>
-                  <th style="text-align:left;">${isEn ? 'Linked Account' : 'Cuenta Vinculada'}</th>
-                  <th style="text-align:left; width: 220px;">${isEn ? 'Enabled Modules' : 'Módulos Habilitados'}</th>
-                  <th style="text-align:center; width: 80px;">${isEn ? 'Actions' : 'Acciones'}</th>
-                </tr>
-              </thead>
-              <tbody id="colab-list-table-body">
-                <tr><td colspan="6" style="text-align:center; color:var(--clr-text-muted);">${isEn ? 'Loading list...' : 'Cargando lista...'}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- SECCIÓN 2: CONTROL DE ACTIVIDADES -->
-      <div class="card card--elevated">
-        <h3 class="settings-section-title" style="margin-bottom: 6px; border-bottom: 2px solid var(--clr-primary); padding-bottom: 8px;">
-          ${isEn ? '📊 Section 2: Activity Control' : '📊 Sección 2: Control de Actividades'}
-        </h3>
-        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom: 20px;">
-          ${isEn ? 'Monitor the number of records and incidents entered by your collaborators.' : 'Monitorea la cantidad de registros e incidencias ingresados por tus colaboradores.'}
-        </p>
-        
-        <!-- Subsección 2.1: Actividad de Registros -->
-        <div style="background: var(--clr-surface-3, #f5f5f5); border-radius: var(--r-md, 8px); padding: 18px; margin-bottom: 20px; border: 1px solid var(--clr-border);">
-          <h4 style="margin-top:0; margin-bottom: 14px; font-size: 0.92rem; color: var(--clr-primary-light); font-weight:700;">
-            ${isEn ? '📈 Subsection 2.1: Records per Collaborator' : '📈 Subsección 2.1: Registros por Colaborador'}
-          </h4>
-          <div style="overflow-x: auto;">
-            <table class="data-table" style="width: 100%; font-size: 0.85rem;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">${isEn ? 'Collaborator' : 'Colaborador'}</th>
-                  <th style="text-align:left;">${isEn ? 'Role' : 'Rol'}</th>
-                  <th style="text-align:center;">${isEn ? 'Invoices Created' : 'Facturas Creadas'}</th>
-                  <th style="text-align:center;">${isEn ? 'Total Billed' : 'Monto Total Facturado'}</th>
-                </tr>
-              </thead>
-              <tbody id="colab-activity-table-body">
-                <tr><td colspan="4" style="text-align:center; color:var(--clr-text-muted);">${isEn ? 'Loading stats...' : 'Cargando estadísticas...'}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Subsección 2.2: Logs / Asignaciones -->
-        <div style="background: var(--clr-surface-3, #f5f5f5); border-radius: var(--r-md, 8px); padding: 18px; border: 1px solid var(--clr-border);">
-          <h4 style="margin-top:0; margin-bottom: 14px; font-size: 0.92rem; color: var(--clr-primary-light); font-weight:700;">
-            ${isEn ? '🛠️ Subsection 2.2: IT Support Logs' : '🛠️ Subsección 2.2: Registros de Soporte IT'}
-          </h4>
-          <div style="overflow-x: auto;">
-            <table class="data-table" style="width: 100%; font-size: 0.85rem;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">${isEn ? 'Ticket ID' : 'Ticket ID'}</th>
-                  <th style="text-align:left;">${isEn ? 'Reporting Collaborator' : 'Colaborador Reportante'}</th>
-                  <th style="text-align:left;">${isEn ? 'Report Title' : 'Título del Reporte'}</th>
-                  <th style="text-align:center;">${isEn ? 'Status' : 'Estado'}</th>
-                </tr>
-              </thead>
-              <tbody id="colab-support-table-body">
-                <tr><td colspan="4" style="text-align:center; color:var(--clr-text-muted);">${isEn ? 'Loading IT tickets...' : 'Cargando tickets de soporte...'}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-
+    <div id="colab-page-content" style="max-width: 980px; margin: 0 auto; padding-bottom: 40px;">
+      <!-- El contenido dinámico de Lista o Formulario se renderiza aquí -->
     </div>
   `;
 
-  // Asynchronously populate member select & list to optimize page rendering speed
-  if (isAdmin) {
-    loadCompanyMembersDropdown(familyId);
-  }
-  renderCollaboratorsTable(colabs, isAdmin);
-  renderCollaboratorsActivity(colabs);
-  renderCollaboratorsSupport(colabs);
+  // Mostrar la lista por defecto al cargar la página
+  showColabsList();
 }
 
-async function loadCompanyMembersDropdown(familyId) {
-  const select = document.getElementById('colab-reg-account');
+// ---- MÓDULO VISTA DE LISTA ----
+function showColabsList() {
+  const contentDiv = document.getElementById('colab-page-content');
+  if (!contentDiv) return;
+
+  const isEn = (getSettings().language === 'en');
+  
+  contentDiv.innerHTML = `
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div>
+        <h2 class="section-title" style="margin:0; font-size:1.6rem; font-weight:700;">${isEn ? 'Collaborators' : 'Colaboradores'}</h2>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-secondary" onclick="handleImportCollaborators()" style="gap:6px; font-size:0.85rem; font-weight:600; padding:8px 14px;">
+          📤 ${isEn ? 'Import' : 'Importar'}
+        </button>
+        <button class="btn-primary" onclick="showColabForm()" style="background-color:var(--clr-primary-light); color:#0a0f1d; gap:6px; font-size:0.85rem; font-weight:700; padding:8px 14px;">
+          ➕ ${isEn ? 'New Collaborator' : 'Nuevo Colaborador'}
+        </button>
+      </div>
+    </div>
+
+    <!-- Buscador -->
+    <div style="margin-bottom:18px; display:flex; align-items:center;">
+      <div style="position:relative; width: 100%; max-width: 320px;">
+        <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--clr-text-muted); font-size:0.9rem;">🔍</span>
+        <input type="text" id="colab-search-input" class="form-input" 
+               placeholder="${isEn ? 'Search by name, ID or code...' : 'Buscar por nombre, cédula o código...'}" 
+               value="${currentSearchQuery}"
+               oninput="handleSearchCollaborators(this.value)" 
+               style="width:100%; padding-left:36px; background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:6px; font-size:0.85rem; height:38px;" />
+      </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card card--elevated" style="padding:0; overflow:hidden;">
+      <div style="overflow-x: auto;">
+        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+          <thead>
+            <tr style="background:var(--clr-surface-2); border-bottom:1px solid var(--clr-border);">
+              <th style="text-align:left; padding:12px 16px;">${isEn ? 'Code' : 'Código'}</th>
+              <th style="text-align:left; padding:12px 16px;">${isEn ? 'National ID' : 'Cédula'}</th>
+              <th style="text-align:left; padding:12px 16px;">${isEn ? 'Full Name' : 'Nombre Completo'}</th>
+              <th style="text-align:left; padding:12px 16px;">${isEn ? 'Position' : 'Cargo'}</th>
+              <th style="text-align:left; padding:12px 16px;">${isEn ? 'Status & Situation' : 'Estado y Situación'}</th>
+              <th style="text-align:center; padding:12px 16px; width:100px;">${isEn ? 'Actions' : 'Acciones'}</th>
+            </tr>
+          </thead>
+          <tbody id="colab-list-table-body">
+            <!-- Filas dinámicas -->
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Paginación -->
+      <div id="colab-pagination" style="display:flex; justify-content:center; align-items:center; gap:8px; padding:14px; background:var(--clr-surface-2); border-top:1px solid var(--clr-border);">
+        <!-- Paginación dinámica -->
+      </div>
+    </div>
+  `;
+
+  renderCollaboratorsTable();
+}
+
+function renderCollaboratorsTable() {
+  const tbody = document.getElementById('colab-list-table-body');
+  const paginationDiv = document.getElementById('colab-pagination');
+  if (!tbody || !paginationDiv) return;
+
+  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+  const isEn = (getSettings().language === 'en');
+
+  // Filtrado
+  let filtered = colabs;
+  if (currentSearchQuery.trim() !== '') {
+    const q = currentSearchQuery.toLowerCase().trim();
+    filtered = colabs.filter(c => 
+      (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.cedula && c.cedula.toLowerCase().includes(q)) ||
+      (c.code && c.code.toLowerCase().includes(q)) ||
+      (c.role && c.role.toLowerCase().includes(q))
+    );
+  }
+
+  // Paginación
+  const totalItems = filtered.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+  if (currentColabsPage > totalPages) currentColabsPage = totalPages;
+
+  const startIndex = (currentColabsPage - 1) * ITEMS_PER_PAGE;
+  const pageItems = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  if (totalItems === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center; color:var(--clr-text-muted); padding:30px;">
+          ${isEn ? 'No collaborators found matching the search.' : 'No se encontraron colaboradores que coincidan con la búsqueda.'}
+        </td>
+      </tr>
+    `;
+    paginationDiv.innerHTML = '';
+    return;
+  }
+
+  // Generar filas
+  let html = '';
+  pageItems.forEach((c, indexInPage) => {
+    const originalIndex = colabs.findIndex(x => x.id === c.id);
+    const statusText = c.status || 'ACTIVO';
+    const badgeColor = statusText === 'ACTIVO' ? '#10b981' : (statusText === 'INACTIVO' ? '#ef4444' : '#f59e0b');
+    
+    html += `
+      <tr style="border-bottom:1px solid var(--clr-border);">
+        <td style="padding:14px 16px; font-weight:600; font-family:monospace; color:var(--clr-text-secondary);">${c.code || 'EMPL-00000'}</td>
+        <td style="padding:14px 16px; color:var(--clr-text);">${c.cedula || '000-0000000-0'}</td>
+        <td style="padding:14px 16px; font-weight:600; color:var(--clr-text); text-transform: capitalize;">${c.name || 'Sin nombre'}</td>
+        <td style="padding:14px 16px; color:var(--clr-text-secondary);">${c.role || 'Operario'}</td>
+        <td style="padding:14px 16px;">
+          <span class="badge" style="background-color:rgba(${hexToRgb(badgeColor)}, 0.15); color:${badgeColor}; font-size:0.75rem; padding:4px 8px; border-radius:4px; font-weight:700;">
+            ${statusText}
+          </span>
+        </td>
+        <td style="padding:14px 16px; text-align:center; display:flex; justify-content:center; gap:8px;">
+          <button class="btn-icon" onclick="showColabForm(${originalIndex})" style="background:transparent; border:none; cursor:pointer; color:var(--clr-primary-light); font-size:1.1rem; padding:4px;" title="Editar">
+            ✏️
+          </button>
+          <button class="btn-icon" onclick="deleteCollaborator(${originalIndex})" style="background:transparent; border:none; cursor:pointer; color:var(--clr-danger); font-size:1.1rem; padding:4px;" title="Dar de Baja">
+            🗑️
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+  tbody.innerHTML = html;
+
+  // Renderizar paginador
+  let pagHtml = `
+    <button onclick="changeColabsPage(1)" ${currentColabsPage === 1 ? 'disabled style="opacity:0.4; cursor:default;"' : ''} style="background:none; border:none; color:var(--clr-text); font-weight:bold; cursor:pointer;">&lt;&lt;</button>
+    <button onclick="changeColabsPage(${currentColabsPage - 1})" ${currentColabsPage === 1 ? 'disabled style="opacity:0.4; cursor:default;"' : ''} style="background:none; border:none; color:var(--clr-text); font-weight:bold; cursor:pointer;">&lt;</button>
+  `;
+
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === currentColabsPage) {
+      pagHtml += `<span style="background:var(--clr-primary-light); color:#0a0f1d; width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-weight:700; font-size:0.85rem;">${i}</span>`;
+    } else {
+      pagHtml += `<button onclick="changeColabsPage(${i})" style="background:none; border:none; color:var(--clr-text-muted); cursor:pointer; font-size:0.85rem; width:26px; height:26px;">${i}</button>`;
+    }
+  }
+
+  pagHtml += `
+    <button onclick="changeColabsPage(${currentColabsPage + 1})" ${currentColabsPage === totalPages ? 'disabled style="opacity:0.4; cursor:default;"' : ''} style="background:none; border:none; color:var(--clr-text); font-weight:bold; cursor:pointer;">&gt;</button>
+    <button onclick="changeColabsPage(${totalPages})" ${currentColabsPage === totalPages ? 'disabled style="opacity:0.4; cursor:default;"' : ''} style="background:none; border:none; color:var(--clr-text); font-weight:bold; cursor:pointer;">&gt;&gt;</button>
+  `;
+  paginationDiv.innerHTML = pagHtml;
+}
+
+function changeColabsPage(page) {
+  currentColabsPage = page;
+  renderCollaboratorsTable();
+}
+
+function handleSearchCollaborators(val) {
+  currentSearchQuery = val;
+  currentColabsPage = 1;
+  renderCollaboratorsTable();
+}
+
+// ---- MÓDULO FORMULARIO CON PESTAÑAS ----
+async function showColabForm(colabIndex = null) {
+  currentEditingIndex = colabIndex;
+  activeFormTab = 'identidad';
+
+  const contentDiv = document.getElementById('colab-page-content');
+  if (!contentDiv) return;
+
+  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+  const isEdit = colabIndex !== null;
+  const colab = isEdit ? colabs[colabIndex] : {};
+  const isEn = (getSettings().language === 'en');
+
+  // Valores predeterminados
+  const nextCode = isEdit ? colab.code : generateNextEmployeeCode(colabs);
+  const firstName = colab.firstName || '';
+  const lastName = colab.lastName || '';
+  const cedula = colab.cedula || '001-0000000-1';
+  const nationality = colab.nationality || 'Dominicana';
+  const birthDate = colab.birthDate ? colab.birthDate.substring(0, 10) : '';
+  const gender = colab.gender || 'M';
+  const civilStatus = colab.civilStatus || 'SOLTERO';
+
+  const phone = colab.phone || '';
+  const mobile = colab.mobile || '';
+  const email = colab.email || '';
+  const address = colab.address || '';
+
+  const role = colab.role || '';
+  const department = colab.department || 'Operaciones';
+  const hireDate = colab.hireDate ? colab.hireDate.substring(0, 10) : '';
+  const statusText = colab.status || 'ACTIVO';
+
+  const paymentType = colab.paymentType || 'Efectivo';
+  const bankName = colab.bankName || '';
+  const bankAccount = colab.bankAccount || '';
+  const salary = colab.salary || 0;
+
+  const linkedAccountId = colab.linkedAccountId || '';
+  const modules = colab.modules || {};
+
+  contentDiv.innerHTML = `
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div>
+        <h2 class="section-title" style="margin:0; font-size:1.6rem; font-weight:700;">
+          ${isEdit ? (isEn ? 'Edit Collaborator' : 'Editar Colaborador') : (isEn ? 'New Collaborator' : 'Nuevo Colaborador')}
+        </h2>
+      </div>
+      <div>
+        <button class="btn-secondary" onclick="showColabsList()" style="gap:6px; font-size:0.85rem; font-weight:600;">
+          ← ${isEn ? 'Back' : 'Volver'}
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenedor del Formulario con Pestañas -->
+    <div class="card card--elevated" style="padding:24px;">
+      
+      <!-- Pestañas -->
+      <div class="colab-tabs-container">
+        <button id="tab-btn-identidad" class="colab-tab-btn active" onclick="switchColabTab('identidad')">Identidad</button>
+        <button id="tab-btn-contacto" class="colab-tab-btn" onclick="switchColabTab('contacto')">Contacto</button>
+        <button id="tab-btn-laboral" class="colab-tab-btn" onclick="switchColabTab('laboral')">Laboral</button>
+        <button id="tab-btn-financiero" class="colab-tab-btn" onclick="switchColabTab('financiero')">Financiero</button>
+        <button id="tab-btn-logistica" class="colab-tab-btn" onclick="switchColabTab('logistica')">Logística</button>
+      </div>
+
+      <form id="colab-details-form" onsubmit="event.preventDefault();">
+        
+        <!-- PESTAÑA 1: IDENTIDAD -->
+        <div id="tab-sec-identidad" class="colab-form-section active">
+          <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:20px;">
+            <h4 style="margin:0; font-size:0.95rem; color:var(--clr-primary-light); font-weight:700;">🪪 Información Personal</h4>
+          </div>
+          <div class="colab-grid-2" style="margin-bottom:20px;">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'First Name' : 'Nombres'} <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="colab-first-name" class="form-input" style="background:var(--clr-surface-3);" value="${firstName}" placeholder="Ingresa nombres" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Last Name' : 'Apellidos'} <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="colab-last-name" class="form-input" style="background:var(--clr-surface-3);" value="${lastName}" placeholder="Ingresa apellidos" required />
+            </div>
+          </div>
+          <div class="colab-grid-2" style="margin-bottom:20px;">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'National ID (Cédula)' : 'Cédula'} <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="colab-cedula" class="form-input" style="background:var(--clr-surface-3);" value="${cedula}" placeholder="001-0000000-1" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Internal Code' : 'Código Interno'}</label>
+              <input type="text" id="colab-code" class="form-input" style="background:var(--clr-surface-2); opacity:0.7; pointer-events:none;" value="${nextCode}" readonly />
+            </div>
+          </div>
+
+          <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:20px; margin-top:30px;">
+            <h4 style="margin:0; font-size:0.95rem; color:var(--clr-primary-light); font-weight:700;">🌍 Datos Demográficos</h4>
+          </div>
+          <div class="colab-grid-2" style="margin-bottom:10px;">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Nationality' : 'Nacionalidad'}</label>
+              <select id="colab-nationality" class="form-select" style="background:var(--clr-surface-3);">
+                <option value="Dominicana" ${nationality === 'Dominicana' ? 'selected' : ''}>Dominicana</option>
+                <option value="Haitiana" ${nationality === 'Haitiana' ? 'selected' : ''}>Haitiana</option>
+                <option value="Estadounidense" ${nationality === 'Estadounidense' ? 'selected' : ''}>Estadounidense</option>
+                <option value="Venezolana" ${nationality === 'Venezolana' ? 'selected' : ''}>Venezolana</option>
+                <option value="Colombiana" ${nationality === 'Colombiana' ? 'selected' : ''}>Colombiana</option>
+                <option value="Española" ${nationality === 'Española' ? 'selected' : ''}>Española</option>
+                <option value="Otra" ${nationality === 'Otra' ? 'selected' : ''}>Otra</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Birth Date' : 'Fecha Nacimiento'}</label>
+              <div style="position:relative;">
+                <input type="date" id="colab-birthdate" class="form-input" style="background:var(--clr-surface-3); width:100%;" value="${birthDate}" />
+              </div>
+            </div>
+          </div>
+          <div class="colab-grid-2" style="margin-bottom:10px;">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Gender' : 'Sexo'}</label>
+              <select id="colab-gender" class="form-select" style="background:var(--clr-surface-3);">
+                <option value="M" ${gender === 'M' ? 'selected' : ''}>M</option>
+                <option value="F" ${gender === 'F' ? 'selected' : ''}>F</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Civil Status' : 'Estado Civil'}</label>
+              <select id="colab-civilstatus" class="form-select" style="background:var(--clr-surface-3);">
+                <option value="SOLTERO" ${civilStatus === 'SOLTERO' ? 'selected' : ''}>SOLTERO</option>
+                <option value="CASADO" ${civilStatus === 'CASADO' ? 'selected' : ''}>CASADO</option>
+                <option value="DIVORCIADO" ${civilStatus === 'DIVORCIADO' ? 'selected' : ''}>DIVORCIADO</option>
+                <option value="UNIÓN LIBRE" ${civilStatus === 'UNIÓN LIBRE' ? 'selected' : ''}>UNIÓN LIBRE</option>
+                <option value="VIUDO" ${civilStatus === 'VIUDO' ? 'selected' : ''}>VIUDO</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 2: CONTACTO -->
+        <div id="tab-sec-contacto" class="colab-form-section">
+          <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:20px;">
+            <h4 style="margin:0; font-size:0.95rem; color:var(--clr-primary-light); font-weight:700;">📞 Información de Contacto</h4>
+          </div>
+          <div class="colab-grid-2" style="margin-bottom:20px;">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Telephone' : 'Teléfono'}</label>
+              <input type="text" id="colab-phone" class="form-input" style="background:var(--clr-surface-3);" value="${phone}" placeholder="Ej: 809-555-0199" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Mobile' : 'Celular'}</label>
+              <input type="text" id="colab-mobile" class="form-input" style="background:var(--clr-surface-3);" value="${mobile}" placeholder="Ej: 829-555-0200" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:20px;">
+            <label class="form-label">${isEn ? 'Email Address' : 'Correo Electrónico'}</label>
+            <input type="email" id="colab-email" class="form-input" style="background:var(--clr-surface-3);" value="${email}" placeholder="colaborador@empresa.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">${isEn ? 'Home Address' : 'Dirección'}</label>
+            <textarea id="colab-address" class="form-input" style="background:var(--clr-surface-3); height:80px; resize:none; padding:10px;" placeholder="Dirección residencial completa">${address}</textarea>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 3: LABORAL -->
+        <div id="tab-sec-laboral" class="colab-form-section">
+          <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:20px;">
+            <h4 style="margin:0; font-size:0.95rem; color:var(--clr-primary-light); font-weight:700;">💼 Datos Laborales</h4>
+          </div>
+          <div class="colab-grid-2" style="margin-bottom:20px;">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Position / Cargo' : 'Cargo / Puesto'} <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="colab-role" class="form-input" style="background:var(--clr-surface-3);" value="${role}" placeholder="Ej: Pesador, Operario, Caja, Administrador" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Department' : 'Departamento'}</label>
+              <input type="text" id="colab-department" class="form-input" style="background:var(--clr-surface-3);" value="${department}" placeholder="Ej: Pesaje, Logística, Contabilidad" />
+            </div>
+          </div>
+          <div class="colab-grid-2">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Hire Date' : 'Fecha de Contratación'}</label>
+              <input type="date" id="colab-hiredate" class="form-input" style="background:var(--clr-surface-3);" value="${hireDate}" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Status & Situation' : 'Estado y Situación'}</label>
+              <select id="colab-status" class="form-select" style="background:var(--clr-surface-3);">
+                <option value="ACTIVO" ${statusText === 'ACTIVO' ? 'selected' : ''}>ACTIVO</option>
+                <option value="INACTIVO" ${statusText === 'INACTIVO' ? 'selected' : ''}>INACTIVO</option>
+                <option value="LICENCIA" ${statusText === 'LICENCIA' ? 'selected' : ''}>LICENCIA</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 4: FINANCIERO -->
+        <div id="tab-sec-financiero" class="colab-form-section">
+          <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:20px;">
+            <h4 style="margin:0; font-size:0.95rem; color:var(--clr-primary-light); font-weight:700;">💳 Información Financiera</h4>
+          </div>
+          <div class="colab-grid-2" style="margin-bottom:20px;">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Payment Type' : 'Tipo de Pago'}</label>
+              <select id="colab-payment-type" class="form-select" style="background:var(--clr-surface-3);">
+                <option value="Efectivo" ${paymentType === 'Efectivo' ? 'selected' : ''}>Efectivo</option>
+                <option value="Transferencia" ${paymentType === 'Transferencia' ? 'selected' : ''}>Transferencia Bancaria</option>
+                <option value="Cheque" ${paymentType === 'Cheque' ? 'selected' : ''}>Cheque</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Bank Name' : 'Banco'}</label>
+              <input type="text" id="colab-bank-name" class="form-input" style="background:var(--clr-surface-3);" value="${bankName}" placeholder="Ej: Banco Popular, Banreservas" />
+            </div>
+          </div>
+          <div class="colab-grid-2">
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Bank Account Number' : 'Número de Cuenta'}</label>
+              <input type="text" id="colab-bank-account" class="form-input" style="background:var(--clr-surface-3);" value="${bankAccount}" placeholder="Número de cuenta de ahorros/corriente" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">${isEn ? 'Salary' : 'Salario Mensual'}</label>
+              <input type="number" id="colab-salary" class="form-input" style="background:var(--clr-surface-3);" value="${salary}" placeholder="0.00" step="0.01" />
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 5: LOGÍSTICA (ASIGNACIÓN DE USUARIO Y PERMISOS) -->
+        <div id="tab-sec-logistica" class="colab-form-section">
+          <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:20px;">
+            <h4 style="margin:0; font-size:0.95rem; color:var(--clr-primary-light); font-weight:700;">⚙️ Enlace de Usuario y Permisos</h4>
+          </div>
+          <div class="form-group" style="margin-bottom:24px;">
+            <label class="form-label" style="font-weight:700;">🔗 ${isEn ? 'Link to Company Member Account (Extra)' : 'Vincular a Cuenta de Miembro de Empresa (Extra)'}</label>
+            <select id="colab-linked-account" class="form-select" style="background:var(--clr-surface-3); width:100%;">
+              <option value="">${isEn ? '-- Select user to link --' : '-- Seleccionar cuenta para vincular --'}</option>
+            </select>
+          </div>
+
+          <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:14px; margin-top:20px;">
+            <h4 style="margin:0; font-size:0.88rem; color:var(--clr-text-secondary); font-weight:600;">🔒 Módulos y Permisos Habilitados</h4>
+          </div>
+          <p style="font-size:0.78rem; color:var(--clr-text-muted); margin-bottom:14px;">
+            Habilita o deshabilita los módulos específicos a los que este colaborador tendrá acceso directo en su menú.
+          </p>
+          <div id="colab-modules-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:10px; padding:12px; background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:6px; max-height:180px; overflow-y:auto;">
+            <!-- Checkboxes generados dinámicamente -->
+          </div>
+        </div>
+
+        <!-- Botones de Acción Formulario -->
+        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:40px; border-top:1px solid var(--clr-border); padding-top:20px;">
+          <button type="button" class="btn-secondary" onclick="showColabsList()" style="gap:6px; padding:10px 20px; font-weight:600; font-size:0.9rem;">
+            ❌ ${isEn ? 'Cancel' : 'Cancelar'}
+          </button>
+          <button type="button" class="btn-primary" onclick="saveCollaborator()" style="background-color:var(--clr-primary-light); color:#0a0f1d; gap:6px; padding:10px 24px; font-weight:700; font-size:0.9rem;">
+            💾 ${isEn ? 'Save' : 'Guardar'}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  `;
+
+  // Cargar módulos y checkboxes
+  renderColabModulesCheckboxes(modules);
+
+  // Cargar lista de miembros de Supabase para vincular
+  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+  await populateLinkedAccountsDropdown(session.familyId, linkedAccountId);
+}
+
+function switchColabTab(tabName) {
+  activeFormTab = tabName;
+  
+  // Actualizar botones de pestañas
+  const tabButtons = document.querySelectorAll('.colab-tab-btn');
+  tabButtons.forEach(btn => {
+    btn.classList.remove('active');
+  });
+  const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  // Actualizar secciones
+  const sections = document.querySelectorAll('.colab-form-section');
+  sections.forEach(sec => {
+    sec.classList.remove('active');
+  });
+  const activeSec = document.getElementById(`tab-sec-${tabName}`);
+  if (activeSec) activeSec.classList.add('active');
+}
+
+function renderColabModulesCheckboxes(savedModules) {
+  const container = document.getElementById('colab-modules-container');
+  if (!container) return;
+
+  container.innerHTML = COLLAB_TOGGLEABLE_MODULES.map(m => `
+    <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; cursor:pointer; user-select:none; margin:0; padding:6px; background:var(--clr-surface-2); border-radius:4px; border:1px solid var(--clr-border);">
+      <input type="checkbox" data-module-id="${m.id}" ${savedModules[m.id] !== false ? 'checked' : ''} style="width:15px; height:15px; cursor:pointer; margin:0;" />
+      <span>${m.label}</span>
+    </label>
+  `).join('');
+}
+
+async function populateLinkedAccountsDropdown(familyId, preselectedId) {
+  const select = document.getElementById('colab-linked-account');
   if (!select) return;
 
   try {
     if (!isSupabaseActive || !supabaseClient) {
-      select.innerHTML = '<option value="">-- Supabase inactivo (No se pueden vincular cuentas) --</option>';
+      select.innerHTML = '<option value="">-- Supabase desconectado --</option>';
       return;
     }
 
@@ -206,20 +583,227 @@ async function loadCompanyMembersDropdown(familyId) {
 
     if (error) throw error;
 
-    let html = '<option value="">-- No vincular a ninguna cuenta --</option>';
+    let html = `<option value="">-- No vincular a ninguna cuenta --</option>`;
     if (members && members.length > 0) {
       members.forEach(m => {
         const cleanName = (m.name || 'Sin nombre').split(' | ')[0].trim();
-        html += `<option value="${m.id}">${cleanName} (${m.email || 'sin email'})</option>`;
+        const selected = m.id === preselectedId ? 'selected' : '';
+        html += `<option value="${m.id}" ${selected}>${cleanName} (${m.email || 'sin correo'})</option>`;
       });
-    } else {
-      html = '<option value="">-- No hay otros miembros registrados --</option>';
     }
     select.innerHTML = html;
   } catch (err) {
-    console.error('Error cargando miembros:', err);
-    select.innerHTML = '<option value="">-- Error cargando miembros --</option>';
+    console.error('Error al cargar miembros para formulario:', err);
+    select.innerHTML = '<option value="">-- Error al cargar miembros --</option>';
   }
+}
+
+// Genera automáticamente el código correlativo de colaborador
+function generateNextEmployeeCode(colabs) {
+  let maxNum = 0;
+  colabs.forEach(c => {
+    if (c.code && c.code.startsWith('EMPL-')) {
+      const numPart = c.code.substring(5);
+      const num = parseInt(numPart, 10);
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num;
+      }
+    }
+  });
+  const nextNum = maxNum + 1;
+  return `EMPL-${String(nextNum).padStart(5, '0')}`;
+}
+
+// ---- MÓDULO GUARDAR Y VALIDAR ----
+function saveCollaborator() {
+  const firstNameEl = document.getElementById('colab-first-name');
+  const lastNameEl = document.getElementById('colab-last-name');
+  const cedulaEl = document.getElementById('colab-cedula');
+  const roleEl = document.getElementById('colab-role');
+
+  if (!firstNameEl || !lastNameEl || !cedulaEl || !roleEl) return;
+
+  const firstName = firstNameEl.value.trim();
+  const lastName = lastNameEl.value.trim();
+  const name = `${firstName} ${lastName}`;
+  const cedula = cedulaEl.value.trim();
+  const role = roleEl.value.trim();
+
+  // Validaciones
+  if (!firstName) {
+    switchColabTab('identidad');
+    showToast('❌ El nombre es obligatorio', 'error');
+    firstNameEl.focus();
+    return;
+  }
+  if (!lastName) {
+    switchColabTab('identidad');
+    showToast('❌ El apellido es obligatorio', 'error');
+    lastNameEl.focus();
+    return;
+  }
+  if (!cedula) {
+    switchColabTab('identidad');
+    showToast('❌ La cédula es obligatoria', 'error');
+    cedulaEl.focus();
+    return;
+  }
+  if (!role) {
+    switchColabTab('laboral');
+    showToast('❌ El cargo es obligatorio', 'error');
+    roleEl.focus();
+    return;
+  }
+
+  // Recopilar datos de todas las pestañas
+  const nationality = document.getElementById('colab-nationality').value;
+  const birthDate = document.getElementById('colab-birthdate').value;
+  const gender = document.getElementById('colab-gender').value;
+  const civilStatus = document.getElementById('colab-civilstatus').value;
+
+  const phone = document.getElementById('colab-phone').value.trim();
+  const mobile = document.getElementById('colab-mobile').value.trim();
+  const email = document.getElementById('colab-email').value.trim();
+  const address = document.getElementById('colab-address').value.trim();
+
+  const department = document.getElementById('colab-department').value.trim();
+  const hireDate = document.getElementById('colab-hiredate').value;
+  const status = document.getElementById('colab-status').value;
+
+  const paymentType = document.getElementById('colab-payment-type').value;
+  const bankName = document.getElementById('colab-bank-name').value.trim();
+  const bankAccount = document.getElementById('colab-bank-account').value.trim();
+  const salary = parseFloat(document.getElementById('colab-salary').value) || 0;
+
+  const linkedAccountId = document.getElementById('colab-linked-account').value;
+
+  // Módulos
+  const modules = {};
+  const checkboxes = document.querySelectorAll('#colab-modules-container input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    const modId = cb.getAttribute('data-module-id');
+    modules[modId] = cb.checked;
+  });
+
+  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+
+  if (currentEditingIndex === null) {
+    // NUEVO
+    const code = generateNextEmployeeCode(colabs);
+    
+    // Evitar nombres duplicados
+    if (colabs.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      showToast('❌ Ya existe un colaborador con este nombre', 'error');
+      return;
+    }
+
+    const newColab = {
+      id: `COLAB-${Date.now()}`,
+      code,
+      firstName,
+      lastName,
+      name,
+      cedula,
+      nationality,
+      birthDate,
+      gender,
+      civilStatus,
+      phone,
+      mobile,
+      email,
+      address,
+      role,
+      department,
+      hireDate,
+      status,
+      paymentType,
+      bankName,
+      bankAccount,
+      salary,
+      linkedAccountId,
+      modules,
+      createdAt: new Date().toISOString()
+    };
+
+    colabs.unshift(newColab);
+    showToast('👥 Colaborador registrado con éxito', 'success');
+  } else {
+    // EDICIÓN
+    const code = colabs[currentEditingIndex].code;
+    const originalId = colabs[currentEditingIndex].id;
+
+    colabs[currentEditingIndex] = {
+      id: originalId,
+      code,
+      firstName,
+      lastName,
+      name,
+      cedula,
+      nationality,
+      birthDate,
+      gender,
+      civilStatus,
+      phone,
+      mobile,
+      email,
+      address,
+      role,
+      department,
+      hireDate,
+      status,
+      paymentType,
+      bankName,
+      bankAccount,
+      salary,
+      linkedAccountId,
+      modules,
+      updatedAt: new Date().toISOString()
+    };
+    showToast('👥 Colaborador actualizado con éxito', 'success');
+  }
+
+  localStorage.setItem(userKey('recim_collaborators'), JSON.stringify(colabs));
+
+  // Actualizar menús y vistas
+  if (typeof applyModuleVisibility === 'function') {
+    applyModuleVisibility();
+  }
+
+  showColabsList();
+}
+
+// ---- DAR DE BAJA ----
+function deleteCollaborator(index) {
+  if (!confirm('¿Estás seguro de que deseas dar de baja a este colaborador?')) return;
+
+  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+  colabs.splice(index, 1);
+  localStorage.setItem(userKey('recim_collaborators'), JSON.stringify(colabs));
+  
+  showToast('🗑️ Colaborador dado de baja con éxito', 'success');
+  
+  if (typeof applyModuleVisibility === 'function') {
+    applyModuleVisibility();
+  }
+
+  renderCollaboratorsTable();
+}
+
+// ---- IMPORTAR (MOCK) ----
+function handleImportCollaborators() {
+  showToast('📤 Función de Importación Excel/CSV para Colaboradores habilitada en el menú principal', 'info');
+}
+
+// Helpers útiles
+function hexToRgb(hex) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex.split('').map(x => x + x).join('');
+  }
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
 }
 
 const COLLAB_TOGGLEABLE_MODULES = [
@@ -233,274 +817,13 @@ const COLLAB_TOGGLEABLE_MODULES = [
   { id: 'ecologia', label: '🌱 Impacto medioambiental' }
 ];
 
-function renderCollaboratorsTable(colabs, isAdmin) {
-  const tbody = document.getElementById('colab-list-table-body');
-  if (!tbody) return;
-
-  if (colabs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--clr-text-muted); padding:15px;">No hay colaboradores registrados.</td></tr>`;
-    return;
-  }
-
-  let html = '';
-  colabs.forEach((c, index) => {
-    if (!c.modules) {
-      c.modules = {};
-      COLLAB_TOGGLEABLE_MODULES.forEach(m => c.modules[m.id] = true);
-    }
-
-    let modulesHtml = '';
-    if (isAdmin) {
-      modulesHtml = `<div style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto; padding:6px; background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:4px;">` + 
-        COLLAB_TOGGLEABLE_MODULES.map(m => `
-          <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; user-select:none; margin:0;">
-            <input type="checkbox" ${c.modules[m.id] !== false ? 'checked' : ''} onchange="toggleCollaboratorModule(${index}, '${m.id}', this.checked)" style="width:13px; height:13px; cursor:pointer; margin:0;" />
-            <span>${m.label}</span>
-          </label>
-        `).join('') + `</div>`;
-    } else {
-      modulesHtml = `<div style="display:flex; flex-wrap:wrap; gap:4px;">` + 
-        COLLAB_TOGGLEABLE_MODULES.map(m => {
-          if (c.modules[m.id] !== false) {
-            return `<span class="badge badge--blue" style="font-size:0.65rem; padding: 2px 6px; border-radius: 4px;">${m.label.split(' ')[0]} ${m.label.substring(m.label.indexOf(' ') + 1)}</span>`;
-          }
-          return '';
-        }).join('') + `</div>`;
-    }
-
-    html += `
-      <tr>
-        <td style="font-weight:600; color:var(--clr-text);">${c.name}</td>
-        <td><span class="badge badge--green">${c.role}</span></td>
-        <td>
-          <div style="font-size:0.8rem; color:var(--clr-text-secondary);">${c.phone || '—'}</div>
-          <div style="font-size:0.75rem; color:var(--clr-text-muted);">${c.email || '—'}</div>
-        </td>
-        <td>
-          <span style="font-size:0.78rem; font-family:monospace; color:var(--clr-text-muted);">${c.linkedAccountId ? c.linkedAccountId.substring(0, 8) + '...' : 'Ninguna'}</span>
-        </td>
-        <td>${modulesHtml}</td>
-        <td style="text-align:center;">
-          ${isAdmin ? `
-            <button class="btn-danger" style="padding: 4px 8px; font-size:0.75rem; min-width:unset; margin:0;" onclick="handleDeleteCollaborator(${index})">
-              🗑 Baja
-            </button>
-          ` : '—'}
-        </td>
-      </tr>
-    `;
-  });
-  tbody.innerHTML = html;
-}
-
-function toggleCollaboratorModule(colabIndex, moduleId, isEnabled) {
-  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
-  let companyAdmin = localStorage.getItem(userKey('recim_company_admin'));
-  if (companyAdmin && companyAdmin.startsWith('"') && companyAdmin.endsWith('"')) {
-    try { companyAdmin = JSON.parse(companyAdmin); } catch (_) {}
-  }
-  if (companyAdmin !== session.accountId) {
-    showToast('❌ Solo el creador de la empresa tiene permisos para editar la sección de colaboradores', 'error');
-    return;
-  }
-
-  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
-  if (colabs[colabIndex]) {
-    if (!colabs[colabIndex].modules) {
-      colabs[colabIndex].modules = {};
-      COLLAB_TOGGLEABLE_MODULES.forEach(m => colabs[colabIndex].modules[m.id] = true);
-    }
-    colabs[colabIndex].modules[moduleId] = isEnabled;
-    localStorage.setItem(userKey('recim_collaborators'), JSON.stringify(colabs));
-    showToast('✅ Permiso de módulo actualizado con éxito', 'success');
-    
-    // Rerender table
-    renderCollaboratorsTable(colabs, true);
-    
-    // Apply module visibility changes immediately
-    if (typeof applyModuleVisibility === 'function') {
-      applyModuleVisibility();
-    }
-  }
-}
-
-window.toggleCollaboratorModule = toggleCollaboratorModule;
-
-function renderCollaboratorsActivity(colabs) {
-  const tbody = document.getElementById('colab-activity-table-body');
-  if (!tbody) return;
-
-  if (colabs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--clr-text-muted); padding:15px;">No hay colaboradores para medir actividad.</td></tr>`;
-    return;
-  }
-
-  // Load invoices to count activity locally (super fast!)
-  const invoices = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
-
-  let html = '';
-  colabs.forEach(c => {
-    // Count invoices where collaborator name matches
-    const colabInvoices = invoices.filter(i => i.collaborator === c.name);
-    const invoiceCount = colabInvoices.length;
-    const totalAmount = colabInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-
-    html += `
-      <tr>
-        <td style="font-weight:600;">${c.name}</td>
-        <td><span class="badge badge--blue">${c.role}</span></td>
-        <td style="text-align:center; font-weight:700;">${invoiceCount}</td>
-        <td style="text-align:right; font-family:monospace; font-weight:700; color:var(--clr-primary-light);">${formatMoney(totalAmount)}</td>
-      </tr>
-    `;
-  });
-  tbody.innerHTML = html;
-}
-
-async function renderCollaboratorsSupport(colabs) {
-  const tbody = document.getElementById('colab-support-table-body');
-  if (!tbody) return;
-
-  if (!isSupabaseActive || !supabaseClient) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--clr-text-muted); padding:15px;">Supabase fuera de línea. No se puede cargar soporte IT.</td></tr>`;
-    return;
-  }
-
-  try {
-    const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
-    const { data: tickets, error } = await supabaseClient
-      .from('support_tickets')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    // Filter tickets that belong to our company (parsed from user_name)
-    const companyId = session.familyId;
-    const companyTickets = (tickets || []).filter(t => {
-      // user_name is in format: "Name | Empresa: ID | Colaborador: Name"
-      return t.user_name && t.user_name.includes(`Empresa: ${companyId}`);
-    });
-
-    if (companyTickets.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--clr-text-muted); padding:15px;">No hay reportes de soporte registrados por esta empresa.</td></tr>`;
-      return;
-    }
-
-    let html = '';
-    companyTickets.forEach(t => {
-      // Parse collaborator name out of user_name
-      let colabName = '—';
-      const parts = t.user_name.split(' | ');
-      const colabPart = parts.find(p => p.startsWith('Colaborador:'));
-      if (colabPart) {
-        colabName = colabPart.replace('Colaborador:', '').trim();
-      }
-
-      html += `
-        <tr>
-          <td style="font-family:monospace; font-size:0.8rem; font-weight:bold;">${t.id.substring(0, 8)}...</td>
-          <td style="font-weight:600;">${colabName}</td>
-          <td>${t.subject}</td>
-          <td style="text-align:center;">
-            <span class="badge ${t.status === 'open' ? 'badge--blue' : 'badge--green'}">${t.status === 'open' ? 'Abierto' : 'Resuelto'}</span>
-          </td>
-        </tr>
-      `;
-    });
-    tbody.innerHTML = html;
-
-  } catch (err) {
-    console.error('Error loading support logs for colabs:', err);
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--clr-danger); padding:15px;">Error al conectar con la base de datos de soporte.</td></tr>`;
-  }
-}
-
-function handleCreateCollaborator() {
-  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
-  let companyAdmin = localStorage.getItem(userKey('recim_company_admin'));
-  if (companyAdmin && companyAdmin.startsWith('"') && companyAdmin.endsWith('"')) {
-    try { companyAdmin = JSON.parse(companyAdmin); } catch (_) {}
-  }
-  if (companyAdmin !== session.accountId) {
-    showToast('❌ Solo el creador de la empresa tiene permisos para registrar colaboradores', 'error');
-    return;
-  }
-
-  const nameEl = document.getElementById('colab-reg-name');
-  const roleEl = document.getElementById('colab-reg-role');
-  const phoneEl = document.getElementById('colab-reg-phone');
-  const emailEl = document.getElementById('colab-reg-email');
-  const accountEl = document.getElementById('colab-reg-account');
-
-  if (!nameEl || !roleEl) return;
-
-  const name = nameEl.value.trim();
-  const role = roleEl.value.trim();
-  const phone = phoneEl.value.trim();
-  const email = emailEl.value.trim();
-  const linkedAccountId = accountEl ? accountEl.value : '';
-
-  if (!name) {
-    showToast('❌ El nombre completo es obligatorio', 'error');
-    return;
-  }
-  if (!role) {
-    showToast('❌ El rol o puesto es obligatorio', 'error');
-    return;
-  }
-
-  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
-  
-  // Prevent duplicate names
-  if (colabs.some(c => c.name.toLowerCase() === name.toLowerCase())) {
-    showToast('❌ Ya existe un colaborador con este nombre', 'error');
-    return;
-  }
-
-  const newColab = {
-    id: `COLAB-${Date.now()}`,
-    name,
-    role,
-    phone,
-    email,
-    linkedAccountId,
-    createdAt: new Date().toISOString()
-  };
-
-  colabs.push(newColab);
-  localStorage.setItem(userKey('recim_collaborators'), JSON.stringify(colabs));
-  showToast('👥 Colaborador registrado y sincronizado con éxito', 'success');
-
-  // Reload page content
-  const target = document.getElementById('page-colaboradores');
-  if (target) renderCollaboratorsPage(target);
-}
-
-function handleDeleteCollaborator(index) {
-  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
-  let companyAdmin = localStorage.getItem(userKey('recim_company_admin'));
-  if (companyAdmin && companyAdmin.startsWith('"') && companyAdmin.endsWith('"')) {
-    try { companyAdmin = JSON.parse(companyAdmin); } catch (_) {}
-  }
-  if (companyAdmin !== session.accountId) {
-    showToast('❌ Solo el creador de la empresa tiene permisos para dar de baja colaboradores', 'error');
-    return;
-  }
-
-  if (!confirm('¿Estás seguro de que deseas dar de baja a este colaborador?')) return;
-
-  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
-  colabs.splice(index, 1);
-  localStorage.setItem(userKey('recim_collaborators'), JSON.stringify(colabs));
-  showToast('🗑 Colaborador dado de baja con éxito', 'success');
-
-  // Reload page content
-  const target = document.getElementById('page-colaboradores');
-  if (target) renderCollaboratorsPage(target);
-}
-
-// Export functions to global scope
+// Exportación global de funciones
 window.renderCollaboratorsPage = renderCollaboratorsPage;
-window.handleCreateCollaborator = handleCreateCollaborator;
-window.handleDeleteCollaborator = handleDeleteCollaborator;
+window.showColabsList = showColabsList;
+window.showColabForm = showColabForm;
+window.switchColabTab = switchColabTab;
+window.saveCollaborator = saveCollaborator;
+window.deleteCollaborator = deleteCollaborator;
+window.handleSearchCollaborators = handleSearchCollaborators;
+window.handleImportCollaborators = handleImportCollaborators;
+window.changeColabsPage = changeColabsPage;
