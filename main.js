@@ -5,7 +5,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, 'www/icon-512.png'), // Tu logo de reciclaje
+    title: 'reciminsaapp',
+    icon: path.join(__dirname, 'www/logo-no-white-lines.png'), // Tu logo de reciclaje
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true

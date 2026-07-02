@@ -1,8 +1,8 @@
 {
-  "name": "reciminsa-app-pc-port",
-  "version": "1.0.13",
+  "name": "reciminsaapp",
+  "version": "1.0.14",
   "author": "Keylet Sebastian",
-  "description": "Aplicacion de escritorio para la gestion de materiales reciclables en RECIMINSA.",
+  "description": "reciminsaapp",
   "main": "main.js",
   "type": "commonjs",
   "scripts": {

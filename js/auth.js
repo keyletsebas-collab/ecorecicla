@@ -5,6 +5,8 @@
    ============================================= */
 
 // ---- Logout on App Close ----
+// (Desactivado para mantener la sesión abierta en Android y PWA)
+/*
 if (!sessionStorage.getItem('app_has_been_opened')) {
     localStorage.removeItem('recim_session');
     for (let i = 0; i < localStorage.length; i++) {
@@ -15,6 +17,7 @@ if (!sessionStorage.getItem('app_has_been_opened')) {
     }
     sessionStorage.setItem('app_has_been_opened', 'true');
 }
+*/
 
 // ---- Per-user storage key helper ----
 // All app data is namespaced under the current user's accountId.

@@ -79,7 +79,7 @@ function renderFacturaForm(type) {
         <input type="hidden" id="fac-address-${type}" value="" />
       `}
 
-      <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+      <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
         <div class="form-group">
           <label class="form-label">${t('lbl.invoice_date')} <span style="color: #ef4444; font-weight: bold;">*</span></label>
           <input id="fac-date-${type}" type="date" class="form-input" />
@@ -87,6 +87,19 @@ function renderFacturaForm(type) {
         <div class="form-group">
           <label class="form-label">${t('inv.contact')}</label>
           <input id="fac-contact-${type}" type="text" class="form-input" placeholder="Teléfono o Contacto" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Colaborador Registrante</label>
+          <select id="fac-colab-${type}" class="form-select">
+            ${(function() {
+              const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+              let options = '<option value="">-- Sin Colaborador --</option>';
+              colabs.forEach(c => {
+                options += `<option value="${c.name}">${c.name} (${c.role})</option>`;
+              });
+              return options;
+            })()}
+          </select>
         </div>
       </div>
 
@@ -368,6 +381,7 @@ async function saveFactura(type) {
 
   const address = document.getElementById(`fac-address-${type}`).value.trim();
   const contact = document.getElementById(`fac-contact-${type}`).value.trim();
+  const collaborator = document.getElementById(`fac-colab-${type}`)?.value || '';
   const notes = document.getElementById(`fac-notes-${type}`).value.trim();
   const taxRate = parseFloat(document.getElementById(`fac-tax-${type}`).value) || 0;
   const iscRate = parseFloat(document.getElementById(`fac-isc-${type}`).value) || 0;
@@ -390,6 +404,7 @@ async function saveFactura(type) {
     company, nit, ncfType, ncf, address, contact, date, notes,
     items, subtotal: rawSubtotal, taxRate, taxAmount, 
     iscRate, iscAmount, retIsrRate, retIsrAmount, retItbisRate, retItbisAmount, total,
+    collaborator,
     createdAt: new Date().toISOString()
   };
 

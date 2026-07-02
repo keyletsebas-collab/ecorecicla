@@ -12,6 +12,9 @@
         { pattern: 'recim_clients', pages: ['clientes', 'empresas'], label: '👥 Clientes' },
         { pattern: 'recim_ingresos', pages: ['ingresos'], label: '💰 Ingresos' },
         { pattern: 'recim_egresos', pages: ['egresos'], label: '💸 Egresos' },
+        { pattern: 'recim_company_admin', pages: ['ajustes', 'colaboradores'], label: '👑 Admin de Empresa' },
+        { pattern: 'recim_collaborators', pages: ['colaboradores', 'facturas', 'ingresos', 'egresos', 'bitacoras'], label: '🤝 Colaboradores' },
+        { pattern: 'recim_company_shared_settings', pages: ['ajustes'], label: '⚙️ Ajustes de Empresa' },
     ];
 
     // Special keys handled separately
@@ -57,6 +60,11 @@
     function maybeRerender(affectedPages, label) {
         const page = activePage();
         if (!page) return;
+
+        // Apply module visibility changes if collaborators are updated
+        if (affectedPages.includes('colaboradores') && typeof applyModuleVisibility === 'function') {
+            try { applyModuleVisibility(); } catch (_) {}
+        }
 
         if (affectedPages.includes(page)) {
             syncToast(label);
@@ -667,11 +675,88 @@ async function sendGDriveWelcomeDoc() {
         return false;
     }
 
+    /**
+     * Restore/Pull data from Google Drive.
+     */
+    async function syncPullGDriveData() {
+        const folderInput = localStorage.getItem(userKey('recim_gdrive_folder'));
+        if (!folderInput) {
+            throw new Error('Google Drive no configurado en los Ajustes.');
+        }
+
+        const folderId = extractFolderId(folderInput);
+        if (!folderId) {
+            throw new Error('Dirección de carpeta inválida.');
+        }
+
+        let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
+        if (!scriptUrl) {
+            if (typeof getAppsScriptUrl === 'function') {
+                scriptUrl = getAppsScriptUrl();
+            } else {
+                scriptUrl = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
+            }
+        }
+        
+        let accountId = 'default';
+        try {
+            const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+            accountId = session.accountId || 'default';
+        } catch (_) {}
+
+        const fileName = `reciminsa_backup_${accountId}.json`;
+
+        console.log(`📡 Solicitando restauración desde Google Drive folderId: ${folderId}`);
+        
+        try {
+            const response = await fetch(scriptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
+                body: JSON.stringify({
+                    appToken: APP_SECURITY_TOKEN,
+                    action: 'restore',
+                    folderId: folderId,
+                    fileName: fileName
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error en servidor (${response.status})`);
+            }
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                const contentObj = JSON.parse(result.content);
+                const keys = Object.keys(contentObj);
+                if (keys.length === 0) {
+                    throw new Error('La copia de seguridad está vacía.');
+                }
+
+                // Escribir en localStorage
+                keys.forEach(k => {
+                    localStorage.setItem(userKey(k), JSON.stringify(contentObj[k]));
+                });
+
+                // Forzar sincronización con Supabase para propagar cambios
+                await syncPushData(true);
+                return true;
+            } else {
+                throw new Error(result.message || 'Error desconocido al restaurar.');
+            }
+        } catch (err) {
+            console.error('Google Drive Sync Pull Error:', err);
+            throw err;
+        }
+    }
+
     // Export to window
     window.syncPushData = syncPushData;
     window.syncPullData = syncPullData;
     window.forceSync = forceSync;
     window.syncPushGDrive = syncPushGDrive;
+    window.syncPullGDriveData = syncPullGDriveData;
     window.syncPushGDriveExcel = syncPushGDriveExcel;
     window.sendGDriveWelcomeDoc = sendGDriveWelcomeDoc;
     window.syncPushGDriveSettings = syncPushGDriveSettings;
@@ -753,6 +838,53 @@ async function sendGDriveWelcomeDoc() {
                                 console.log('📡 Conectado a Supabase Realtime Database exitosamente.');
                             }
                         });
+                        
+                    // Activar notificaciones Push para Soporte IT
+                    supabaseClient.channel('global:support_notifications')
+                        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_chats' }, payload => {
+                            try {
+                                const sessionStr = localStorage.getItem('recim_session');
+                                if (!sessionStr) return;
+                                const sessionObj = JSON.parse(sessionStr);
+                                
+                                // Solo notificar si el mensaje es de la otra persona y es para el ticket o admin
+                                // Para simplificar: notificar si NO somos el emisor
+                                if (payload.new.sender_email === sessionObj.email) return;
+
+                                const title = 'Soporte IT: Nuevo Mensaje';
+                                const body = `${payload.new.sender_name}: ${payload.new.message}`;
+
+                                // Mostrar notificación push nativa si estamos en móvil
+                                if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.Plugins.LocalNotifications) {
+                                    Capacitor.Plugins.LocalNotifications.requestPermissions().then((result) => {
+                                        if (result.display === 'granted') {
+                                            Capacitor.Plugins.LocalNotifications.schedule({
+                                                notifications: [{
+                                                    title: title,
+                                                    body: body,
+                                                    id: new Date().getTime(),
+                                                    schedule: { at: new Date(Date.now() + 500) }
+                                                }]
+                                            });
+                                        }
+                                    });
+                                } else {
+                                    // Web Notification (PWA / Desktop)
+                                    if ('Notification' in window && document.visibilityState !== 'visible') {
+                                        if (Notification.permission === 'granted') {
+                                            new Notification(title, { body: body });
+                                        } else if (Notification.permission !== 'denied') {
+                                            Notification.requestPermission().then(p => {
+                                                if (p === 'granted') new Notification(title, { body: body });
+                                            });
+                                        }
+                                    } else if (document.visibilityState === 'visible' && typeof showToast === 'function') {
+                                        // Si estamos en la app y no estamos en la página de soporte (donde no hay sync.js), mostramos toast
+                                        showToast(`💬 Soporte IT: ${payload.new.sender_name} ha respondido.`, 'info', 5000);
+                                    }
+                                }
+                            } catch (e) { console.error('Push error:', e); }
+                        }).subscribe();
                 }
             }, 1000);
         }

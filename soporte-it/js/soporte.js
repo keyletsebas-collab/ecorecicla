@@ -99,25 +99,26 @@ function applyTheme() {
 }
 
 async function loadUsersForDatalist() {
-  const datalist = document.getElementById('users-list');
-  if (!datalist || !isSupabaseActive || !supabaseClient) return;
+  const select = document.getElementById('ticket-user');
+  if (!select) return;
 
-  try {
-    const { data, error } = await supabaseClient.from('profiles').select('email, name');
-    if (error) throw error;
-    if (data) {
-      data.forEach(user => {
-        if(user.email) {
-          const option = document.createElement('option');
-          option.value = user.email;
-          option.textContent = cleanUserName(user.name) || user.email;
-          datalist.appendChild(option);
-        }
-      });
-    }
-  } catch (err) {
-    console.error("Error al cargar usuarios para datalist:", err);
-  }
+  // Clear previous options
+  select.innerHTML = '';
+
+  // 1. Add current user
+  const meOption = document.createElement('option');
+  meOption.value = session.email;
+  meOption.textContent = `${cleanUserName(session.name)} (${session.email}) [Tú]`;
+  select.appendChild(meOption);
+
+  // 2. Add local company collaborators
+  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+  colabs.forEach(c => {
+    const colabOption = document.createElement('option');
+    colabOption.value = c.email || `${c.name}@collaborator.local`;
+    colabOption.textContent = `${c.name} (${c.role})`;
+    select.appendChild(colabOption);
+  });
 }
 
 // ==========================================
@@ -145,12 +146,28 @@ async function submitTicket(e) {
   }
 
   try {
+    const selectedReporterValue = document.getElementById('ticket-user').value;
+    
+    // Find if it's a collaborator or the user
+    const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+    const matchedColab = colabs.find(c => (c.email === selectedReporterValue || `${c.name}@collaborator.local` === selectedReporterValue));
+    
+    const companyId = session.familyId || 'Ninguna';
+    const companyName = JSON.parse(localStorage.getItem('recim_settings') || '{}').companyName || 'Reciminsa';
+    
+    let formattedUserName = '';
+    if (matchedColab) {
+      formattedUserName = `${cleanUserName(session.name)} | Empresa: ${companyName} (${companyId}) | Colaborador: ${matchedColab.name}`;
+    } else {
+      formattedUserName = `${cleanUserName(session.name)} | Empresa: ${companyName} (${companyId}) | Cuenta Principal`;
+    }
+
     const { data, error } = await supabaseClient
       .from('support_tickets')
       .insert([
         {
-          user_email: document.getElementById('ticket-user').value,
-          user_name: document.getElementById('ticket-user').value,
+          user_email: session.email, // Keep in reporter's dashboard
+          user_name: formattedUserName,
           module: moduleVal,
           issue_date: dateVal,
           description: descVal,
@@ -249,26 +266,37 @@ function renderTicketsList(tickets, container, showUserInfo) {
     // Format date
     const createdDate = new Date(ticket.created_at).toLocaleDateString();
 
-    const card = document.createElement('div');
-    card.className = 'ticket-card';
-    card.onclick = () => openChat(ticket);
+      // Parse detailed company metadata for admin
+      let userDisplay = ticket.user_name || 'Desconocido';
+      if (ticket.user_name && ticket.user_name.includes(' | ')) {
+        const parts = ticket.user_name.split(' | ');
+        const userName = parts[0].trim();
+        const companyPart = parts.find(p => p.startsWith('Empresa:')) || 'Empresa: N/A';
+        const colabPart = parts.find(p => p.startsWith('Colaborador:')) || '';
+        
+        userDisplay = `${userName} (${companyPart.replace('Empresa:', '').trim()})${colabPart ? ` - Colab: ` + colabPart.replace('Colaborador:', '').trim() : ''}`;
+      }
 
-    card.innerHTML = `
-      <div class="ticket-card-header">
-        <span class="ticket-module-badge">${ticket.module}</span>
-        <span class="ticket-status ${statusClass}">${statusText}</span>
-      </div>
-      <h4 class="ticket-title">${showUserInfo ? `Reclamo de: ${cleanUserName(ticket.user_name)}` : 'Mi Reclamo'}</h4>
-      <p class="ticket-desc-preview">${ticket.description}</p>
-      <div class="ticket-footer">
-        <span>📅 Problema desde: ${ticket.issue_date}</span>
-        <span>${createdDate}</span>
-      </div>
-      <div style="margin-top:12px; border-top:1px solid var(--clr-border); padding-top:10px; display:flex; gap:10px;">
-        <button class="btn-secondary" style="flex:1; justify-content:center;">💬 ${showUserInfo ? 'Iniciar chat' : 'Ver chat / Responder'}</button>
-        <button style="padding:0 15px; background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid #ef4444; border-radius:var(--r-md); cursor:pointer; font-weight:bold; transition:all 0.2s ease;" onmouseover="this.style.background='#ef4444'; this.style.color='#fff';" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444';" onclick="event.stopPropagation(); deleteTicket('${ticket.id}')">🗑️</button>
-      </div>
-    `;
+      const card = document.createElement('div');
+      card.className = 'ticket-card';
+      card.onclick = () => openChat(ticket);
+
+      card.innerHTML = `
+        <div class="ticket-card-header">
+          <span class="ticket-module-badge">${ticket.module}</span>
+          <span class="ticket-status ${statusClass}">${statusText}</span>
+        </div>
+        <h4 class="ticket-title">${showUserInfo ? `Reclamo de: ${userDisplay}` : 'Mi Reclamo'}</h4>
+        <p class="ticket-desc-preview">${ticket.description}</p>
+        <div class="ticket-footer">
+          <span>📅 Problema desde: ${ticket.issue_date}</span>
+          <span>${createdDate}</span>
+        </div>
+        <div style="margin-top:12px; border-top:1px solid var(--clr-border); padding-top:10px; display:flex; gap:10px;">
+          <button class="btn-secondary" style="flex:1; justify-content:center;">💬 ${showUserInfo ? 'Iniciar chat' : 'Ver chat / Responder'}</button>
+          <button style="padding:0 15px; background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid #ef4444; border-radius:var(--r-md); cursor:pointer; font-weight:bold; transition:all 0.2s ease;" onmouseover="this.style.background='#ef4444'; this.style.color='#fff';" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444';" onclick="event.stopPropagation(); deleteTicket('${ticket.id}')">🗑️</button>
+        </div>
+      `;
 
     container.appendChild(card);
   });
@@ -303,7 +331,16 @@ async function openChat(ticket) {
   const context = document.getElementById('chat-context');
   const messagesContainer = document.getElementById('chat-messages');
   
-  title.textContent = isAdmin ? `Chat con ${cleanUserName(ticket.user_name)}` : 'Soporte IT';
+  let userDisplay = ticket.user_name || 'Desconocido';
+  if (ticket.user_name && ticket.user_name.includes(' | ')) {
+    const parts = ticket.user_name.split(' | ');
+    const userName = parts[0].trim();
+    const companyPart = parts.find(p => p.startsWith('Empresa:')) || 'Empresa: N/A';
+    const colabPart = parts.find(p => p.startsWith('Colaborador:')) || '';
+    userDisplay = `${userName} (${companyPart.replace('Empresa:', '').trim()})${colabPart ? ` - Colab: ` + colabPart.replace('Colaborador:', '').trim() : ''}`;
+  }
+
+  title.textContent = isAdmin ? `Chat con ${userDisplay}` : 'Soporte IT';
   context.innerHTML = `<strong>Módulo:</strong> ${ticket.module} <br/> <strong>Problema:</strong> ${ticket.description}`;
   messagesContainer.innerHTML = '<p style="text-align:center; color:var(--clr-text-muted); font-size:0.8rem; margin:auto;">Cargando mensajes...</p>';
   
@@ -540,6 +577,26 @@ function subscribeToChat() {
       // Si el mensaje lo envió la otra persona, marcarlo como leído automáticamente
       if (payload.new.sender_email !== session.email) {
         markMessagesAsRead();
+        
+        // Disparar Notificación Push en Móvil si estamos en background
+        if (document.visibilityState !== 'visible') {
+            const title = 'Soporte IT: Nuevo Mensaje';
+            const body = `${payload.new.sender_name}: ${payload.new.message}`;
+            if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.Plugins.LocalNotifications) {
+                Capacitor.Plugins.LocalNotifications.requestPermissions().then((result) => {
+                    if (result.display === 'granted') {
+                        Capacitor.Plugins.LocalNotifications.schedule({
+                            notifications: [{
+                                title: title, body: body, id: new Date().getTime(), schedule: { at: new Date(Date.now() + 500) }
+                            }]
+                        });
+                    }
+                });
+            } else if ('Notification' in window) {
+                if (Notification.permission === 'granted') new Notification(title, { body: body });
+                else if (Notification.permission !== 'denied') Notification.requestPermission().then(p => { if (p === 'granted') new Notification(title, { body: body }); });
+            }
+        }
       }
     })
     .on('postgres_changes', { 

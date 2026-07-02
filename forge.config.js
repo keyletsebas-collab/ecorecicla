@@ -5,6 +5,15 @@ module.exports = {
   packagerConfig: {
     asar: true,
     icon: './ReciminsaApp/Resources/AppIcon/appicon',
+    ignore: [
+      /^\/\.git($|\/)/,
+      /^\/\.idea($|\/)/,
+      /^\/out($|\/)/,
+      /^\/ReciminsaApp($|\/)/,
+      /^\/android($|\/)/,
+      /^\/InnoSetupScript_MAUI\.iss$/,
+      /^\/reciminsaapp_pc_Setup\.exe$/
+    ]
   },
   rebuildConfig: {},
   makers: [
