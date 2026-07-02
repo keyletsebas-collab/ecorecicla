@@ -100,9 +100,9 @@ function renderSettingsPage(container) {
   const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
   const isShared = (sharedSettings.sharedMode === true);
 
-  const currentRnc = isShared ? (sharedSettings.companyRNC || '') : (settings.companyRNC || '');
-  const currentPhone = isShared ? (sharedSettings.userPhone || '') : (settings.userPhone || '');
-  const currentEmail = isShared ? (sharedSettings.userEmail || '') : (settings.userEmail || '');
+  const currentRnc = sharedSettings.companyRNC || settings.companyRNC || '';
+  const currentPhone = sharedSettings.userPhone || settings.userPhone || '';
+  const currentEmail = sharedSettings.userEmail || settings.userEmail || '';
 
   container.innerHTML = `
     <div class="page-header">
@@ -1538,14 +1538,12 @@ function saveCompanyRNCSetting(val) {
 function saveIdentitySetting(key, val) {
   saveSetting(key, val);
   
-  // Sincronizar en el objeto de configuración compartido si el modo compartido está activo
+  // Guardar siempre en los ajustes compartidos del usuario (vinculados a Supabase) para evitar pérdidas al actualizar
   const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
-  if (sharedSettings.sharedMode === true) {
-    if (key === 'companyRNC') sharedSettings.companyRNC = val;
-    if (key === 'userPhone') sharedSettings.userPhone = val;
-    if (key === 'userEmail') sharedSettings.userEmail = val;
-    localStorage.setItem(userKey('recim_company_shared_settings'), JSON.stringify(sharedSettings));
-  }
+  if (key === 'companyRNC') sharedSettings.companyRNC = val;
+  if (key === 'userPhone') sharedSettings.userPhone = val;
+  if (key === 'userEmail') sharedSettings.userEmail = val;
+  localStorage.setItem(userKey('recim_company_shared_settings'), JSON.stringify(sharedSettings));
 }
 
 function toggleCompanySharedMode(checked) {

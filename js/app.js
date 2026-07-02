@@ -80,11 +80,10 @@ function navigate(pageName, subTab = null) {
     if (pageName !== 'ajustes') {
         const settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
         const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
-        const isShared = (sharedSettings.sharedMode === true);
 
-        const rnc = (isShared ? sharedSettings.companyRNC : settings.companyRNC || '').trim();
-        const phone = (isShared ? sharedSettings.userPhone : settings.userPhone || '').trim();
-        const email = (isShared ? sharedSettings.userEmail : settings.userEmail || '').trim();
+        const rnc = (sharedSettings.companyRNC || settings.companyRNC || '').trim();
+        const phone = (sharedSettings.userPhone || settings.userPhone || '').trim();
+        const email = (sharedSettings.userEmail || settings.userEmail || '').trim();
         
         if (!rnc || !phone || !email) {
             showToast('⚠️ Por favor ingresa tu RNC, Teléfono y Email en Ajustes antes de continuar.', 'error');

@@ -183,7 +183,7 @@ async function getChatbotResponse(userMessage) {
         console.error('Error fetching local app data for chatbot context:', e);
     }
 
-    const formattedClients = clients.map(c => c.name || c.nombre || '').filter(Boolean).join(', ');
+    const formattedClients = clients.map(c => `* ${c.name || 'Sin nombre'} (RNC/Cédula/NIT: ${c.nit || 'No especificado'}, Tipo: ${c.type || 'local'}, Contacto: ${c.contact || 'No especificado'})`).join('\n');
     const formattedCodes = codes.map(c => `${c.code}: ${c.name}`).join(', ');
     const totalIncomes = incomes.reduce((sum, item) => sum + (item.amount || 0), 0);
     const totalExpenses = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -191,7 +191,8 @@ async function getChatbotResponse(userMessage) {
     // Prompt enriquecido de forma invisible con la información en tiempo real de la app del usuario
     const contextPrompt = `
 [CONTEXTO DEL USUARIO EN LA APP - DATOS EN TIEMPO REAL]:
-- Clientes y proveedores registrados: ${formattedClients || 'Ninguno registrado aún'} (total: ${clients.length})
+- Clientes y proveedores registrados (total: ${clients.length}):
+${formattedClients || 'Ninguno registrado aún'}
 - Facturas en el historial: ${invoices.length} factura(s)
 - Catálogo de Materiales configurados: ${formattedCodes || 'Ninguno'} (total: ${codes.length})
 - Ingresos: ${incomes.length} registro(s) por un total de $${totalIncomes.toFixed(2)}
@@ -257,7 +258,7 @@ function getLocalHelpResponse(message) {
             return '👥 Clientes y Empresas:\n\nActualmente no tienes ningún cliente o proveedor registrado en la aplicación. Puedes agregarlos desde el módulo "Clientes / Empresas" en la barra lateral.';
         }
         return `👥 Tus Clientes y Empresas registrados:\n\nTienes ${clients.length} cliente(s):\n` + 
-            clients.map((c, i) => `${i + 1}. ${c.name || c.nombre || 'Sin nombre'} (${c.rnc || 'Sin RNC/Cédula'})`).join('\n');
+            clients.map((c, i) => `${i + 1}. ${c.name || 'Sin nombre'} (${c.nit || 'Sin RNC/Cédula'})`).join('\n');
     }
     
     if (lower.includes('factura')) {
