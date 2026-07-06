@@ -39,6 +39,7 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.11.2",
     "@electron-forge/plugin-fuses": "^7.11.2",
     "@electron/fuses": "^1.8.0",
-    "electron": "42.3.0"
+    "electron": "42.3.0",
+    "electron-installer-debian": "^3.2.0"
   }
 }
