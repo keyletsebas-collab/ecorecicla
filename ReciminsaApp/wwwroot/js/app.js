@@ -31,9 +31,7 @@ const PAGE_TITLE_KEYS = {
     ajustes: 'page.ajustes',
     empresas: 'page.empresas',
     ecologia: 'page.ecologia',
-    precios: 'page.precios',
-    colaboradores: 'page.colaboradores',
-    superadmin: 'Control Global'
+    precios: 'page.precios'
 };
 
 // ---- Current page tracker (used by sync.js) ----
@@ -71,31 +69,11 @@ function rerenderCurrentPage() {
         case 'ajustes': renderSettingsPage(target); break;
         case 'ecologia': renderEcologyPage(target); break;
         case 'precios': renderPricesPage(target); break;
-        case 'colaboradores': renderCollaboratorsPage(target); break;
-        case 'superadmin': if (typeof renderSuperAdminPage === 'function') renderSuperAdminPage(target); break;
     }
 }
 
 // ---- Navigation ----
 function navigate(pageName, subTab = null) {
-    // Block navigation if mandatory settings are missing (skip for superadmin)
-    if (pageName !== 'ajustes' && pageName !== 'superadmin') {
-        const settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
-        const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
-
-        const rnc = (sharedSettings.companyRNC || settings.companyRNC || '').trim();
-        const phone = (sharedSettings.userPhone || settings.userPhone || '').trim();
-        const email = (sharedSettings.userEmail || settings.userEmail || '').trim();
-        
-        if (!rnc || !phone || !email) {
-            showToast('⚠️ Por favor ingresa tu RNC, Teléfono y Email en Ajustes antes de continuar.', 'error');
-            setTimeout(() => {
-                navigate('ajustes');
-            }, 100);
-            return;
-        }
-    }
-
     // Block navigation if subscription is expired or device is cloned
     if (typeof verifyDeviceAndSubscription === 'function') {
         const verification = verifyDeviceAndSubscription();
@@ -105,8 +83,8 @@ function navigate(pageName, subTab = null) {
         }
     }
 
-    // Block navigation if module is disabled by the user (skip for superadmin)
-    if (pageName !== 'historial' && pageName !== 'ajustes' && pageName !== 'superadmin' && typeof getModuleConfig === 'function') {
+    // Block navigation if module is disabled by the user
+    if (pageName !== 'historial' && pageName !== 'ajustes' && typeof getModuleConfig === 'function') {
         const config = getModuleConfig();
         if (config[pageName] === false) {
             navigate('historial');
@@ -150,8 +128,6 @@ function navigate(pageName, subTab = null) {
         case 'ajustes': renderSettingsPage(target); break;
         case 'ecologia': renderEcologyPage(target); break;
         case 'precios': renderPricesPage(target); break;
-        case 'colaboradores': renderCollaboratorsPage(target); break;
-        case 'superadmin': if (typeof renderSuperAdminPage === 'function') renderSuperAdminPage(target); break;
     }
 }
 
@@ -159,19 +135,10 @@ function navigate(pageName, subTab = null) {
 function setTopbarDate() {
     const el = document.getElementById('topbar-date');
     if (!el) return;
-
-    const now = new Date();
-    const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
-    
-    // Get language from settings
-    let lang = 'es';
-    try {
-        const settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
-        lang = settings.language || 'es';
-    } catch (_) {}
-    
-    const locale = lang === 'en' ? 'en-US' : 'es-ES';
-    el.textContent = now.toLocaleDateString(locale, options);
+    const lang = (getSettings().language) || 'es';
+    el.textContent = new Date().toLocaleDateString(lang, {
+        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+    });
 }
 
 // ---- Init app after login ----
@@ -197,19 +164,6 @@ function initApp(user) {
     // Ensure modules visibility is applied based on user config
     if (typeof applyModuleVisibility === 'function') {
         applyModuleVisibility();
-    }
-
-    // Show superadmin nav link only for keylet or users granted superadmin access
-    const superAdminLink = document.getElementById('nav-link-superadmin');
-    if (superAdminLink) {
-        const isSuperAdmin = user.email === 'keyletsebas@gmail.com';
-        const grantedSuperAdmins = JSON.parse(localStorage.getItem('recim_superadmin_granted') || '[]');
-        const isGranted = grantedSuperAdmins.includes(user.accountId);
-        if (isSuperAdmin || isGranted) {
-            superAdminLink.style.display = '';
-        } else {
-            superAdminLink.style.display = 'none';
-        }
     }
     
     // Default page (Restricted to Ingresos/Egresos on mobile)
@@ -299,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // If familyId changed, we need to trigger sync pull for the new ID
                                 if (oldFamilyId !== newFamilyId) {
                                     const newDbId = newFamilyId ? `family_${newFamilyId}` : cachedSession.accountId;
-                                    showToast('🔄 Tu vinculación con la empresa ha cambiado. Actualizando datos...', 'info');
+                                    showToast('🔄 Tu estado familiar ha cambiado. Actualizando datos...', 'info');
                                     if (window.syncPullData) {
                                         window.syncPullData(newDbId);
                                     }
