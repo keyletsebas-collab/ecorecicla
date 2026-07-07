@@ -70,11 +70,11 @@ const TRANSLATIONS = {
         'hist.subtitle': 'Todas las facturas registradas con detalle completo',
         'hist.total_inv': 'Total Facturas',
         'hist.basics': 'Básicas',
-        'hist.business': 'Empresariales',
+        'hist.business': 'Crédito Fiscal',
         'hist.total_val': 'Valor Total',
         'hist.all_types': 'Todos los tipos',
         'hist.only_basic': 'Solo Básicas',
-        'hist.only_biz': 'Solo Empresariales',
+        'hist.only_biz': 'Solo Crédito Fiscal',
         'hist.search': '🔍 Buscar cliente o ID...',
         'hist.clear_all': '🗑 Eliminar todo',
         'hist.no_inv': 'No hay facturas registradas aún.',
@@ -91,7 +91,7 @@ const TRANSLATIONS = {
         'hist.contact': 'Contacto:',
         'hist.address': 'Dirección:',
         'hist.basic_badge': 'Básica',
-        'hist.biz_badge': 'Empresarial',
+        'hist.biz_badge': 'Crédito Fiscal',
         'confirm.del_inv': '¿Eliminar esta factura permanentemente?',
         'confirm.clear_hist': '¿Eliminar TODAS las facturas? Esta acción no se puede deshacer.',
         'toast.del_inv': '🗑 Factura eliminada',
@@ -99,14 +99,14 @@ const TRANSLATIONS = {
 
         // Invoices & Bitácoras
         'inv.title': '🧾 Facturación',
-        'inv.subtitle': 'Crea facturas locales y empresariales',
+        'inv.subtitle': 'Crea facturas locales y de crédito fiscal',
         'inv.bit_title': '🚛 Bitácoras de Recogida',
         'inv.bit_subtitle': 'Registra la entrada de materiales reciclables',
         'inv.tab_local': '🏠 Local',
-        'inv.tab_biz': '🏢 Empresarial',
+        'inv.tab_biz': '🏢 Crédito Fiscal',
         'inv.basic_title': 'Bitácora de Recogida',
         'inv.basic_sub': 'Para ingresos de cartones, botellas, vidrio y demás materiales reciclables.',
-        'inv.biz_title': 'Factura Empresarial',
+        'inv.biz_title': 'Factura de Crédito Fiscal',
         'inv.biz_sub': 'Genera facturas detalladas para empresas con RNC, Comprobante Fiscal, impuestos y totales.',
         'inv.save_invoice': '💾 Guardar Factura',
         'inv.clear_form': '🗑 Limpiar',
@@ -128,7 +128,7 @@ const TRANSLATIONS = {
         'inv.all_facts': 'Todas las facturas',
         'inv.basic_facts': 'Facturas Básicas',
         'inv.recycle_mat': 'Materiales reciclables',
-        'inv.biz_facts': 'Facturas Empresariales',
+        'inv.biz_facts': 'Facturas de Crédito Fiscal',
         'inv.for_biz': 'Para empresas',
         'inv.total_basic': 'Total Facturado (Básico)',
         'inv.billed_mat': 'Facturado en materiales',
@@ -369,9 +369,9 @@ const TRANSLATIONS = {
         'inv.err_no_company': '❌ El nombre de la empresa es obligatorio',
         'inv.err_no_client': '❌ El nombre del cliente es obligatorio',
         'inv.err_no_date': '❌ La fecha de la factura es obligatoria',
-        'inv.err_no_rnc': '❌ El RNC o Cédula es obligatorio para facturas empresariales',
-        'inv.err_no_voucher': '❌ Selecciona un tipo de comprobante para facturas empresariales',
-        'inv.err_no_ncf': '❌ El número NCF es obligatorio para facturas empresariales',
+        'inv.err_no_rnc': '❌ El RNC o Cédula es obligatorio para facturas de crédito fiscal',
+        'inv.err_no_voucher': '❌ Selecciona un tipo de comprobante para facturas de crédito fiscal',
+        'inv.err_no_ncf': '❌ El número NCF es obligatorio para facturas de crédito fiscal',
         'inv.err_dup_ncf': '❌ Error: El NCF {ncf} ya fue utilizado en otra factura.',
         'inv.sale_label': 'Venta',
         'inv.confirm_pdf': '¿Deseas descargar la factura en PDF?',
@@ -715,10 +715,42 @@ function getCurrency() {
     return CURRENCIES.find(c => c.id === id) || CURRENCIES[0];
 }
 
+function getDollarRate() {
+    const s = getSettings();
+    return parseFloat(s.dollarRate) || 59.50;
+}
+window.getDollarRate = getDollarRate;
+
+function convertCurrency(amount, fromCode, toCode) {
+    if (!fromCode) fromCode = 'DOP';
+    if (!toCode) toCode = 'DOP';
+    fromCode = fromCode.toUpperCase();
+    toCode = toCode.toUpperCase();
+    if (fromCode === toCode) return amount;
+    
+    const rate = getDollarRate();
+    if (fromCode === 'USD' && toCode === 'DOP') {
+        return amount * rate;
+    }
+    if (fromCode === 'DOP' && toCode === 'USD') {
+        return amount / rate;
+    }
+    return amount;
+}
+window.convertCurrency = convertCurrency;
+
+function getConvertedAmount(amount, fromCode) {
+    return convertCurrency(parseFloat(amount || 0), fromCode || 'DOP', getCurrency().code);
+}
+window.getConvertedAmount = getConvertedAmount;
+
 /** Format a monetary amount using the current currency setting */
-function formatMoney(amount) {
+function formatMoney(amount, fromCode = null) {
     const cur = getCurrency();
-    const val = parseFloat(amount || 0);
+    let val = parseFloat(amount || 0);
+    if (fromCode && fromCode.toUpperCase() !== cur.code.toUpperCase()) {
+        val = convertCurrency(val, fromCode, cur.code);
+    }
     const parts = val.toFixed(2).split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     return `${cur.symbol}${parts.join('.')}`;
