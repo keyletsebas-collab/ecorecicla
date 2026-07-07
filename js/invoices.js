@@ -356,7 +356,7 @@ async function saveFactura(type) {
   const ncf = document.getElementById(`fac-ncf-${type}`).value.trim();
 
   if (isEmpresa) {
-    if (!nit) {
+    if (!nit && ncfType !== 'B02') {
       showToast('❌ El RNC o Cédula es obligatorio para facturas empresariales', 'error');
       return;
     }

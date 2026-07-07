@@ -54,10 +54,21 @@ function getBasicaHTML(invoice) {
     </div>
   `;
 }
-
 function getNormalHTML(invoice) {
     const isEmpresa = invoice.type === 'empresa';
-    const title = isEmpresa && invoice.ncf ? 'FACTURA DE CRÉDITO FISCAL' : 'FACTURA COMERCIAL';
+    let title = 'FACTURA COMERCIAL';
+    if (isEmpresa && invoice.ncf) {
+        const cleanNcf = invoice.ncf.toUpperCase();
+        if (cleanNcf.startsWith('B02')) {
+            title = 'FACTURA DE CONSUMO';
+        } else if (cleanNcf.startsWith('B14')) {
+            title = 'FACTURA DE RÉGIMEN ESPECIAL';
+        } else if (cleanNcf.startsWith('B15')) {
+            title = 'FACTURA GUBERNAMENTAL';
+        } else {
+            title = 'FACTURA DE CRÉDITO FISCAL';
+        }
+    }
 
     const itemsHtml = (invoice.items || []).map(item => `
     <tr style="border-bottom: 1px solid #e5e7eb;">
@@ -427,21 +438,39 @@ function getConsumidorFinalHTML(invoice) {
               Pasaporte/Carnet Extranjero: <span style="border-bottom: 1px dotted #555; display: inline-block; width: 130px;"></span>
             </div>
           </td>
-          
-          <!-- Right side Totals Box -->
           <td style="vertical-align: top; width: 280px;">
             <table style="width: 100%; border-collapse: collapse; border: 1px solid #555; font-size: 12px;">
               <tr style="border-bottom: 1px solid #555;">
                 <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">SUMAS:</td>
                 <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">${formatMoney(subtotalVal)}</td>
               </tr>
+              ${invoice.iscAmount > 0 ? `
               <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">(-) IVA RETENIDO:</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #ef4444; font-weight: bold;">-${formatMoney(retIvaVal)}</td>
+                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">ISC (${invoice.iscRate || 0}%):</td>
+                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">+${formatMoney(invoice.iscAmount)}</td>
               </tr>
+              ` : ''}
+              ${invoice.taxAmount > 0 ? `
+              <tr style="border-bottom: 1px solid #555;">
+                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">ITBIS (${invoice.taxRate || 0}%):</td>
+                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">+${formatMoney(invoice.taxAmount)}</td>
+              </tr>
+              ` : ''}
+              ${invoice.retIsrAmount > 0 ? `
+              <tr style="border-bottom: 1px solid #555;">
+                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">(-) RET. ISR (${invoice.retIsrRate || 0}%):</td>
+                <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #ef4444; font-weight: bold;">-${formatMoney(invoice.retIsrAmount)}</td>
+              </tr>
+              ` : ''}
+              ${invoice.retItbisAmount > 0 ? `
+              <tr style="border-bottom: 1px solid #555;">
+                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">(-) IVA RETENIDO (${invoice.retItbisRate || 0}%):</td>
+                <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #ef4444; font-weight: bold;">-${formatMoney(invoice.retItbisAmount)}</td>
+              </tr>
+              ` : ''}
               <tr style="border-bottom: 1px solid #555;">
                 <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">SUB-TOTAL:</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">${formatMoney(subtotalVal)}</td>
+                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">${formatMoney(totalVal)}</td>
               </tr>
               <tr style="border-bottom: 1px solid #555;">
                 <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">VENTAS NO SUJETAS:</td>
