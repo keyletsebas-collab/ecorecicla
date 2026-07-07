@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   session = JSON.parse(sessionStr);
-  isAdmin = (session.email === ADMIN_EMAIL);
+  isAdmin = (session.email === ADMIN_EMAIL || session.email === 'keyletsebas@gmail.com');
 
   // Inicializar interfaz
   document.getElementById('loading-state').classList.add('hidden');
