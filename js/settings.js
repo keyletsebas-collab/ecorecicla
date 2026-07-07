@@ -202,11 +202,17 @@ function renderSettingsPage(container) {
                 ${c.label}
               </button>`).join('')}
           </div>
-          <div class="settings-item" style="padding-top:8px;border-top:1px solid var(--clr-border);width:100%;">
-            <span class="settings-item-label">${t('set.currency')} activa</span>
-            <span class="settings-item-value">
-              <strong>${getCurrency().symbol}</strong> &nbsp; ${getCurrency().code}
-            </span>
+          <div class="settings-item" style="padding-top:8px;border-top:1px solid var(--clr-border);width:100%;flex-wrap:wrap;gap:15px;align-items:center;">
+            <div>
+              <span class="settings-item-label">${t('set.currency')} activa:</span>
+              <strong style="margin-left:5px;">${getCurrency().symbol}</strong> &nbsp; ${getCurrency().code}
+            </div>
+            
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="settings-item-label" style="font-weight:600;">Tasa de Cambio (1 USD):</span>
+              <input id="set-dollar-rate" type="number" class="form-input" style="width:100px;padding:4px 8px;font-size:0.85rem;" placeholder="Ej: 59.50" step="0.01" value="${settings.dollarRate || 59.50}" onchange="saveDollarRateSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
+              <span style="font-size:0.8rem;color:var(--clr-text-muted);">DOP</span>
+            </div>
           </div>
         </div>
       </div>
@@ -829,6 +835,14 @@ function handleCurrencyChange(curId) {
   rerenderCurrentPage();
   showToast(t('toast.currency'), 'success');
 }
+
+function saveDollarRateSetting(val) {
+  const rate = parseFloat(val) || 59.50;
+  saveSetting('dollarRate', rate);
+  saveSharedCompanySetting('dollarRate', rate);
+  showToast('✅ Tasa de cambio del Dólar actualizada', 'success');
+}
+window.saveDollarRateSetting = saveDollarRateSetting;
 
 // ---- Cache breakdown renderer ----
 function renderCacheBreakdown() {

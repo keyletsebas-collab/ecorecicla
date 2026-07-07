@@ -715,10 +715,42 @@ function getCurrency() {
     return CURRENCIES.find(c => c.id === id) || CURRENCIES[0];
 }
 
+function getDollarRate() {
+    const s = getSettings();
+    return parseFloat(s.dollarRate) || 59.50;
+}
+window.getDollarRate = getDollarRate;
+
+function convertCurrency(amount, fromCode, toCode) {
+    if (!fromCode) fromCode = 'DOP';
+    if (!toCode) toCode = 'DOP';
+    fromCode = fromCode.toUpperCase();
+    toCode = toCode.toUpperCase();
+    if (fromCode === toCode) return amount;
+    
+    const rate = getDollarRate();
+    if (fromCode === 'USD' && toCode === 'DOP') {
+        return amount * rate;
+    }
+    if (fromCode === 'DOP' && toCode === 'USD') {
+        return amount / rate;
+    }
+    return amount;
+}
+window.convertCurrency = convertCurrency;
+
+function getConvertedAmount(amount, fromCode) {
+    return convertCurrency(parseFloat(amount || 0), fromCode || 'DOP', getCurrency().code);
+}
+window.getConvertedAmount = getConvertedAmount;
+
 /** Format a monetary amount using the current currency setting */
-function formatMoney(amount) {
+function formatMoney(amount, fromCode = null) {
     const cur = getCurrency();
-    const val = parseFloat(amount || 0);
+    let val = parseFloat(amount || 0);
+    if (fromCode && fromCode.toUpperCase() !== cur.code.toUpperCase()) {
+        val = convertCurrency(val, fromCode, cur.code);
+    }
     const parts = val.toFixed(2).split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     return `${cur.symbol}${parts.join('.')}`;
