@@ -430,7 +430,7 @@ Eres ReciBot AI, el cerebro asistente de Reciminsa App. Tienes acceso completo e
 [DATOS DE TU EMPRESA]:
 - ID de Empresa actual: ${companyId}
 - Tu nombre de usuario: ${myName}
-- Miembros activos en tu empresa/familia (en la nube):
+- Miembros activos en tu empresa (en la nube):
 ${formattedMembers || 'Solo tú estás registrado en la empresa actualmente'}
 - Colaboradores y empleados registrados:
 ${formattedColabs || 'Ninguno registrado aún'}

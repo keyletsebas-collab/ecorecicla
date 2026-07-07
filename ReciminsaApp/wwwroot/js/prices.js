@@ -3,6 +3,13 @@
    Depends on: materials.js, i18n.js, app.js
    ============================================= */
 
+function getMaterialName(matCode, fallbackName) {
+  const key = `mat.name_${matCode.toLowerCase()}`;
+  const val = t(key);
+  if (val !== key) return val;
+  return fallbackName || matCode;
+}
+
 // Default historic prices (last 6 months: Jan - Jun) for visual analysis
 const HISTORIC_PRICES_MOCK = {
   'CART':   [5.2, 5.0, 4.8, 4.5, 4.6, 4.9],
@@ -63,8 +70,8 @@ function renderPricesPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h2 class="section-title">💹 Tendencias y Precios de Materiales</h2>
-        <p class="section-subtitle">Analiza el comportamiento histórico del mercado de reciclaje dominicano y ajusta tus precios.</p>
+        <h2 class="section-title">${t('prc.title')}</h2>
+        <p class="section-subtitle">${t('prc.subtitle')}</p>
       </div>
     </div>
 
@@ -72,30 +79,31 @@ function renderPricesPage(container) {
       
       <!-- Left side: Price list and settings -->
       <div class="card card--elevated" style="padding: 18px;">
-        <h3 class="section-title" style="margin-bottom: 12px; font-size: 1.05rem;">🏷️ Tabla de Cotizaciones de Compra/Venta</h3>
+        <h3 class="section-title" style="margin-bottom: 12px; font-size: 1.05rem;">${t('prc.table_title')}</h3>
         <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-bottom:16px;">
-          Define los precios de compra a proveedores y venta a procesadoras para calcular tus márgenes operativos.
+          ${t('prc.table_desc')}
         </p>
 
         <div style="display:flex; flex-direction:column; gap:8px; max-height: 480px; overflow-y:auto; padding-right:4px;">
           ${priceList.map(mat => {
             const isSelected = mat.code === activePriceChartCode;
-            const trendLabel = mat.trend === 'up' ? '🟢 Subiendo' : (mat.trend === 'down' ? '🔴 Bajando' : '🟡 Estable');
+            const trendLabel = mat.trend === 'up' ? t('prc.trend_up') : (mat.trend === 'down' ? t('prc.trend_down') : t('prc.trend_stable'));
             const trendColor = mat.trend === 'up' ? '#22c55e' : (mat.trend === 'down' ? '#ef4444' : '#fbbf24');
+            const displayName = getMaterialName(mat.code, mat.name);
             
             return `
               <div style="display:flex; justify-content:space-between; align-items:center; background:${isSelected ? 'var(--clr-primary-glow)' : 'var(--clr-surface-2)'}; border:1px solid ${isSelected ? 'var(--clr-primary)' : 'var(--clr-border)'}; border-radius:12px; padding:12px 14px; cursor:pointer; transition:all 0.2s;" onclick="selectTrendMaterial('${mat.code}')">
                 <div style="display:flex; align-items:center; gap:12px; min-width:0;">
                   <span style="font-size:1.4rem; flex-shrink:0;">${mat.icon || '♻️'}</span>
                   <div style="min-width:0;">
-                    <strong style="font-size:0.85rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;">${mat.name}</strong>
+                    <strong style="font-size:0.85rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;">${displayName}</strong>
                     <span style="font-size:0.72rem; color:var(--clr-text-muted); font-family:monospace; font-weight:700;">${mat.code}</span>
                   </div>
                 </div>
                 
                 <div style="display:flex; align-items:center; gap:20px;">
                   <div style="text-align:right;">
-                    <div style="font-size:0.65rem; color:var(--clr-text-muted); text-transform:uppercase; font-weight:700;">Compra / Venta</div>
+                    <div style="font-size:0.65rem; color:var(--clr-text-muted); text-transform:uppercase; font-weight:700;">${t('prc.buy_sell')}</div>
                     <strong style="font-size:0.82rem; color:white; font-family:monospace;">
                       ${formatMoney(mat.purchase)} / ${formatMoney(mat.sell)}
                     </strong>
@@ -103,8 +111,8 @@ function renderPricesPage(container) {
                   <span style="font-size:0.72rem; color:${trendColor}; font-weight:700; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); padding:4px 8px; border-radius:8px; white-space:nowrap;">
                     ${trendLabel}
                   </span>
-                  <button class="btn-secondary" style="padding: 4px 8px; font-size:0.72rem; margin:0;" onclick="openEditPriceModal('${mat.code}', '${escapeHTMLString(mat.name)}', ${mat.purchase}, ${mat.sell}, '${mat.trend}', event)">
-                    ✏️
+                  <button class="btn-secondary" style="padding: 4px 8px; font-size:0.72rem; margin:0;" onclick="openEditPriceModal('${mat.code}', '${escapeHTMLString(displayName)}', ${mat.purchase}, ${mat.sell}, '${mat.trend}', event)">
+                    ${t('prc.edit_btn')}
                   </button>
                 </div>
               </div>
@@ -120,7 +128,7 @@ function renderPricesPage(container) {
         <div class="card card--elevated" style="padding:18px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <h3 class="section-title" style="font-size: 1.05rem;" id="trend-chart-title"></h3>
-            <span style="font-size: 0.72rem; color: var(--clr-primary); font-weight: 700; text-transform: uppercase;">Histórico 6 Meses</span>
+            <span style="font-size: 0.72rem; color: var(--clr-primary); font-weight: 700; text-transform: uppercase;">${t('prc.history_title')}</span>
           </div>
 
           <!-- Chart Canvas Frame -->
@@ -138,28 +146,28 @@ function renderPricesPage(container) {
     <!-- Edit Price Modal Overlay -->
     <div id="price-edit-modal" class="modal-overlay" style="display:none; z-index: 1020;">
       <div class="modal" style="max-width: 320px; padding: 20px;">
-        <h3 class="section-title" id="price-modal-title" style="margin-bottom: 15px;">Editar Cotización</h3>
+        <h3 class="section-title" id="price-modal-title" style="margin-bottom: 15px;">${t('prc.edit_title')}</h3>
         <div style="display:flex; flex-direction:column; gap:12px;">
           <input type="hidden" id="edit-price-code" />
           <div class="form-group">
-            <label class="form-label">Precio de Compra (RD$)</label>
+            <label class="form-label">${t('prc.edit_buy').replace('{symbol}', getCurrency().symbol)}</label>
             <input type="number" id="edit-price-purchase" class="form-input" min="0" step="0.01" />
           </div>
           <div class="form-group">
-            <label class="form-label">Precio de Venta (RD$)</label>
+            <label class="form-label">${t('prc.edit_sell').replace('{symbol}', getCurrency().symbol)}</label>
             <input type="number" id="edit-price-sell" class="form-input" min="0" step="0.01" />
           </div>
           <div class="form-group">
-            <label class="form-label">Tendencia Reciente</label>
+            <label class="form-label">${t('prc.recent_trend')}</label>
             <select id="edit-price-trend" class="form-select">
-              <option value="up">🟢 Subiendo (Up)</option>
-              <option value="stable">安定 Estable (Stable)</option>
-              <option value="down">🔴 Bajando (Down)</option>
+              <option value="up">${t('prc.trend_up_opt')}</option>
+              <option value="stable">${t('prc.trend_stable_opt')}</option>
+              <option value="down">${t('prc.trend_down_opt')}</option>
             </select>
           </div>
           <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="btn-primary" onclick="saveEditedPrice()" style="flex:1; justify-content:center;">Guardar</button>
-            <button class="btn-secondary" onclick="closeEditPriceModal()" style="flex:1; justify-content:center; margin:0;">Cancelar</button>
+            <button class="btn-primary" onclick="saveEditedPrice()" style="flex:1; justify-content:center;">${t('btn.save')}</button>
+            <button class="btn-secondary" onclick="closeEditPriceModal()" style="flex:1; justify-content:center; margin:0;">${t('pdf.cancel_btn')}</button>
           </div>
         </div>
       </div>
@@ -211,7 +219,7 @@ function saveEditedPrice() {
 
   saveMarketPrices(prices);
   closeEditPriceModal();
-  showToast('✅ Cotización de material guardada', 'success');
+  showToast(t('prc.toast_saved'), 'success');
 
   // Rerender page view
   const page = document.getElementById('page-precios');
@@ -229,10 +237,11 @@ function initTrendLineChart() {
   const prices = getMarketPrices();
   const materialInfo = prices[code];
   const matName = materialInfo ? materialInfo.name : code;
+  const displayName = getMaterialName(code, matName);
   
   // Update header title
   const title = document.getElementById('trend-chart-title');
-  if (title) title.textContent = `📈 Tendencia: ${matName}`;
+  if (title) title.textContent = t('prc.chart_title').replace('{name}', displayName);
 
   // Get mock history or generate random path for custom created codes
   let history = HISTORIC_PRICES_MOCK[code];
@@ -257,7 +266,14 @@ function initTrendLineChart() {
   const height = canvas.height;
   ctx.clearRect(0, 0, width, height);
 
-  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+  const months = [
+    t('hist.month_01').substring(0, 3),
+    t('hist.month_02').substring(0, 3),
+    t('hist.month_03').substring(0, 3),
+    t('hist.month_04').substring(0, 3),
+    t('hist.month_05').substring(0, 3),
+    t('hist.month_06').substring(0, 3)
+  ];
   
   // Margins
   const paddingX = 40;
@@ -380,21 +396,21 @@ function drawTrendAdvisor(info, history) {
   const trend = info ? info.trend : 'stable';
   
   let icon = '⚖️';
-  let title = 'Mercado Estable';
-  let text = 'El precio se mantiene en su rango normal de cotización. Te recomendamos continuar con tu volumen ordinario de compra y venta de inventario.';
+  let title = t('prc.advisory_stable_title');
+  let text = t('prc.advisory_stable_text');
   let border = '5px solid #fbbf24';
   let color = '#fbbf24';
 
   if (trend === 'up') {
     icon = '📈';
-    title = `Mercado Alcista (+${pctChange.toFixed(1)}%)`;
-    text = `¡Excelente cotización! El valor de este material en el mercado dominicano está subiendo. **Es el momento ideal para vender tu inventario almacenado** y maximizar tus ingresos financieros.`;
+    title = t('prc.advisory_up_title').replace('{change}', pctChange.toFixed(1));
+    text = t('prc.advisory_up_text');
     border = '5px solid #22c55e';
     color = '#22c55e';
   } else if (trend === 'down') {
     icon = '📉';
-    title = `Mercado Bajista (${pctChange.toFixed(1)}%)`;
-    text = `Alerta de contracción. La cotización ha caído esta semana. **Te aconsejamos reducir ventas al mínimo y almacenar stock temporalmente** a la espera de un rebote para proteger tus márgenes.`;
+    title = t('prc.advisory_down_title').replace('{change}', pctChange.toFixed(1));
+    text = t('prc.advisory_down_text');
     border = '5px solid #ef4444';
     color = '#ef4444';
   }

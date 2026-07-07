@@ -395,10 +395,20 @@ async function proceedWithPDF(invoice, format) {
         let ticketTitle = "RECIBO INTERNO";
         if (invoice.ncfType === 'B02') {
             ticketTitle = "FACTURA DE CONSUMIDOR FINAL";
+        } else if (invoice.ncfType === 'B01') {
+            ticketTitle = "FACTURA DE CRÉDITO FISCAL";
+        } else if (invoice.ncfType === 'B14') {
+            ticketTitle = "REGIMEN ESPECIAL";
+        } else if (invoice.ncfType === 'B15') {
+            ticketTitle = "GUBERNAMENTAL";
         } else if (invoice.notes && invoice.notes.toUpperCase().includes("COTIZACION")) {
             ticketTitle = "COTIZACIÓN";
         } else if (invoice.typeName) {
-            ticketTitle = invoice.typeName.toUpperCase();
+            if (invoice.typeName.toLowerCase() === 'empresarial') {
+                ticketTitle = "FACTURA DE CRÉDITO FISCAL";
+            } else {
+                ticketTitle = invoice.typeName.toUpperCase();
+            }
         }
         doc.text(ticketTitle, 40, y, { align: 'center' });
         y += 4.5;
