@@ -7,7 +7,11 @@ function getAllHistoryItems() {
   const ingresos = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
   const egresos = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
 
-  const normInvoices = invoices.map(i => ({ ...i, itemType: 'invoice' }));
+  const normInvoices = invoices.map(i => ({
+    ...i,
+    itemType: 'invoice',
+    total: i.total !== undefined ? i.total : (i.totalVenta || 0)
+  }));
   const normIngresos = ingresos.map(i => ({
     ...i,
     itemType: 'ingreso',
