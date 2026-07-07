@@ -130,8 +130,8 @@ function renderEcologyPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h2 class="section-title">🌱 Impacto medioambiental e Impacto Verde</h2>
-        <p class="section-subtitle">Visualiza el ahorro de recursos naturales y genera Certificados de Impacto Medioambiental para tus clientes.</p>
+        <h2 class="section-title">${t('eco.title')}</h2>
+        <p class="section-subtitle">${t('eco.subtitle')}</p>
       </div>
     </div>
 
@@ -139,33 +139,33 @@ function renderEcologyPage(container) {
     <div class="finance-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
       
       <div class="card card--elevated" style="border-left: 5px solid #22c55e;">
-        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">Total Reciclado</div>
+        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">${t('eco.total_recycled')}</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: #22c55e; margin: 8px 0;">${stats.totalWeight.toFixed(1)} <span style="font-size:0.9rem;">kg</span></div>
-        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">Materia prima devuelta al ciclo productivo.</p>
+        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">${t('eco.recycled_desc')}</p>
       </div>
 
       <div class="card card--elevated" style="border-left: 5px solid #10b981;">
-        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">Árboles Salvados</div>
+        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">${t('eco.trees_saved')}</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: #10b981; margin: 8px 0;">🌳 ${Math.ceil(stats.treesSaved)}</div>
-        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">Evita la deforestación de bosques.</p>
+        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">${t('eco.trees_desc')}</p>
       </div>
 
       <div class="card card--elevated" style="border-left: 5px solid #3b82f6;">
-        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">Agua Conservada</div>
+        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">${t('eco.water_saved')}</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: #3b82f6; margin: 8px 0;">💧 ${Math.round(stats.waterSaved).toLocaleString()} <span style="font-size:0.9rem;">L</span></div>
-        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">Equivale a <strong>${Math.ceil(stats.waterSaved / 19)}</strong> botellones de agua.</p>
+        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">${t('eco.water_desc').replace('{count}', Math.ceil(stats.waterSaved / 19))}</p>
       </div>
 
       <div class="card card--elevated" style="border-left: 5px solid #fbbf24;">
-        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">Energía Ahorrada</div>
+        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">${t('eco.energy_saved')}</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: #fbbf24; margin: 8px 0;">⚡ ${Math.round(stats.energySaved).toLocaleString()} <span style="font-size:0.9rem;">kWh</span></div>
-        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">Hogar encendido por <strong>${Math.ceil(stats.energySaved / 6)}</strong> días.</p>
+        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">${t('eco.energy_desc').replace('{count}', Math.ceil(stats.energySaved / 6))}</p>
       </div>
 
       <div class="card card--elevated" style="border-left: 5px solid #ec4899;">
-        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">CO2 Evitado</div>
+        <div style="font-size: 0.7rem; color: var(--clr-text-muted); font-weight: 700; text-transform: uppercase;">${t('eco.co2_avoided')}</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: #ec4899; margin: 8px 0;">💨 ${Math.round(stats.co2Avoided).toLocaleString()} <span style="font-size:0.9rem;">kg</span></div>
-        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">Reducción de huella de carbono directa.</p>
+        <p style="font-size: 0.72rem; color: var(--clr-text-muted); margin:0;">${t('eco.co2_desc')}</p>
       </div>
     </div>
 
@@ -174,49 +174,49 @@ function renderEcologyPage(container) {
       
       <!-- Left side: Material distribution & progress chart -->
       <div class="card card--elevated">
-        <h3 class="section-title" style="margin-bottom: 16px; font-size: 1.05rem;">📦 Distribución de Materiales</h3>
+        <h3 class="section-title" style="margin-bottom: 16px; font-size: 1.05rem;">${t('eco.mat_distribution')}</h3>
         <div style="display:flex; flex-direction:column; gap:12px;">
-          ${renderMaterialProgressRow('Cartón / Papel', stats.paperWeight, stats.totalWeight, '#fbbf24')}
-          ${renderMaterialProgressRow('Plásticos', stats.plasticWeight, stats.totalWeight, '#10b981')}
-          ${renderMaterialProgressRow('Metales (Aluminio/Cobre/Hierro)', stats.metalWeight, stats.totalWeight, '#ef4444')}
-          ${renderMaterialProgressRow('Vidrio', stats.glassWeight, stats.totalWeight, '#3b82f6')}
-          ${renderMaterialProgressRow('Otros / Mezclados', stats.otherWeight, stats.totalWeight, '#6b7280')}
+          ${renderMaterialProgressRow(t('eco.cat_paper'), stats.paperWeight, stats.totalWeight, '#fbbf24')}
+          ${renderMaterialProgressRow(t('eco.cat_plastics'), stats.plasticWeight, stats.totalWeight, '#10b981')}
+          ${renderMaterialProgressRow(t('eco.cat_metals'), stats.metalWeight, stats.totalWeight, '#ef4444')}
+          ${renderMaterialProgressRow(t('eco.cat_glass'), stats.glassWeight, stats.totalWeight, '#3b82f6')}
+          ${renderMaterialProgressRow(t('eco.cat_others'), stats.otherWeight, stats.totalWeight, '#6b7280')}
         </div>
         
         <div style="margin-top: 24px; padding: 12px; background: var(--clr-surface-3); border-radius: var(--r-md); font-size:0.78rem; line-height: 1.4; color: var(--clr-text-secondary);">
-          🌳 <strong>Sabías que:</strong> Reciclar 1,000 kg de papel salva 17 árboles maduros y ahorra suficiente energía para mantener encendida una bombilla LED estándar durante más de 40 años seguidos.
+          ${t('eco.did_you_know')}
         </div>
       </div>
 
       <!-- Right side: Green certificate generator -->
       <div class="card card--elevated">
-        <h3 class="section-title" style="margin-bottom: 8px; font-size: 1.05rem;">📄 Generador de Certificado de Impacto Medioambiental</h3>
+        <h3 class="section-title" style="margin-bottom: 8px; font-size: 1.05rem;">${t('eco.generator_title')}</h3>
         <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-bottom: 16px;">
-          Emite certificados oficiales de impacto verde para tus clientes corporativos o particulares para sus auditorías RSE.
+          ${t('eco.generator_desc')}
         </p>
 
         <div style="display:flex; flex-direction:column; gap:14px;">
           <div class="form-group">
-            <label class="form-label">Seleccionar Cliente/Empresa</label>
+            <label class="form-label">${t('eco.select_client')}</label>
             <select id="eco-client-select" class="form-select">
-              <option value="">-- Todos los Clientes (General) --</option>
+              <option value="">${t('eco.all_clients')}</option>
               ${activeClientNames.map(name => `<option value="${escapeHTMLString(name)}">${name}</option>`).join('')}
             </select>
           </div>
 
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
             <div class="form-group">
-              <label class="form-label">Fecha Inicio</label>
+              <label class="form-label">${t('eco.start_date')}</label>
               <input type="date" id="eco-start-date" class="form-input" value="${new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]}" />
             </div>
             <div class="form-group">
-              <label class="form-label">Fecha Fin</label>
+              <label class="form-label">${t('eco.end_date')}</label>
               <input type="date" id="eco-end-date" class="form-input" value="${new Date().toISOString().split('T')[0]}" />
             </div>
           </div>
 
           <button class="btn-primary" onclick="generateEcoCertificatePDF()" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #059669; color: white; justify-content: center; gap: 8px; margin-top: 10px; font-weight: 700;">
-            🌱 Generar Certificado PDF
+            ${t('eco.generate_btn')}
           </button>
         </div>
       </div>
@@ -248,12 +248,14 @@ function generateEcoCertificatePDF() {
   const stats = calculateEcoImpact(invoices, clientName, startDate, endDate);
 
   if (stats.totalWeight === 0) {
-    showToast('❌ No se encontraron facturas o impactos medioambientales registrados en el periodo seleccionado.', 'error');
+    showToast(t('eco.toast_no_invoices'), 'error');
     return;
   }
 
+  showToast(t('eco.toast_generating'), 'info');
+
   // Get current white label settings if configured
-  let appName = 'Reciminsaap';
+  let appName = 'Reciminsa';
   try {
     const settings = JSON.parse(localStorage.getItem(userKey('recim_settings')) || '{}');
     if (settings.companyName) appName = settings.companyName;
@@ -267,88 +269,96 @@ function generateEcoCertificatePDF() {
   };
 
   const periodText = startDate && endDate 
-    ? `desde el ${formatTextDate(startDate)} hasta el ${formatTextDate(endDate)}`
-    : 'histórico acumulado';
+    ? t('eco.cert_period_desc').replace('{start}', formatTextDate(startDate)).replace('{end}', formatTextDate(endDate))
+    : t('eco.cert_period_accum');
 
-  const clientText = clientName || 'NUESTROS CLIENTES Y COLABORADORES';
+  const clientText = clientName || t('eco.cert_all_clients');
 
-  // HTML content for Certificate
+  // HTML content for Certificate with compact dimensions and flex spacing to guarantee a single page
   const htmlContent = `
-    <div style="width: 800px; background: #ffffff; padding: 40px; box-sizing: border-box; font-family: 'Inter', sans-serif; color: #1f2937;">
-      <div style="border: 8px double #10b981; border-radius: 12px; padding: 30px; position: relative; background: #fafdfb; text-align: center; box-sizing: border-box;">
+    <div style="width: 800px; height: 570px; background: #ffffff; padding: 20px; box-sizing: border-box; font-family: 'Inter', sans-serif; color: #1f2937;">
+      <div style="height: 100%; border: 8px double #10b981; border-radius: 12px; padding: 20px 30px; position: relative; background: #fafdfb; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
         
         <!-- Decorative Ornaments -->
-        <div style="position: absolute; top: 15px; left: 15px; font-size: 1.5rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; top: 15px; right: 15px; font-size: 1.5rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; bottom: 15px; left: 15px; font-size: 1.5rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; bottom: 15px; right: 15px; font-size: 1.5rem; color: #10b981; opacity: 0.6;">🌿</div>
+        <div style="position: absolute; top: 12px; left: 12px; font-size: 1.2rem; color: #10b981; opacity: 0.6;">🌿</div>
+        <div style="position: absolute; top: 12px; right: 12px; font-size: 1.2rem; color: #10b981; opacity: 0.6;">🌿</div>
+        <div style="position: absolute; bottom: 12px; left: 12px; font-size: 1.2rem; color: #10b981; opacity: 0.6;">🌿</div>
+        <div style="position: absolute; bottom: 12px; right: 12px; font-size: 1.2rem; color: #10b981; opacity: 0.6;">🌿</div>
 
-        <!-- Header -->
-        <div style="font-size: 0.72rem; letter-spacing: 4px; font-weight: 700; color: #047857; text-transform: uppercase; margin-bottom: 20px;">
-          Certificado de Impacto medioambiental
-        </div>
-        
-        <h1 style="font-size: 2.2rem; font-weight: 800; color: #065f46; margin: 0 0 10px 0; font-family: Georgia, serif;">
-          RECONOCIMIENTO VERDE
-        </h1>
-        
-        <div style="width: 150px; height: 3px; background: #10b981; margin: 15px auto; border-radius: 2px;"></div>
-
-        <p style="font-size: 0.95rem; color: #4b5563; font-style: italic; margin-bottom: 24px;">
-          Otorgado con orgullo y gratitud a:
-        </p>
-
-        <h2 style="font-size: 1.65rem; font-weight: 800; color: #111827; margin: 0 0 16px 0; border-bottom: 1px dashed #d1d5db; display: inline-block; padding-bottom: 6px; min-width: 400px;">
-          ${clientText.toUpperCase()}
-        </h2>
-
-        <p style="font-size: 0.88rem; line-height: 1.6; color: #374151; max-width: 580px; margin: 0 auto 24px auto;">
-          Por su valiosa contribución al cuidado de nuestro planeta a través del reciclaje de materiales y desechos sólidos ${periodText}, procesando un total de <strong>${stats.totalWeight.toFixed(1)} kg</strong> de residuos aprovechables.
-        </p>
-
-        <!-- Eco metrics grid -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 30px auto; max-width: 620px;">
-          
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.4rem; margin-bottom: 4px;">🌳</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">${Math.ceil(stats.treesSaved)}</div>
-            <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Árboles Salvados</div>
-          </div>
-
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.4rem; margin-bottom: 4px;">💧</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">${Math.round(stats.waterSaved).toLocaleString()} L</div>
-            <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Agua Ahorrada</div>
-          </div>
-
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.4rem; margin-bottom: 4px;">⚡</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">${Math.round(stats.energySaved).toLocaleString()}</div>
-            <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">kWh Ahorrados</div>
-          </div>
-
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.4rem; margin-bottom: 4px;">💨</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">${Math.round(stats.co2Avoided).toLocaleString()} kg</div>
-            <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">CO2 Evitado</div>
-          </div>
-
-        </div>
-
-        <p style="font-size: 0.72rem; color: #6b7280; line-height: 1.4; max-width: 500px; margin: 0 auto 30px auto;">
-          Este impacto medioambiental contribuye directamente a los Objetivos de Desarrollo Sostenible (ODS) y mitiga la degradación de recursos naturales vitales de nuestra región.
-        </p>
-
-        <!-- Signature Spot -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; padding: 0 50px; margin-top: 20px;">
-          <div style="text-align: left;">
-            <div style="font-size: 0.68rem; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Fecha de Emisión</div>
-            <div style="font-size: 0.8rem; font-weight: 700; color: #374151; margin-top: 4px;">${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+        <!-- Upper Section -->
+        <div>
+          <!-- Header -->
+          <div style="font-size: 0.7rem; letter-spacing: 4px; font-weight: 700; color: #047857; text-transform: uppercase; margin-top: 10px; margin-bottom: 8px;">
+            ${t('eco.cert_title')}
           </div>
           
-          <div style="text-align: center; border-top: 1px solid #9ca3af; width: 180px; padding-top: 6px;">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #111827;">${appName}</div>
-            <div style="font-size: 0.6rem; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-top: 2px;">Gestión de Reciclaje</div>
+          <h1 style="font-size: 1.8rem; font-weight: 800; color: #065f46; margin: 0; font-family: Georgia, serif; letter-spacing: 1px;">
+            ${t('eco.cert_recognition')}
+          </h1>
+          
+          <div style="width: 120px; height: 3px; background: #10b981; margin: 8px auto; border-radius: 2px;"></div>
+
+          <p style="font-size: 0.85rem; color: #4b5563; font-style: italic; margin-bottom: 8px;">
+            ${t('eco.cert_given_to')}
+          </p>
+
+          <h2 style="font-size: 1.4rem; font-weight: 800; color: #111827; margin: 0 0 10px 0; border-bottom: 1px dashed #d1d5db; display: inline-block; padding-bottom: 4px; min-width: 350px; text-transform: uppercase;">
+            ${clientText}
+          </h2>
+
+          <p style="font-size: 0.82rem; line-height: 1.5; color: #374151; max-width: 620px; margin: 0 auto;">
+            ${t('eco.cert_desc').replace('{period}', periodText).replace('{weight}', stats.totalWeight.toFixed(1))}
+          </p>
+        </div>
+
+        <!-- Middle Section: Metrics Grid -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px auto; width: 100%; max-width: 620px;">
+          
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 1.2rem; margin-bottom: 2px;">🌳</div>
+            <div style="font-size: 1rem; font-weight: 800; color: #047857;">${Math.ceil(stats.treesSaved)}</div>
+            <div style="font-size: 0.6rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">${t('eco.trees_saved')}</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 1.2rem; margin-bottom: 2px;">💧</div>
+            <div style="font-size: 1rem; font-weight: 800; color: #047857;">${Math.round(stats.waterSaved).toLocaleString()} L</div>
+            <div style="font-size: 0.6rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">${t('eco.cert_water_saved')}</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 1.2rem; margin-bottom: 2px;">⚡</div>
+            <div style="font-size: 1rem; font-weight: 800; color: #047857;">${Math.round(stats.energySaved).toLocaleString()}</div>
+            <div style="font-size: 0.6rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">${t('eco.cert_kwh_saved')}</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 1.2rem; margin-bottom: 2px;">💨</div>
+            <div style="font-size: 1rem; font-weight: 800; color: #047857;">${Math.round(stats.co2Avoided).toLocaleString()} kg</div>
+            <div style="font-size: 0.6rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">${t('eco.co2_avoided')}</div>
+          </div>
+
+        </div>
+
+        <!-- Lower Section -->
+        <div>
+          <p style="font-size: 0.68rem; color: #6b7280; line-height: 1.4; max-width: 540px; margin: 0 auto 15px auto;">
+            ${t('eco.cert_footer_desc')}
+          </p>
+
+          <!-- Signature and Date info -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px; margin-bottom: 5px;">
+            <div style="text-align: left;">
+              <div style="font-size: 0.62rem; color: #9ca3af; text-transform: uppercase; font-weight: 600;">${t('eco.cert_issue_date')}</div>
+              <div style="font-size: 0.75rem; font-weight: 700; color: #374151; margin-top: 2px;">
+                ${new Date().toLocaleDateString(getSettings().language === 'en' ? 'en-US' : 'es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </div>
+            </div>
+            
+            <div style="text-align: center; border-top: 1px solid #9ca3af; width: 160px; padding-top: 4px;">
+              <div style="font-size: 0.72rem; font-weight: 700; color: #111827;">${appName}</div>
+              <div style="font-size: 0.55rem; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-top: 1px;">${t('eco.cert_mgmt')}</div>
+            </div>
           </div>
         </div>
 
@@ -356,16 +366,33 @@ function generateEcoCertificatePDF() {
     </div>
   `;
 
-  // Generate PDF via html2pdf
+  // Generate PDF via html2pdf using offscreen temporary wrapper for pixel accuracy
   const opt = {
-    margin:       0.3,
+    margin:       0.1, // Small margin to prevent page break issues
     filename:     `Certificado_Impacto_${clientName || 'General'}_${new Date().toISOString().split('T')[0]}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
+    html2canvas:  { scale: 2, useCORS: true, windowWidth: 800, scrollX: 0, scrollY: 0 },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
   };
 
-  html2pdf().from(htmlContent).set(opt).output('blob').then((pdfBlob) => {
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '0';
+  container.style.top = '0';
+  container.style.width = '800px';
+  container.style.height = '0';
+  container.style.overflow = 'hidden';
+  container.style.zIndex = '-9999';
+  container.style.pointerEvents = 'none';
+  document.body.appendChild(container);
+
+  const wrapper = document.createElement('div');
+  wrapper.style.width = '800px';
+  wrapper.style.background = '#fff';
+  wrapper.innerHTML = htmlContent;
+  container.appendChild(wrapper);
+
+  html2pdf().from(wrapper).set(opt).output('blob').then((pdfBlob) => {
     if (window.chrome && window.chrome.webview) {
         const reader = new FileReader();
         reader.readAsDataURL(pdfBlob);
@@ -376,7 +403,7 @@ function generateEcoCertificatePDF() {
                 filename: opt.filename,
                 data: base64data
             }));
-            showToast('✅ Certificado abierto en tu programa predeterminado', 'success');
+            showToast(t('eco.toast_ready'), 'success');
         };
     } else {
         const url = URL.createObjectURL(pdfBlob);
@@ -387,10 +414,14 @@ function generateEcoCertificatePDF() {
         link.click();
         document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(url), 100);
-        showToast('✅ Certificado descargado con éxito', 'success');
+        showToast(t('eco.toast_downloaded'), 'success');
     }
   }).catch((err) => {
     console.error(err);
-    showToast('❌ Error al generar el PDF del certificado', 'error');
+    showToast(t('eco.toast_error'), 'error');
+  }).finally(() => {
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
   });
 }

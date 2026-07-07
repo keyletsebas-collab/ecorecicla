@@ -128,6 +128,8 @@ function navigate(pageName, subTab = null) {
         case 'ajustes': renderSettingsPage(target); break;
         case 'ecologia': renderEcologyPage(target); break;
         case 'precios': renderPricesPage(target); break;
+        case 'superadmin': renderSuperAdminPage(target); break;
+        case 'colaboradores': renderCollaboratorsPage(target); break;
     }
 }
 
@@ -179,6 +181,11 @@ function initApp(user) {
     // Pull Google Drive settings from Supabase on boot
     if (window.syncPullGDriveSettings) {
         window.syncPullGDriveSettings(user.accountId);
+    }
+
+    // Request web notification permissions if supported
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
     }
 }
 
@@ -253,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // If familyId changed, we need to trigger sync pull for the new ID
                                 if (oldFamilyId !== newFamilyId) {
                                     const newDbId = newFamilyId ? `family_${newFamilyId}` : cachedSession.accountId;
-                                    showToast('🔄 Tu estado familiar ha cambiado. Actualizando datos...', 'info');
+                                    showToast('🔄 Tu estado de empresa ha cambiado. Actualizando datos...', 'info');
                                     if (window.syncPullData) {
                                         window.syncPullData(newDbId);
                                     }

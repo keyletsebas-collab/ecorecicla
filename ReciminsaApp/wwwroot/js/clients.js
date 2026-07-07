@@ -55,6 +55,15 @@ function renderClientesPage(container, isEmpresaMode = false) {
       </div>
     </div>
 
+    <div class="invoice-tabs" style="margin-bottom: 20px; display: flex; gap: 10px; border-bottom: 1px solid var(--clr-border);">
+      <button class="invoice-tab cli-tab ${!isEmpresaMode ? 'active' : ''}" id="cli-tab-btn-local" onclick="switchClientesTab(false)" style="padding: 10px 20px; font-weight: 600; cursor: pointer; border: none; background: none; border-bottom: 2px solid ${!isEmpresaMode ? 'var(--clr-primary-light)' : 'transparent'}; color: ${!isEmpresaMode ? 'var(--clr-primary-light)' : 'var(--clr-text-muted)'};">
+        Clientes Locales
+      </button>
+      <button class="invoice-tab cli-tab ${isEmpresaMode ? 'active' : ''}" id="cli-tab-btn-empresa" onclick="switchClientesTab(true)" style="padding: 10px 20px; font-weight: 600; cursor: pointer; border: none; background: none; border-bottom: 2px solid ${isEmpresaMode ? 'var(--clr-primary-light)' : 'transparent'}; color: ${isEmpresaMode ? 'var(--clr-primary-light)' : 'var(--clr-text-muted)'};">
+        Empresas
+      </button>
+    </div>
+
     <div class="finance-grid">
       <!-- Form -->
       <div class="card card--elevated">
@@ -306,3 +315,11 @@ async function autoFillEditClientDGII(id) {
     }
   }
 }
+
+function switchClientesTab(isEmpresaMode) {
+  const container = document.getElementById('page-clientes');
+  if (container) {
+    renderClientesPage(container, isEmpresaMode);
+  }
+}
+window.switchClientesTab = switchClientesTab;

@@ -274,81 +274,83 @@ function generateEcoCertificatePDF() {
 
   // HTML content for Certificate
   const htmlContent = `
-    <div style="width: 800px; background: #ffffff; padding: 40px; box-sizing: border-box; font-family: 'Inter', sans-serif; color: #1f2937;">
-      <div style="border: 8px double #10b981; border-radius: 12px; padding: 30px; position: relative; background: #fafdfb; text-align: center; box-sizing: border-box;">
+    <div style="width: 1056px; height: 816px; background: #ffffff; padding: 50px; box-sizing: border-box; font-family: 'Inter', sans-serif; color: #1f2937; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+      <div style="width: 100%; height: 100%; border: 8px double #10b981; border-radius: 12px; padding: 40px 60px; position: relative; background: #fafdfb; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
         
         <!-- Decorative Ornaments -->
-        <div style="position: absolute; top: 15px; left: 15px; font-size: 1.5rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; top: 15px; right: 15px; font-size: 1.5rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; bottom: 15px; left: 15px; font-size: 1.5rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; bottom: 15px; right: 15px; font-size: 1.5rem; color: #10b981; opacity: 0.6;">🌿</div>
+        <div style="position: absolute; top: 20px; left: 20px; font-size: 1.8rem; color: #10b981; opacity: 0.6;">🌿</div>
+        <div style="position: absolute; top: 20px; right: 20px; font-size: 1.8rem; color: #10b981; opacity: 0.6;">🌿</div>
+        <div style="position: absolute; bottom: 20px; left: 20px; font-size: 1.8rem; color: #10b981; opacity: 0.6;">🌿</div>
+        <div style="position: absolute; bottom: 20px; right: 20px; font-size: 1.8rem; color: #10b981; opacity: 0.6;">🌿</div>
 
-        <!-- Header -->
-        <div style="font-size: 0.72rem; letter-spacing: 4px; font-weight: 700; color: #047857; text-transform: uppercase; margin-bottom: 20px;">
-          Certificado de Impacto medioambiental
+        <!-- Top Block (Header, Title, Line) -->
+        <div>
+          <div style="font-size: 0.8rem; letter-spacing: 5px; font-weight: 700; color: #047857; text-transform: uppercase; margin-top: 10px; margin-bottom: 15px;">
+            Certificado de Impacto medioambiental
+          </div>
+          <h1 style="font-size: 2.8rem; font-weight: 800; color: #065f46; margin: 0 0 10px 0; font-family: Georgia, serif;">
+            RECONOCIMIENTO VERDE
+          </h1>
+          <div style="width: 200px; height: 4px; background: #10b981; margin: 15px auto; border-radius: 2px;"></div>
         </div>
-        
-        <h1 style="font-size: 2.2rem; font-weight: 800; color: #065f46; margin: 0 0 10px 0; font-family: Georgia, serif;">
-          RECONOCIMIENTO VERDE
-        </h1>
-        
-        <div style="width: 150px; height: 3px; background: #10b981; margin: 15px auto; border-radius: 2px;"></div>
 
-        <p style="font-size: 0.95rem; color: #4b5563; font-style: italic; margin-bottom: 24px;">
-          Otorgado con orgullo y gratitud a:
-        </p>
-
-        <h2 style="font-size: 1.65rem; font-weight: 800; color: #111827; margin: 0 0 16px 0; border-bottom: 1px dashed #d1d5db; display: inline-block; padding-bottom: 6px; min-width: 400px;">
-          ${clientText.toUpperCase()}
-        </h2>
-
-        <p style="font-size: 0.88rem; line-height: 1.6; color: #374151; max-width: 580px; margin: 0 auto 24px auto;">
-          Por su valiosa contribución al cuidado de nuestro planeta a través del reciclaje de materiales y desechos sólidos ${periodText}, procesando un total de <strong>${stats.totalWeight.toFixed(1)} kg</strong> de residuos aprovechables.
-        </p>
+        <!-- Middle Block (Recipient, Text) -->
+        <div>
+          <p style="font-size: 1.1rem; color: #4b5563; font-style: italic; margin: 0 0 12px 0;">
+            Otorgado con orgullo y gratitud a:
+          </p>
+          <h2 style="font-size: 2.2rem; font-weight: 800; color: #111827; margin: 0 0 20px 0; border-bottom: 2px dashed #d1d5db; display: inline-block; padding-bottom: 8px; min-width: 500px; letter-spacing: 1px;">
+            ${clientText.toUpperCase()}
+          </h2>
+          <p style="font-size: 1.05rem; line-height: 1.6; color: #374151; max-width: 720px; margin: 0 auto;">
+            Por su valiosa contribución al cuidado de nuestro planeta a través del reciclaje de materiales y desechos sólidos ${periodText}, procesando un total de <strong>${stats.totalWeight.toFixed(1)} kg</strong> de residuos aprovechables.
+          </p>
+        </div>
 
         <!-- Eco metrics grid -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 30px auto; max-width: 620px;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px auto; width: 100%; max-width: 760px;">
           
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.4rem; margin-bottom: 4px;">🌳</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">${Math.ceil(stats.treesSaved)}</div>
-            <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Árboles Salvados</div>
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+            <div style="font-size: 2rem; margin-bottom: 6px;">🌳</div>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #047857;">${Math.ceil(stats.treesSaved)}</div>
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 700; text-transform: uppercase; margin-top: 4px;">Árboles Salvados</div>
           </div>
 
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.4rem; margin-bottom: 4px;">💧</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">${Math.round(stats.waterSaved).toLocaleString()} L</div>
-            <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Agua Ahorrada</div>
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+            <div style="font-size: 2rem; margin-bottom: 6px;">💧</div>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #047857;">${Math.round(stats.waterSaved).toLocaleString()} L</div>
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 700; text-transform: uppercase; margin-top: 4px;">Agua Ahorrada</div>
           </div>
 
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.4rem; margin-bottom: 4px;">⚡</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">${Math.round(stats.energySaved).toLocaleString()}</div>
-            <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">kWh Ahorrados</div>
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+            <div style="font-size: 2rem; margin-bottom: 6px;">⚡</div>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #047857;">${Math.round(stats.energySaved).toLocaleString()}</div>
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 700; text-transform: uppercase; margin-top: 4px;">kWh Ahorrados</div>
           </div>
 
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.4rem; margin-bottom: 4px;">💨</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">${Math.round(stats.co2Avoided).toLocaleString()} kg</div>
-            <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">CO2 Evitado</div>
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+            <div style="font-size: 2rem; margin-bottom: 6px;">💨</div>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #047857;">${Math.round(stats.co2Avoided).toLocaleString()} kg</div>
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 700; text-transform: uppercase; margin-top: 4px;">CO2 Evitado</div>
           </div>
 
         </div>
 
-        <p style="font-size: 0.72rem; color: #6b7280; line-height: 1.4; max-width: 500px; margin: 0 auto 30px auto;">
+        <!-- Footer / ODS Text -->
+        <p style="font-size: 0.8rem; color: #6b7280; line-height: 1.5; max-width: 650px; margin: 0 auto;">
           Este impacto medioambiental contribuye directamente a los Objetivos de Desarrollo Sostenible (ODS) y mitiga la degradación de recursos naturales vitales de nuestra región.
         </p>
 
         <!-- Signature Spot -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; padding: 0 50px; margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; padding: 0 40px; margin-bottom: 10px;">
           <div style="text-align: left;">
-            <div style="font-size: 0.68rem; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Fecha de Emisión</div>
-            <div style="font-size: 0.8rem; font-weight: 700; color: #374151; margin-top: 4px;">${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+            <div style="font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Fecha de Emisión</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: #374151; margin-top: 4px;">${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
           </div>
           
-          <div style="text-align: center; border-top: 1px solid #9ca3af; width: 180px; padding-top: 6px;">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #111827;">${appName}</div>
-            <div style="font-size: 0.6rem; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-top: 2px;">Gestión de Reciclaje</div>
+          <div style="text-align: center; border-top: 1px solid #9ca3af; width: 220px; padding-top: 8px;">
+            <div style="font-size: 0.9rem; font-weight: 700; color: #111827;">${appName}</div>
+            <div style="font-size: 0.68rem; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-top: 2px;">Gestión de Reciclaje</div>
           </div>
         </div>
 
@@ -358,7 +360,7 @@ function generateEcoCertificatePDF() {
 
   // Generate PDF via html2pdf
   const opt = {
-    margin:       0.3,
+    margin:       0,
     filename:     `Certificado_Impacto_${clientName || 'General'}_${new Date().toISOString().split('T')[0]}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { scale: 2, useCORS: true },

@@ -25,11 +25,28 @@ const COLOR_THEMES = [
 
 // ---- Getters / Setters ----
 function getSettings() {
-  return JSON.parse(localStorage.getItem('recim_settings') || '{}');
+  const localSettings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+  try {
+    const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
+    const shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
+    if (shared.companyName) localSettings.companyName = shared.companyName;
+    if (shared.companyRNC) localSettings.companyRNC = shared.companyRNC;
+    if (shared.companyPhone) {
+      localSettings.companyPhone = shared.companyPhone;
+      localSettings.userPhone = shared.companyPhone;
+    }
+    if (shared.companyEmail) {
+      localSettings.companyEmail = shared.companyEmail;
+      localSettings.userEmail = shared.companyEmail;
+    }
+    if (shared.companyAddress) localSettings.companyAddress = shared.companyAddress;
+    if (shared.companyLogo) localSettings.companyLogo = shared.companyLogo;
+  } catch(e){}
+  return localSettings;
 }
 
 function saveSetting(key, value) {
-  const s = getSettings();
+  const s = JSON.parse(localStorage.getItem('recim_settings') || '{}');
   s[key] = value;
   localStorage.setItem('recim_settings', JSON.stringify(s));
 }
@@ -203,9 +220,9 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
-      <!-- ===== COMPARTIR EN FAMILIA ===== -->
+      <!-- ===== COMPARTIR EN EMPRESA ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">👪 Compartir en Familia</h3>
+        <h3 class="settings-section-title">🏢 Compartir en Empresa</h3>
         <div id="settings-family-container">
           <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
         </div>
@@ -291,32 +308,55 @@ function renderSettingsPage(container) {
       </div>
 
 
-      <!-- ===== PERSONALIZAR APP (MARCA BLANCA) ===== -->
+      <!-- ===== REGISTRO DE EMPRESA ===== -->
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
-        <h3 class="settings-section-title">🏢 Personalizar App (Marca Blanca)</h3>
+        <h3 class="settings-section-title">🏢 Registro de Empresa</h3>
         
+        ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) 
+          ? `<div style="background: rgba(234, 179, 8, 0.1); border: 1px solid #eab308; border-radius: var(--r-md); padding: 12px; margin-bottom: 16px; font-size: 0.85rem; color: #eab308; display: flex; align-items: center; gap: 8px;"><span>⚠️</span> <span>Estos datos son compartidos por toda la empresa. Solo el <b>Administrador</b> puede modificarlos.</span></div>` 
+          : ''
+        }
+
         <div class="form-row" style="grid-template-columns: 1fr 1fr; gap: var(--sp-lg); align-items: start;">
           <!-- Columna Izquierda: Formulario -->
           <div style="display:flex; flex-direction:column; gap:14px;">
             <div class="form-group">
-              <label class="form-label" for="set-company-name">Nombre de la App (GUI)</label>
-              <input id="set-company-name" type="text" class="form-input" placeholder="Ej: Mi Recicladora" value="${settings.companyName || ''}" onchange="saveCompanyNameSetting(this.value)" />
+              <label class="form-label" for="set-company-name">Nombre de la Empresa</label>
+              <input id="set-company-name" type="text" class="form-input" placeholder="Ej: Mi Recicladora" value="${settings.companyName || ''}" onchange="saveCompanyNameSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
               <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Aparecerá en el menú lateral y como nombre de la empresa emisora en facturas.</p>
             </div>
             
             <div class="form-group">
               <label class="form-label" for="set-company-rnc">RNC de tu Compañía</label>
               <div style="display:flex; gap: 8px;">
-                <input id="set-company-rnc" type="text" class="form-input" placeholder="9 u 11 dígitos" value="${settings.companyRNC || ''}" onchange="saveCompanyRNCSetting(this.value)" style="flex:1;" />
-                <button class="btn-secondary" onclick="autoFillSettingsCompanyDGII()" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button">🔍</button>
-                <button class="btn-danger" onclick="clearSettingsCompanyRNC()" style="margin:0; padding: 0 12px; display:flex; align-items:center; justify-content:center; background: var(--clr-danger-soft); border-color: var(--clr-danger);" title="Eliminar RNC" type="button">🗑</button>
+                <input id="set-company-rnc" type="text" class="form-input" placeholder="9 u 11 dígitos" value="${settings.companyRNC || ''}" onchange="saveCompanyRNCSetting(this.value)" style="flex:1;" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
+                <button class="btn-secondary" onclick="autoFillSettingsCompanyDGII()" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>🔍</button>
+                <button class="btn-danger" onclick="clearSettingsCompanyRNC()" style="margin:0; padding: 0 12px; display:flex; align-items:center; justify-content:center; background: var(--clr-danger-soft); border-color: var(--clr-danger);" title="Eliminar RNC" type="button" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>🗑</button>
               </div>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="set-company-phone">Teléfono de la Empresa</label>
+              <input id="set-company-phone" type="text" class="form-input" placeholder="Ej: +1 (849) 585-0386" value="${settings.companyPhone || settings.userPhone || ''}" onchange="saveCompanyPhoneSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label" for="set-company-email">Correo Electrónico</label>
+              <input id="set-company-email" type="email" class="form-input" placeholder="Ej: contacto@empresa.com" value="${settings.companyEmail || settings.userEmail || ''}" onchange="saveCompanyEmailSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="set-company-address">Dirección de la Empresa</label>
+              <input id="set-company-address" type="text" class="form-input" placeholder="Ej: Calle Duarte #12, Santo Domingo" value="${settings.companyAddress || ''}" onchange="saveCompanyAddressSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
               <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
             </div>
             
             <div class="form-group">
               <label class="form-label" for="set-company-logo">Logo de la App / Membrete (Opcional)</label>
-              <input id="set-company-logo" type="file" accept="image/*" class="form-input" onchange="handleSettingsLogoUpload(this)" />
+              <input id="set-company-logo" type="file" accept="image/*" class="form-input" onchange="handleSettingsLogoUpload(this)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
               <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Aparecerá en el panel lateral y en la cabecera de las facturas (PDF). Formato recomendado: PNG transparente.</p>
             </div>
           </div>
@@ -333,11 +373,14 @@ function renderSettingsPage(container) {
         </div>
         
         <!-- Botón Restaurar Todo -->
-        <div style="display:flex; justify-content:flex-end; margin-top:20px; padding-top:15px; border-top:1px solid var(--clr-border);">
-          <button class="btn-secondary" onclick="restoreWhiteLabelToOriginal()" style="color: #ef4444; border-color: #ef4444; background: rgba(239, 68, 68, 0.05); font-weight:600; display:flex; align-items:center; gap:6px;">
-            🔄 Restaurar Todo al Original
-          </button>
-        </div>
+        ${(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) 
+          ? `<div style="display:flex; justify-content:flex-end; margin-top:20px; padding-top:15px; border-top:1px solid var(--clr-border);">
+              <button class="btn-secondary" onclick="restoreWhiteLabelToOriginal()" style="color: #ef4444; border-color: #ef4444; background: rgba(239, 68, 68, 0.05); font-weight:600; display:flex; align-items:center; gap:6px;">
+                🔄 Restaurar Todo al Original
+              </button>
+            </div>`
+          : ''
+        }
       </div>
 
       <!-- ===== SOPORTE IT ===== -->
@@ -1041,15 +1084,35 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
   const listContainer = document.getElementById('family-members-list');
   if (!listContainer) return;
 
+  let companyAdminId = localStorage.getItem(userKey('recim_company_admin'));
+  if (companyAdminId && companyAdminId.startsWith('"') && companyAdminId.endsWith('"')) {
+    try { companyAdminId = JSON.parse(companyAdminId); } catch (_) {}
+  }
+
   const renderList = (members) => {
     if (members.length === 0) {
       listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">No hay otros miembros.</div>`;
       return;
     }
+    
+    // Load companyAdmins list from shared settings
+    let sharedAdmins = [];
+    try {
+      const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
+      const shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
+      sharedAdmins = shared.companyAdmins || [];
+    } catch(e){}
+
+    const myIsAdmin = typeof isCurrentUserAdminOrFounder === 'function' && isCurrentUserAdminOrFounder();
     listContainer.innerHTML = members.map(m => {
       const isMe = m.accountId === myAccountId;
       const cName = m.name ? m.name.split(' | ')[0].trim() : 'Usuario';
       const initial = (m.avatar || cName || 'U')[0].toUpperCase();
+      const isFounder = m.accountId === companyAdminId;
+      const isMemberAdmin = isFounder || sharedAdmins.includes(m.accountId);
+      const canManageAdmin = !isMe && myIsAdmin && !isFounder;
+      const showKick = !isMe && myIsAdmin && !isFounder; // only admins can kick, cannot kick founder or self
+      
       return `
         <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:var(--r-md);">
           <div style="width:32px; height:32px; border-radius:50%; background:var(--clr-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
@@ -1058,11 +1121,25 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
           <div style="flex:1; min-width:0;">
             <div style="font-size:0.84rem; font-weight:600; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px;">
               <span>${cName}</span>
+              ${isFounder ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#2563eb; color:#fff;">Fundador</span>` : ''}
+              ${(!isFounder && isMemberAdmin) ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#10b981; color:#fff;">Admin</span>` : ''}
               ${isMe ? `<span class="badge badge--green" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px;">Tú</span>` : ''}
             </div>
             <div style="font-size:0.74rem; color:var(--clr-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
               ${m.email || '—'}
             </div>
+          </div>
+          <div style="display:flex; gap:6px; flex-shrink:0;">
+            ${canManageAdmin ? `
+              <button class="btn-secondary" style="padding:4px 8px; font-size:0.72rem; margin:0; line-height:1; display:flex; align-items:center; gap:4px; font-weight:bold;" onclick="toggleMemberAdminRole('${m.accountId}', ${isMemberAdmin})">
+                ${isMemberAdmin ? '🛡️ Quitar Admin' : '🛡️ Hacer Admin'}
+              </button>
+            ` : ''}
+            ${showKick ? `
+              <button class="btn-danger" style="padding:4px 8px; font-size:0.72rem; margin:0; line-height:1; display:flex; align-items:center; gap:4px; font-weight:bold;" onclick="kickFamilyMember('${m.accountId}', '${cName.replace(/'/g, "\\'")}')">
+                🗑️ Eliminar
+              </button>
+            ` : ''}
           </div>
         </div>
       `;
@@ -1089,13 +1166,81 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
 
       renderList(members);
     } catch (err) {
-      console.warn("Error actualizando lista de miembros familiares desde Supabase:", err);
-      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-danger);">Error al cargar miembros familiares.</div>`;
+      console.warn("Error actualizando lista de miembros de la empresa desde Supabase:", err);
+      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-danger);">Error al cargar miembros de la empresa.</div>`;
     }
   } else {
     listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">Sin conexión con el servidor.</div>`;
   }
 }
+
+async function kickFamilyMember(memberAccountId, memberName) {
+  const isAdmin = typeof isCurrentUserAdminOrFounder === 'function' && isCurrentUserAdminOrFounder();
+  if (!isAdmin) {
+    showToast('❌ Solo el administrador puede eliminar miembros de la empresa', 'error');
+    return;
+  }
+  if (!confirm(`¿Eliminar a ${memberName} de la empresa? Perderá acceso a los datos compartidos.`)) return;
+
+  if (isSupabaseActive && supabaseClient) {
+    try {
+      showToast(`📡 Eliminando a ${memberName}...`, 'info');
+      const { error } = await supabaseClient
+        .from('profiles')
+        .update({ family_id: null })
+        .eq('id', memberAccountId);
+      
+      if (error) throw error;
+      showToast(`✅ ${memberName} ha sido eliminado de la empresa`, 'success');
+      const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+      updateFamilyMembersDOM(session.familyId, session.accountId);
+    } catch (err) {
+      console.error(err);
+      showToast('❌ Error de red al eliminar miembro', 'error');
+    }
+  } else {
+    showToast('⚠️ Conexión de red no disponible', 'warning');
+  }
+}
+window.kickFamilyMember = kickFamilyMember;
+
+async function toggleMemberAdminRole(memberAccountId, isCurrentAdmin) {
+  const isAdmin = typeof isCurrentUserAdminOrFounder === 'function' && isCurrentUserAdminOrFounder();
+  if (!isAdmin) {
+    showToast('❌ Solo el administrador puede modificar roles', 'error');
+    return;
+  }
+
+  const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
+  let shared = {};
+  try {
+    shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
+  } catch(e){}
+  
+  let admins = shared.companyAdmins || [];
+  if (isCurrentAdmin) {
+    admins = admins.filter(id => id !== memberAccountId);
+    showToast('🛡️ Rol de Administrador removido', 'success');
+  } else {
+    if (!admins.includes(memberAccountId)) {
+      admins.push(memberAccountId);
+    }
+    showToast('🛡️ Rol de Administrador concedido', 'success');
+  }
+  
+  shared.companyAdmins = admins;
+  localStorage.setItem(sharedKey, JSON.stringify(shared));
+  
+  // Trigger localStorage event manually for sync engine to catch it and push to Supabase
+  window.dispatchEvent(new StorageEvent('storage', {
+    key: sharedKey,
+    newValue: JSON.stringify(shared)
+  }));
+
+  // Force local Settings DOM refresh
+  renderFamilySection();
+}
+window.toggleMemberAdminRole = toggleMemberAdminRole;
 
 function renderFamilySection() {
   const container = document.getElementById('settings-family-container');
@@ -1108,10 +1253,10 @@ function renderFamilySection() {
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:12px;">
         <p style="font-size:0.8rem; color:var(--clr-text-muted);">
-          Actualmente estás en una familia. Tu base de datos está sincronizada y compartida en tiempo real con todos los miembros de este grupo.
+          Actualmente estás en una empresa compartida. Tu base de datos está sincronizada y compartida en tiempo real con todos los miembros de este grupo.
         </p>
         <div style="padding:12px; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:var(--r-md); display:flex; flex-direction:column; gap:8px;">
-          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Código de tu Familia</div>
+          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Código de tu Empresa</div>
           <div style="display:flex; align-items:center; gap:8px;">
             <span id="family-code-text" style="font-family:monospace; font-size:1.25rem; font-weight:700; color:var(--clr-primary); letter-spacing:0.1em;">${familyId}</span>
             <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="copyFamilyCode()">📋 Copiar</button>
@@ -1119,14 +1264,14 @@ function renderFamilySection() {
         </div>
 
         <div style="margin-top:8px; border-top:1px solid var(--clr-border); padding-top:12px;">
-          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Miembros de la Familia</div>
+          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Miembros de la Empresa</div>
           <div id="family-members-list" style="display:flex; flex-direction:column; gap:8px;">
             <div style="font-size:0.8rem; color:var(--clr-text-muted);">Cargando miembros...</div>
           </div>
         </div>
         
         <button class="btn-danger" style="width:100%; justify-content:center; margin-top:8px;" onclick="handleLeaveFamily()">
-          🚪 Salir de la Familia
+          🚪 Salir de la Empresa
         </button>
       </div>
     `;
@@ -1136,21 +1281,21 @@ function renderFamilySection() {
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:12px;">
         <p style="font-size:0.8rem; color:var(--clr-text-muted);">
-          Crea una familia para compartir tu base de datos con otros miembros, o únete a una familia existente usando su código de 10 dígitos.
+          Crea una empresa para compartir tu base de datos con otros miembros, o únete a una empresa existente usando su código de 10 dígitos.
         </p>
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
           <button class="btn-primary" style="justify-content:center; font-size:0.85rem;" onclick="handleCreateFamily()">
-            ➕ Crear Familia
+            ➕ Crear Empresa
           </button>
           <button class="btn-secondary" style="justify-content:center; font-size:0.85rem;" onclick="showJoinFamilyInput()">
-            🔑 Unirse a Familia
+            🔑 Unirse a Empresa
           </button>
         </div>
         
         <div id="join-family-box" style="display:none; margin-top:8px; padding-top:12px; border-top:1px solid var(--clr-border);">
           <div class="form-group" style="margin-bottom:8px;">
-            <label class="form-label" style="font-size:0.75rem;">Código de Familia (10 dígitos)</label>
+            <label class="form-label" style="font-size:0.75rem;">Código de Empresa (10 dígitos)</label>
             <input id="join-family-code-input" type="text" class="form-input" placeholder="Ej: 1234567890" maxlength="10" 
                    oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
           </div>
@@ -1175,7 +1320,7 @@ function copyFamilyCode() {
 }
 
 async function handleCreateFamily() {
-  if (!confirm('¿Estás seguro de que quieres crear una familia? Compartirás tu base de datos actual.')) return;
+  if (!confirm('¿Estás seguro de que deseas crear una empresa? Compartirás tu base de datos actual.')) return;
 
   let code = '';
   // Generate random 10 digit code
@@ -1186,11 +1331,12 @@ async function handleCreateFamily() {
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   session.familyId = code;
   localStorage.setItem('recim_session', JSON.stringify(session));
+  localStorage.setItem(userKey('recim_company_id'), code);
 
   // Sincronizar en la nube (Supabase)
   if (isSupabaseActive && supabaseClient) {
     try {
-      showToast('📡 Registrando familia en el servidor...', 'info');
+      showToast('📡 Registrando empresa en el servidor...', 'info');
       
       // 1. Guardar family_id en tabla profiles del usuario
       const { error: profileError } = await supabaseClient
@@ -1220,15 +1366,15 @@ async function handleCreateFamily() {
         if (upsertError) throw upsertError;
       }
       
-      console.log('Familia creada y datos migrados.');
+      console.log('Empresa creada y datos migrados.');
     } catch (err) {
-      console.error("Error al crear familia en Supabase:", err);
-      showToast('❌ Error de conexión al crear familia', 'error');
+      console.error("Error al crear empresa en Supabase:", err);
+      showToast('❌ Error de conexión al crear empresa', 'error');
       return;
     }
   }
 
-  showToast('👪 ¡Familia creada exitosamente!', 'success');
+  showToast('🏢 ¡Empresa creada exitosamente!', 'success');
   renderFamilySection();
 }
 
@@ -1252,7 +1398,7 @@ async function submitJoinFamily() {
 
   if (isSupabaseActive && supabaseClient) {
     try {
-      showToast('📡 Validando código de familia...', 'info');
+      showToast('📡 Validando código de empresa...', 'info');
       
       // Fetch users with this family ID
       const { data: cloudUsers, error: checkError } = await supabaseClient
@@ -1265,7 +1411,7 @@ async function submitJoinFamily() {
       // Find if anyone belongs to this family
       const familyExists = cloudUsers && cloudUsers.length > 0;
       if (!familyExists) {
-        showToast('❌ El código de familia no es válido o no existe.', 'error');
+        showToast('❌ El código de empresa no es válido o no existe.', 'error');
         return;
       }
 
@@ -1281,6 +1427,7 @@ async function submitJoinFamily() {
 
       session.familyId = code;
       localStorage.setItem('recim_session', JSON.stringify(session));
+      localStorage.setItem(userKey('recim_company_id'), code);
       
       // Clear local database keys before pulling new ones
       const keysToRemove = [
@@ -1297,10 +1444,10 @@ async function submitJoinFamily() {
         await window.syncPullData(`family_${code}`);
       }
 
-      showToast('👪 ¡Te has unido a la familia exitosamente!', 'success');
+      showToast('🏢 ¡Te has unido a la empresa exitosamente!', 'success');
       renderFamilySection();
     } catch (err) {
-      console.error("Error al unirse a la familia:", err);
+      console.error("Error al unirse a la empresa:", err);
       showToast('❌ Error al conectar con el servidor', 'error');
     }
   } else {
@@ -1309,17 +1456,18 @@ async function submitJoinFamily() {
 }
 
 async function handleLeaveFamily() {
-  if (!confirm('¿Estás seguro de que deseas salir de la familia? Perderás acceso a la base de datos compartida y volverás a tu base de datos privada.')) return;
+  if (!confirm('¿Estás seguro de que deseas salir de la empresa? Perderás acceso a la base de datos compartida y volverás a tu base de datos privada.')) return;
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   const oldFamilyId = session.familyId;
   session.familyId = null;
   localStorage.setItem('recim_session', JSON.stringify(session));
+  localStorage.removeItem(userKey('recim_company_id'));
 
   // Update in Supabase
   if (isSupabaseActive && supabaseClient) {
     try {
-      showToast('📡 Saliendo de la familia...', 'info');
+      showToast('📡 Saliendo de la empresa...', 'info');
       const { error } = await supabaseClient
         .from('profiles')
         .update({ family_id: null })
@@ -1346,14 +1494,32 @@ async function handleLeaveFamily() {
     await window.syncPullData(session.accountId);
   }
 
-  showToast('👋 Has salido de la familia', 'success');
+  showToast('👋 Has salido de la empresa', 'success');
   renderFamilySection();
 }
 
 // ---- White Label settings handlers ----
+function saveSharedCompanySetting(key, value) {
+  try {
+    const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
+    const shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
+    shared[key] = value;
+    localStorage.setItem(sharedKey, JSON.stringify(shared));
+    
+    // Dispatch standard storage event to trigger sync
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: sharedKey,
+      newValue: JSON.stringify(shared)
+    }));
+  } catch(e) {
+    console.error("Error saving shared company setting:", e);
+  }
+}
+
 function saveCompanyNameSetting(val) {
   const name = val.trim();
   saveSetting('companyName', name);
+  saveSharedCompanySetting('companyName', name);
   
   // Update sidebar brand title immediately
   const brandEl = document.querySelector('.sidebar-brand');
@@ -1367,7 +1533,31 @@ function saveCompanyNameSetting(val) {
 function saveCompanyRNCSetting(val) {
   const rnc = val.trim();
   saveSetting('companyRNC', rnc);
+  saveSharedCompanySetting('companyRNC', rnc);
   showToast('✅ RNC de la Compañía actualizado', 'success');
+}
+
+function saveCompanyPhoneSetting(val) {
+  const phone = val.trim();
+  saveSetting('companyPhone', phone);
+  saveSetting('userPhone', phone);
+  saveSharedCompanySetting('companyPhone', phone);
+  showToast('✅ Teléfono de la Empresa actualizado', 'success');
+}
+
+function saveCompanyEmailSetting(val) {
+  const email = val.trim();
+  saveSetting('companyEmail', email);
+  saveSetting('userEmail', email);
+  saveSharedCompanySetting('companyEmail', email);
+  showToast('✅ Correo Electrónico actualizado', 'success');
+}
+
+function saveCompanyAddressSetting(val) {
+  const addr = val.trim();
+  saveSetting('companyAddress', addr);
+  saveSharedCompanySetting('companyAddress', addr);
+  showToast('✅ Dirección de la Empresa actualizada', 'success');
 }
 
 async function autoFillSettingsCompanyDGII() {
@@ -1394,6 +1584,7 @@ function clearSettingsCompanyRNC() {
   const rncEl = document.getElementById('set-company-rnc');
   if (rncEl) rncEl.value = '';
   saveSetting('companyRNC', '');
+  saveSharedCompanySetting('companyRNC', '');
   showToast('🗑 RNC eliminado de la configuración', 'success');
 }
 
@@ -1405,6 +1596,7 @@ function handleSettingsLogoUpload(input) {
   reader.onload = function(e) {
     const base64Data = e.target.result;
     saveSetting('companyLogo', base64Data);
+    saveSharedCompanySetting('companyLogo', base64Data);
     
     // Update preview container
     const previewContainer = document.getElementById('set-logo-preview-container');
@@ -1429,6 +1621,13 @@ function restoreWhiteLabelToOriginal() {
   saveSetting('companyName', '');
   saveSetting('companyRNC', '');
   saveSetting('companyLogo', '');
+  
+  saveSharedCompanySetting('companyName', '');
+  saveSharedCompanySetting('companyRNC', '');
+  saveSharedCompanySetting('companyPhone', '');
+  saveSharedCompanySetting('companyEmail', '');
+  saveSharedCompanySetting('companyAddress', '');
+  saveSharedCompanySetting('companyLogo', '');
   
   // Reset form fields
   const nameEl = document.getElementById('set-company-name');
@@ -1582,7 +1781,6 @@ const TOGGLEABLE_MODULES = [
   { id: 'clientes', label: '👥 Clientes' },
   { id: 'ingresos', label: '📈 Ingresos' },
   { id: 'egresos', label: '📉 Egresos' },
-  { id: 'empresas', label: '🏢 Registro de Empresas' },
   { id: 'ecologia', label: '🌱 Impacto medioambiental' }
 ];
 

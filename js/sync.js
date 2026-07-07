@@ -7,14 +7,15 @@
 (function () {
     // Keys that, when changed in another tab, should trigger a re-render
     const WATCHED_KEYS = [
-        { pattern: 'recim_invoices', pages: ['facturas', 'historial'], label: '🧾 Facturas' },
+        { pattern: 'recim_invoices', pages: ['historial'], label: '🧾 Facturas' },
         { pattern: 'recim_material_codes', pages: ['codigos'], label: '🏷️ Materiales' },
-        { pattern: 'recim_clients', pages: ['clientes', 'empresas'], label: '👥 Clientes' },
+        { pattern: 'recim_clients', pages: ['clientes'], label: '👥 Clientes' },
         { pattern: 'recim_ingresos', pages: ['ingresos'], label: '💰 Ingresos' },
         { pattern: 'recim_egresos', pages: ['egresos'], label: '💸 Egresos' },
         { pattern: 'recim_company_admin', pages: ['ajustes', 'colaboradores'], label: '👑 Admin de Empresa' },
-        { pattern: 'recim_collaborators', pages: ['colaboradores', 'facturas', 'ingresos', 'egresos', 'bitacoras'], label: '🤝 Colaboradores' },
+        { pattern: 'recim_collaborators', pages: ['colaboradores', 'ingresos', 'egresos', 'bitacoras'], label: '🤝 Colaboradores' },
         { pattern: 'recim_company_shared_settings', pages: ['ajustes'], label: '⚙️ Ajustes de Empresa' },
+        { pattern: 'recim_company_id', pages: ['ajustes'], label: '🏢 ID de Empresa' },
     ];
 
     // Special keys handled separately
@@ -521,8 +522,14 @@ async function sendGDriveWelcomeDoc() {
                 .maybeSingle();
 
             if (error) throw error;
+
+            if (!data || !data.data || Object.keys(data.data).length === 0) {
+                console.log(`☁️ Supabase Pull: Sin datos en la nube para ${dbId}. Inicializando con datos locales...`);
+                await syncPushData(true);
+                return;
+            }
             
-            const remoteData = (data && data.data) ? data.data : {};
+            const remoteData = data.data;
             let changed = false;
 
             // 1. Update or clear local data based on remote state
@@ -531,8 +538,12 @@ async function sendGDriveWelcomeDoc() {
                 const localVal = localStorage.getItem(userKey(k.pattern));
                 
                 if (remoteVal === undefined) {
-                    // Missing in cloud = should be missing in local
-                    if (localVal !== null) {
+                    // Missing in cloud: do NOT delete local data if it contains items!
+                    // This prevents wiping local data before it has been pushed.
+                    if (localVal !== null && localVal !== '[]' && localVal !== '{}') {
+                        console.log(`☁️ Supabase Pull: ${k.label} no existe en la nube pero tiene datos locales. Conservando y programando push.`);
+                        setTimeout(() => syncPushData(), 1000);
+                    } else if (localVal !== null) {
                         localStorage.removeItem(userKey(k.pattern));
                         changed = true;
                         console.log(`☁️ Supabase Pull: Eliminando ${k.label} localmente (Sincronizado)`);
@@ -541,9 +552,30 @@ async function sendGDriveWelcomeDoc() {
                     // Exists in cloud = update local if different
                     const remoteStr = JSON.stringify(remoteVal);
                     if (localVal !== remoteStr) {
-                        localStorage.setItem(userKey(k.pattern), remoteStr);
-                        changed = true;
-                        console.log(`☁️ Supabase Pull: Actualizando ${k.label} (Datos remotos)`);
+                        // Check if remote is empty but local has items
+                        let remoteIsEmpty = false;
+                        let localIsEmpty = true;
+                        
+                        try {
+                            const rParsed = remoteVal;
+                            const lParsed = JSON.parse(localVal || 'null');
+                            
+                            if (Array.isArray(rParsed) && rParsed.length === 0) remoteIsEmpty = true;
+                            else if (rParsed && typeof rParsed === 'object' && Object.keys(rParsed).length === 0) remoteIsEmpty = true;
+                            else if (rParsed === null || rParsed === '') remoteIsEmpty = true;
+                            
+                            if (lParsed && Array.isArray(lParsed) && lParsed.length > 0) localIsEmpty = false;
+                            else if (lParsed && typeof lParsed === 'object' && Object.keys(lParsed).length > 0) localIsEmpty = false;
+                        } catch(e){}
+                        
+                        if (remoteIsEmpty && !localIsEmpty) {
+                            console.log(`☁️ Supabase Pull: ${k.label} está vacío en la nube pero local tiene datos. Conservando local y programando push.`);
+                            setTimeout(() => syncPushData(), 1000);
+                        } else {
+                            localStorage.setItem(userKey(k.pattern), remoteStr);
+                            changed = true;
+                            console.log(`☁️ Supabase Pull: Actualizando ${k.label} (Datos remotos)`);
+                        }
                     }
                 }
             });

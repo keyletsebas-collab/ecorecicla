@@ -1,202 +1,14 @@
-/* =============================================
-   PDF-UTILS.JS – Generación de PDF Global
-   ============================================= */
+/* =========================================================================
+   PDF-UTILS.JS – Generación de PDF Global Mejorado (Versión Premium)
+   Soporta Formato Corporativo (Carta) y Formato Ticket (POS 80mm)
+   ========================================================================= */
 
-function getBasicaHTML(invoice) {
-    const itemRows = (invoice.items || []).map(item => `
-    <tr style="border-bottom: 1px solid #f1f5f9;">
-      <td style="padding:10px;">${item.icon || '📦'} ${item.name}</td>
-      <td style="padding:10px;">${item.qty} ${item.unit}</td>
-      <td style="padding:10px;">${formatMoney(item.priceBuy || 0)}</td>
-      <td style="padding:10px; text-align:right; font-weight:bold;">${formatMoney(item.totalCompra || 0)}</td>
-    </tr>`).join('');
-
-    const detailRows = `<p><b>Cliente:</b> ${invoice.client || '—'}</p>`;
-
-    const totalsSection = `
-    <div style="border-top: 2px solid #e2e8f0; padding-top:10px; margin-top:12px;">
-      <div style="display:flex; justify-content:space-between; padding:5px 0;">
-        <span class="invoice-summary-label">Total Compra</span>
-        <span class="invoice-summary-value" style="color:#f87171;">-${formatMoney(invoice.totalCompra)}</span>
-      </div>
-      <div style="display:flex; justify-content:space-between; padding:10px 0; font-size:1.2rem; font-weight:bold; color:#3b82f6;">
-        <span class="invoice-summary-label">Balance Neto</span>
-        <span class="invoice-summary-value" style="color:${invoice.balance >= 0 ? '#3b82f6' : '#f87171'}">${formatMoney(invoice.balance)}</span>
-      </div>
-    </div>`;
-
-    return `
-    <div style="padding: 20px; font-family: sans-serif; color: #1e293b; background: white; width: 100%; box-sizing: border-box;">
-      <div style="text-align:center; padding-bottom:20px; border-bottom:2px solid #3b82f6; margin-bottom:20px;">
-         <h1 style="color:#3b82f6; margin:0;">RECIMINSA</h1>
-         <p style="margin:5px 0;">Gestión de Materiales Reciclables</p>
-         <h2 style="margin:15px 0 5px 0;">FACTURA BÁSICA</h2>
-         <p>ID: ${invoice.id} | Fecha: ${invoice.date}</p>
-      </div>
-      ${detailRows}
-      <div style="margin-top:10px;">
-        <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
-          <thead>
-            <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-              <th style="text-align:left; padding:10px;">Descripción</th>
-              <th style="text-align:left; padding:10px;">Cant.</th>
-              <th style="text-align:left; padding:10px;">P.Unit</th>
-              <th style="text-align:right; padding:10px;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemRows}
-          </tbody>
-        </table>
-      </div>
-      ${totalsSection}
-      ${invoice.notes ? `<div style="margin-top:20px; padding:10px; background:#f8fafc; border-radius:4px; font-size:0.85rem;">📝 <b>Notas:</b> ${invoice.notes}</div>` : ''}
-    </div>
-  `;
-}
-function getNormalHTML(invoice) {
-    const isEmpresa = invoice.type === 'empresa';
-    let title = 'FACTURA COMERCIAL';
-    if (isEmpresa && invoice.ncf) {
-        const cleanNcf = invoice.ncf.toUpperCase();
-        if (cleanNcf.startsWith('B02')) {
-            title = 'FACTURA DE CONSUMO';
-        } else if (cleanNcf.startsWith('B14')) {
-            title = 'FACTURA DE RÉGIMEN ESPECIAL';
-        } else if (cleanNcf.startsWith('B15')) {
-            title = 'FACTURA GUBERNAMENTAL';
-        } else {
-            title = 'FACTURA DE CRÉDITO FISCAL';
-        }
+function safeFormatMoney(amount) {
+    if (typeof formatMoney === 'function') {
+        return formatMoney(amount);
     }
-
-    const itemsHtml = (invoice.items || []).map(item => `
-    <tr style="border-bottom: 1px solid #e5e7eb;">
-      <td style="padding: 10px; color: #374151;">${item.qty} ${item.unit || ''}</td>
-      <td style="padding: 10px; color: #111827; font-weight: 500;">${item.desc || item.name}</td>
-      <td style="padding: 10px; text-align:right; color: #374151;">${formatMoney(item.uprice || item.priceSell || 0)}</td>
-      <td style="padding: 10px; text-align:right; color: #111827; font-weight: 600;">${formatMoney(item.subtotal || item.totalVenta || 0)}</td>
-    </tr>
-    `).join('');
-
-    // Leer configuraciones de marca blanca
-    const settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
-    const customCompanyName = settings.companyName || 'RECIMINSA';
-    const customCompanyRNC = settings.companyRNC ? `<p style="margin:2px 0; font-size: 14px; color: #666;"><strong>RNC:</strong> ${settings.companyRNC}</p>` : '';
-    const customCompanyLogo = settings.companyLogo 
-      ? `<img src="${settings.companyLogo}" style="max-width: 180px; max-height: 70px; object-fit: contain;" />` 
-      : `<img src="logo-no-white-lines.png" style="max-width: 180px; max-height: 70px; object-fit: contain; border-radius: 6px;" />`;
-
-    return `
-    <div style="box-sizing: border-box; width: 100%; font-family: 'Helvetica', 'Arial', sans-serif; padding: 40px 30px; color: #333; background: #fff;">
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border-bottom: 2px solid #22c55e; padding-bottom: 20px;">
-        <tr>
-          <td style="vertical-align: middle; text-align: left; padding-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 20px;">
-              ${customCompanyLogo}
-              <div>
-                <h1 style="margin: 0; font-size: 28px; color: #15803d; font-weight: 700; line-height: 1.2;">${customCompanyName}</h1>
-                ${customCompanyRNC}
-                <p style="margin: 4px 0 0 0; font-size: 14px; color: #666; font-weight: 500;">Gestión de Reciclaje</p>
-              </div>
-            </div>
-          </td>
-          <td style="vertical-align: middle; text-align: right; padding-bottom: 20px; width: 350px;">
-            <h2 style="margin: 0 0 8px 0; font-size: 24px; color: #333; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${title}</h2>
-            <p style="margin: 4px 0; font-size: 14px; color: #444;"><strong>Factura N°:</strong> <span style="font-family: monospace; font-size: 15px; font-weight: 600;">${invoice.id}</span></p>
-            <p style="margin: 4px 0; font-size: 14px; color: #444;"><strong>Fecha:</strong> ${invoice.date}</p>
-            ${invoice.ncf ? `<p style="margin: 4px 0; font-size: 14px; color: #444;"><strong>NCF:</strong> <span style="font-family: monospace; font-size: 15px; font-weight: 600;">${invoice.ncf}</span></p>` : ''}
-          </td>
-        </tr>
-      </table>
-
-      <div style="margin-bottom: 30px; background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
-        <h3 style="margin: 0 0 12px 0; font-size: 15px; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">INFORMACIÓN DEL CLIENTE / PROVEEDOR</h3>
-        
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.5;">
-          <tr>
-            <td style="padding: 4px 0; width: 180px; color: #6b7280; font-weight: 600;">Nombre / Razón Social:</td>
-            <td style="padding: 4px 0; color: #111827; font-weight: 500;">${invoice.company || invoice.client || '—'}</td>
-          </tr>
-          ${invoice.nit ? `
-          <tr>
-            <td style="padding: 4px 0; color: #6b7280; font-weight: 600;">RNC / Cédula:</td>
-            <td style="padding: 4px 0; color: #111827; font-family: monospace; font-size: 14px; font-weight: 600;">${invoice.nit}</td>
-          </tr>` : ''}
-          ${invoice.address ? `
-          <tr>
-            <td style="padding: 4px 0; color: #6b7280; font-weight: 600;">Dirección:</td>
-            <td style="padding: 4px 0; color: #111827;">${invoice.address}</td>
-          </tr>` : ''}
-          ${invoice.contact ? `
-          <tr>
-            <td style="padding: 4px 0; color: #6b7280; font-weight: 600;">Representante / Teléfono:</td>
-            <td style="padding: 4px 0; color: #111827;">${invoice.contact}</td>
-          </tr>` : ''}
-        </table>
-      </div>
-
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px;">
-        <thead>
-          <tr style="background: #22c55e; color: #fff;">
-            <th style="padding: 12px 10px; text-align: left; font-weight: 600; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 120px;">CANTIDAD</th>
-            <th style="padding: 12px 10px; text-align: left; font-weight: 600;">DESCRIPCIÓN</th>
-            <th style="padding: 12px 10px; text-align: right; font-weight: 600; width: 150px;">PRECIO UNITARIO</th>
-            <th style="padding: 12px 10px; text-align: right; font-weight: 600; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 150px;">TOTAL</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsHtml}
-        </tbody>
-      </table>
-
-      <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
-        <div style="width: 350px; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <tr>
-              <td style="padding: 6px 0; text-align: left; color: #4b5563;">Subtotal:</td>
-              <td style="padding: 6px 0; text-align: right; color: #111827; font-weight: 600;">${formatMoney(invoice.subtotal || invoice.totalVenta || 0)}</td>
-            </tr>
-            ${invoice.iscAmount > 0 ? `
-            <tr>
-              <td style="padding: 6px 0; text-align: left; color: #4b5563;">ISC (${invoice.iscRate || 0}%):</td>
-              <td style="padding: 6px 0; text-align: right; color: #111827; font-weight: 600;">+${formatMoney(invoice.iscAmount)}</td>
-            </tr>
-            ` : ''}
-            ${invoice.taxAmount > 0 ? `
-            <tr>
-              <td style="padding: 6px 0; text-align: left; color: #4b5563;">ITBIS (${invoice.taxRate || 0}%):</td>
-              <td style="padding: 6px 0; text-align: right; color: #111827; font-weight: 600;">+${formatMoney(invoice.taxAmount)}</td>
-            </tr>
-            ` : ''}
-            ${invoice.retIsrAmount > 0 ? `
-            <tr>
-              <td style="padding: 6px 0; text-align: left; color: #dc2626;">Retención ISR (${invoice.retIsrRate || 0}%):</td>
-              <td style="padding: 6px 0; text-align: right; color: #dc2626; font-weight: 600;">-${formatMoney(invoice.retIsrAmount)}</td>
-            </tr>
-            ` : ''}
-            ${invoice.retItbisAmount > 0 ? `
-            <tr>
-              <td style="padding: 6px 0; text-align: left; color: #dc2626;">Retención ITBIS (${invoice.retItbisRate || 0}%):</td>
-              <td style="padding: 6px 0; text-align: right; color: #dc2626; font-weight: 600;">-${formatMoney(invoice.retItbisAmount)}</td>
-            </tr>
-            ` : ''}
-            <tr style="border-top: 1.5px solid #e5e7eb;">
-              <td style="padding: 10px 0 0 0; text-align: left; font-size: 18px; font-weight: 700; color: #111827;">TOTAL:</td>
-              <td style="padding: 10px 0 0 0; text-align: right; font-size: 20px; font-weight: 700; color: #15803d;">${formatMoney(invoice.total || invoice.totalVenta || invoice.totalCompra || 0)}</td>
-            </tr>
-          </table>
-        </div>
-      </div>
-
-      ${invoice.notes ? `
-      <div style="margin-top: 30px; font-size: 13px; color: #4b5563; border-top: 1px solid #e5e7eb; padding-top: 12px; line-height: 1.5;">
-        <strong style="color: #1f2937; display: block; margin-bottom: 4px;">Notas / Condiciones:</strong>
-        ${invoice.notes}
-      </div>
-      ` : ''}
-    </div>
-  `;
+    const num = parseFloat(amount) || 0;
+    return 'RD$ ' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function base64ToBlob(base64, mimeType = 'application/pdf') {
@@ -264,420 +76,1046 @@ function numeroALetras(num) {
     return `SON: ${letras.trim()} ${currencyName} CON ${centavosStr}/100 ${centavosName}`;
 }
 
-function getConsumidorFinalHTML(invoice) {
-    const settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
-    const companyName = settings.companyName || 'RECIMINSA';
-    const companyRNC = settings.companyRNC || '0515-241087-106-0';
-    const companyPhone = settings.userPhone || '—';
-    const companyEmail = settings.userEmail || '—';
-
-    const customCompanyLogo = settings.companyLogo 
-      ? `<img src="${settings.companyLogo}" style="max-width: 130px; max-height: 60px; object-fit: contain;" />` 
-      : `<img src="logo-no-white-lines.png" style="max-width: 130px; max-height: 60px; object-fit: contain; border-radius: 6px;" />`;
-
-    // Parse date
-    let day = '', month = '', year = '';
-    if (invoice.date) {
-        const parts = invoice.date.split('-');
-        if (parts.length === 3) {
-            year = parts[0];
-            month = parts[1];
-            day = parts[2];
-        }
+// Obtener constructor jsPDF dinámicamente
+function getJsPDFConstructor() {
+    if (typeof window.html2pdf !== 'undefined' && typeof window.html2pdf.jsPDF === 'function') {
+        return window.html2pdf.jsPDF;
+    } else if (typeof window.jspdf !== 'undefined' && typeof window.jspdf.jsPDF === 'function') {
+        return window.jspdf.jsPDF;
+    } else if (typeof window.jsPDF === 'function') {
+        return window.jsPDF;
+    } else if (typeof jsPDF === 'function') {
+        return jsPDF;
     }
+    return null;
+}
 
-    const isExempt = invoice.taxRate === 0;
+function getImageDimensions(base64Str) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = () => {
+            resolve({ width: 0, height: 0 });
+        };
+        img.src = base64Str;
+    });
+}
 
-    // Render items rows
+// Calcular altura dinámica de ticket en milímetros
+function calculateTicketHeight(invoice, jsPDFConstructor, logoHeight = 0) {
+    let height = 5; // Margen superior
+    let settings = {};
+    try {
+        const sessionStr = localStorage.getItem('recim_session');
+        let accountId = 'default';
+        if (sessionStr) {
+            accountId = JSON.parse(sessionStr).accountId || 'default';
+        }
+        const key = typeof userKey === 'function' ? userKey('recim_settings') : `recim_settings_${accountId}`;
+        settings = JSON.parse(localStorage.getItem(key) || '{}');
+        if (!settings.companyName) {
+            settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+        }
+    } catch(e){}
+
+    const companyEmail = settings.companyEmail || settings.userEmail || '';
+    const companyAddr = settings.companyAddress || '';
+    
+    if (logoHeight > 0) {
+        height += logoHeight + 2;
+    } else {
+        height += 8;
+    }
+    
+    // Altura para información del emisor
+    height += 7; // RNC + Tel
+    if (companyEmail) height += 3.5;
+    if (companyAddr) {
+        const docTemp = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: [80, 200] });
+        docTemp.setFont('Helvetica', 'normal');
+        docTemp.setFontSize(7.5);
+        const splitAddr = docTemp.splitTextToSize(companyAddr, 74);
+        height += splitAddr.length * 3.5;
+    }
+    height += 4; // Separador
+    
+    // Título y metadatos
+    height += 16; 
+    if (invoice.ncf) {
+        height += 3.5;
+    }
+    
+    // Cliente
+    height += 4;
+    height += 4; // Separador
+    
+    // Encabezado de tabla
+    height += 6.5;
+    
+    // Items (con wrapping de descripción)
+    const docTemp = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: [80, 200] });
+    docTemp.setFont('Helvetica', 'normal');
+    docTemp.setFontSize(7.5);
+    
     const items = invoice.items || [];
-    const maxRows = 10;
-    let tableRowsHtml = '';
-
-    for (let i = 0; i < Math.max(items.length, maxRows); i++) {
-        if (i < items.length) {
-            const item = items[i];
-            const sub = item.subtotal || item.totalVenta || 0;
-            tableRowsHtml += `
-                <tr style="border-bottom: 1px solid #bbb; height: 35px;">
-                    <td style="border-right: 1px solid #bbb; padding: 4px; text-align: center; font-size: 13px;">${item.qty} ${item.unit || ''}</td>
-                    <td style="border-right: 1px solid #bbb; padding: 4px 8px; font-size: 13px;">${item.desc || item.name}</td>
-                    <td style="border-right: 1px solid #bbb; padding: 4px; text-align: right; font-size: 13px; font-family: monospace;">${formatMoney(item.uprice || item.priceSell || 0)}</td>
-                    <td style="border-right: 1px solid #bbb; padding: 4px; text-align: right; font-size: 13px; font-family: monospace;"></td>
-                    <td style="border-right: 1px solid #bbb; padding: 4px; text-align: right; font-size: 13px; font-family: monospace;">${isExempt ? formatMoney(sub) : ''}</td>
-                    <td style="padding: 4px; text-align: right; font-size: 13px; font-family: monospace;">${!isExempt ? formatMoney(sub) : ''}</td>
-                </tr>
-            `;
-        } else {
-            // Padding empty rows to match look of pre-printed invoices
-            tableRowsHtml += `
-                <tr style="border-bottom: 1px solid #bbb; height: 35px;">
-                    <td style="border-right: 1px solid #bbb; padding: 4px;"></td>
-                    <td style="border-right: 1px solid #bbb; padding: 4px;"></td>
-                    <td style="border-right: 1px solid #bbb; padding: 4px;"></td>
-                    <td style="border-right: 1px solid #bbb; padding: 4px;"></td>
-                    <td style="border-right: 1px solid #bbb; padding: 4px;"></td>
-                    <td style="padding: 4px;"></td>
-                </tr>
-            `;
-        }
+    items.forEach(item => {
+        const desc = item.desc || item.name || '--';
+        const splitDesc = docTemp.splitTextToSize(desc, 42); // 42mm para la descripción
+        const lines = splitDesc.length;
+        height += Math.max(lines * 3.5, 4.5); 
+    });
+    
+    height += 4; // Separador de totales
+    
+    // Totales
+    let totalLines = 1; // Subtotal
+    if (invoice.taxRate > 0 || invoice.ncfType === 'B14') totalLines++; // ITBIS
+    if (invoice.iscAmount > 0) totalLines++;
+    if (invoice.retIsrAmount > 0) totalLines++;
+    if (invoice.retItbisAmount > 0) totalLines++;
+    totalLines++; // Fila de Total a Pagar
+    
+    height += totalLines * 4;
+    
+    // Notas
+    if (invoice.notes) {
+        const splitNotes = docTemp.splitTextToSize(`Notas: ${invoice.notes}`, 74);
+        height += splitNotes.length * 3.5 + 4;
     }
-
-    const subtotalVal = invoice.subtotal || invoice.totalVenta || 0;
-    const totalVal = invoice.total || invoice.totalVenta || 0;
-    const retIvaVal = invoice.retItbisAmount || 0;
-
-    const amountInWords = numeroALetras(totalVal);
-
-    // Sales superiors to $200.00 autofill if client name matches
-    const superiorClientName = totalVal >= 200 ? (invoice.company || invoice.client || '') : '';
-    const superiorClientNit = totalVal >= 200 ? (invoice.nit || '') : '';
-
-    return `
-    <div style="box-sizing: border-box; width: 100%; font-family: 'Inter', 'Helvetica', sans-serif; padding: 30px; color: #111; background: #fff; border: 2px solid #555; border-radius: 8px;">
-      
-      <!-- HEADER -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-        <tr>
-          <!-- Logo & Company info -->
-          <td style="vertical-align: top; text-align: left; padding-bottom: 10px;">
-            <div style="display: flex; align-items: center; gap: 15px;">
-              ${customCompanyLogo}
-              <div>
-                <h1 style="margin: 0; font-size: 24px; color: #22c55e; font-weight: 800; text-transform: uppercase;">${companyName}</h1>
-                <p style="margin: 2px 0; font-size: 12px; color: #333; font-weight: 600;">Dirección: Calle Central, Santo Domingo, Rep. Dom.</p>
-                <p style="margin: 2px 0; font-size: 12px; color: #555;"><strong>Tel:</strong> ${companyPhone} | <strong>Email:</strong> ${companyEmail}</p>
-                <p style="margin: 2px 0; font-size: 12px; color: #777; font-style: italic;">Giro: Gestión de materiales reciclables y servicios medioambientales</p>
-              </div>
-            </div>
-          </td>
-          
-          <!-- Boxed Factura Title -->
-          <td style="vertical-align: top; text-align: right; width: 260px;">
-            <div style="border: 2px solid #22c55e; border-radius: 8px; padding: 12px; text-align: center; background: #f9fbf9;">
-              <h2 style="margin: 0 0 4px 0; font-size: 20px; color: #15803d; font-weight: 800; letter-spacing: 1px;">FACTURA</h2>
-              <p style="margin: 2px 0; font-size: 13px; font-family: monospace; font-weight: bold; color: #e11d48;">N° ${invoice.id}</p>
-              <p style="margin: 4px 0 0 0; font-size: 11px; color: #444; font-weight: 500;">RNC: ${companyRNC}</p>
-            </div>
-            
-            <!-- Date boxes -->
-            <table style="width: 100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #777; text-align: center; font-size: 11px;">
-              <tr style="background: #eee; font-weight: bold; border-bottom: 1px solid #777;">
-                <td style="border-right: 1px solid #777; width: 33%;">DIA</td>
-                <td style="border-right: 1px solid #777; width: 33%;">MES</td>
-                <td style="width: 34%;">AÑO</td>
-              </tr>
-              <tr style="height: 22px; font-family: monospace; font-weight: bold; font-size: 12px;">
-                <td style="border-right: 1px solid #777;">${day}</td>
-                <td style="border-right: 1px solid #777;">${month}</td>
-                <td>${year}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-
-      <!-- CLIENT DETAILS SECTION -->
-      <div style="border: 1px solid #777; border-radius: 6px; padding: 12px; margin-bottom: 15px; background: #fff; font-size: 12px;">
-        <table style="width: 100%; border-collapse: collapse; line-height: 1.6;">
-          <tr>
-            <td style="font-weight: bold; color: #444; width: 120px;">Cliente:</td>
-            <td style="border-bottom: 1px dotted #777; color: #111;" colspan="3">${invoice.company || invoice.client || '—'}</td>
-          </tr>
-          <tr>
-            <td style="font-weight: bold; color: #444;">Dirección:</td>
-            <td style="border-bottom: 1px dotted #777; color: #111;" colspan="3">${invoice.address || '—'}</td>
-          </tr>
-          <tr>
-            <td style="font-weight: bold; color: #444;">Venta a cuenta de:</td>
-            <td style="border-bottom: 1px dotted #777; color: #111; width: 40%;">${invoice.contact || '—'}</td>
-            <td style="font-weight: bold; color: #444; text-align: right; padding-right: 8px; width: 100px;">RNC / Cédula:</td>
-            <td style="border-bottom: 1px dotted #777; color: #111; font-family: monospace;">${invoice.nit || '—'}</td>
-          </tr>
-          <tr>
-            <td style="font-weight: bold; color: #444;">Forma de Pago:</td>
-            <td colspan="3" style="padding-top: 4px;">
-              <span style="margin-right: 20px;"><input type="checkbox" checked disabled /> Contado</span>
-              <span><input type="checkbox" disabled /> Crédito</span>
-            </td>
-          </tr>
-        </table>
-      </div>
-
-      <!-- ITEMS TABLE -->
-      <table style="width: 100%; border-collapse: collapse; border: 1px solid #555; font-size: 12px;">
-        <thead>
-          <tr style="background: #22c55e; color: #fff; border-bottom: 1.5px solid #333;">
-            <th style="padding: 8px 4px; text-align: center; border-right: 1px solid #fff; width: 90px; font-weight: bold;">CANT.</th>
-            <th style="padding: 8px 10px; text-align: left; border-right: 1px solid #fff; font-weight: bold;">DESCRIPCIÓN</th>
-            <th style="padding: 8px 4px; text-align: right; border-right: 1px solid #fff; width: 110px; font-weight: bold;">P. UNITARIO</th>
-            <th style="padding: 8px 4px; text-align: right; border-right: 1px solid #fff; width: 110px; font-weight: bold;">NO SUJETAS</th>
-            <th style="padding: 8px 4px; text-align: right; border-right: 1px solid #fff; width: 110px; font-weight: bold;">EXENTAS</th>
-            <th style="padding: 8px 4px; text-align: right; width: 110px; font-weight: bold;">GRAVADAS</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tableRowsHtml}
-        </tbody>
-      </table>
-
-      <!-- FOOTER & TOTALS -->
-      <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px;">
-        <tr>
-          <!-- Left side conditions & words -->
-          <td style="vertical-align: top; padding-right: 20px;">
-            <div style="border: 1px solid #777; border-radius: 6px; padding: 10px; background: #fafafa; min-height: 80px; margin-bottom: 10px;">
-              <span style="font-weight: bold; color: #444; font-size: 11px; display: block; margin-bottom: 4px;">VALOR EN LETRAS:</span>
-              <span style="font-weight: bold; color: #111; font-size: 12px; line-height: 1.4;">${amountInWords}</span>
-            </div>
-            
-            <!-- Box for sales >= $200.00 -->
-            <div style="border: 1px solid #777; border-radius: 6px; padding: 8px; background: #fff; font-size: 10px; line-height: 1.4;">
-              <div style="font-weight: bold; font-size: 10px; border-bottom: 1px solid #bbb; padding-bottom: 2px; margin-bottom: 4px; text-transform: uppercase;">Llenar si la venta es igual o superior a $200.00</div>
-              Nombre: <span style="border-bottom: 1px dotted #555; display: inline-block; width: 220px; font-weight: bold;">${superiorClientName}</span><br/>
-              NIT/DUI: <span style="border-bottom: 1px dotted #555; display: inline-block; width: 218px; font-weight: bold; font-family: monospace;">${superiorClientNit}</span><br/>
-              Pasaporte/Carnet Extranjero: <span style="border-bottom: 1px dotted #555; display: inline-block; width: 130px;"></span>
-            </div>
-          </td>
-          <td style="vertical-align: top; width: 280px;">
-            <table style="width: 100%; border-collapse: collapse; border: 1px solid #555; font-size: 12px;">
-              <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">SUMAS:</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">${formatMoney(subtotalVal)}</td>
-              </tr>
-              ${invoice.iscAmount > 0 ? `
-              <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">ISC (${invoice.iscRate || 0}%):</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">+${formatMoney(invoice.iscAmount)}</td>
-              </tr>
-              ` : ''}
-              ${invoice.taxAmount > 0 ? `
-              <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">ITBIS (${invoice.taxRate || 0}%):</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">+${formatMoney(invoice.taxAmount)}</td>
-              </tr>
-              ` : ''}
-              ${invoice.retIsrAmount > 0 ? `
-              <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">(-) RET. ISR (${invoice.retIsrRate || 0}%):</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #ef4444; font-weight: bold;">-${formatMoney(invoice.retIsrAmount)}</td>
-              </tr>
-              ` : ''}
-              ${invoice.retItbisAmount > 0 ? `
-              <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">(-) IVA RETENIDO (${invoice.retItbisRate || 0}%):</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #ef4444; font-weight: bold;">-${formatMoney(invoice.retItbisAmount)}</td>
-              </tr>
-              ` : ''}
-              <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">SUB-TOTAL:</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">${formatMoney(totalVal)}</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">VENTAS NO SUJETAS:</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace;">RD$0.00</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #555;">
-                <td style="padding: 6px 8px; font-weight: bold; background: #eee; border-right: 1px solid #555;">VENTAS EXENTAS:</td>
-                <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold;">${isExempt ? formatMoney(subtotalVal) : 'RD$0.00'}</td>
-              </tr>
-              <tr style="font-weight: bold; background: #f0fdf4; border-top: 1.5px solid #333;">
-                <td style="padding: 8px 8px; font-size: 13px; color: #15803d; border-right: 1px solid #555;">TOTAL:</td>
-                <td style="padding: 8px 8px; text-align: right; font-size: 14px; color: #15803d; font-family: monospace;">${formatMoney(totalVal)}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-
-      <!-- Bottom validation -->
-      <div style="margin-top: 15px; font-size: 11px; text-align: center; border-top: 1px solid #bbb; padding-top: 8px; color: #555;">
-        Cancelado: ____________ de ____________________ de ________ &bull; Firma Cliente: _________________________
-      </div>
-      
-    </div>
-    `;
+    
+    // Pie de página
+    height += 4; // Separador final
+    if (invoice.ncfType === 'B02') height += 4; // "Gracias por reciclar"
+    height += 6; // Crédito app + margen inferior
+    
+    return height;
 }
 
 function generateInvoicePDF(invoice, format = null) {
     if (!invoice) return;
 
-    if (invoice.type === 'basica') {
-        proceedWithPDF(invoice, 'basica');
-        return;
+    let determinedFormat = format;
+    if (!determinedFormat) {
+        if (invoice.type === 'basica') {
+            determinedFormat = 'ticket'; // La factura básica es en realidad consumidor final B02
+        } else if (invoice.ncfType === 'B01' || invoice.ncfType === 'B14' || invoice.ncfType === 'B15') {
+            determinedFormat = 'letter';
+        } else {
+            // NCF B02 o Sin Comprobante van a formato Ticket
+            determinedFormat = 'ticket';
+        }
     }
 
-    if (format) {
-        proceedWithPDF(invoice, format);
-        return;
-    }
-
-    // Modal selector popup for PDF layout type
-    const modalId = 'pdf-format-selector-modal';
-    let modal = document.getElementById(modalId);
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = modalId;
-        modal.className = 'modal-overlay';
-        modal.style.position = 'fixed';
-        modal.style.left = '0';
-        modal.style.top = '0';
-        modal.style.width = '100vw';
-        modal.style.height = '100vh';
-        modal.style.backgroundColor = 'rgba(0,0,0,0.6)';
-        modal.style.display = 'flex';
-        modal.style.justifyContent = 'center';
-        modal.style.alignItems = 'center';
-        modal.style.zIndex = '99999';
-        
-        const card = document.createElement('div');
-        card.style.background = 'var(--clr-surface-1, #fff)';
-        card.style.border = '1px solid var(--clr-border, #ccc)';
-        card.style.borderRadius = 'var(--r-md, 8px)';
-        card.style.padding = '24px';
-        card.style.width = '350px';
-        card.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
-        card.style.textAlign = 'center';
-        card.style.color = 'var(--clr-text, #333)';
-        
-        card.innerHTML = `
-            <h3 style="margin-top:0; margin-bottom:12px; font-size:1.15rem; color:var(--clr-primary, #22c55e); font-weight: 700;">📄 Descargar PDF</h3>
-            <p style="font-size:0.85rem; color:var(--clr-text-muted, #666); margin-bottom:20px;">Elige el formato de impresión para tu factura:</p>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-                <button class="btn-primary" id="btn-pdf-normal" style="padding:10px; font-weight:600; width: 100%; justify-content: center;">Factura Comercial (Normal)</button>
-                <button class="btn-secondary" id="btn-pdf-consumidor" style="padding:10px; font-weight:600; width: 100%; justify-content: center; border: 1px solid var(--clr-primary, #22c55e);">Factura Consumidor Final</button>
-                <button class="btn-outline" id="btn-pdf-cancel" style="padding:10px; margin-top:10px; width: 100%; justify-content: center;">Cancelar</button>
-            </div>
-        `;
-        modal.appendChild(card);
-        document.body.appendChild(modal);
-    }
-
-    modal.style.display = 'flex';
-
-    const cleanUp = () => {
-        modal.style.display = 'none';
-    };
-
-    document.getElementById('btn-pdf-normal').onclick = () => {
-        cleanUp();
-        proceedWithPDF(invoice, 'normal');
-    };
-    document.getElementById('btn-pdf-consumidor').onclick = () => {
-        cleanUp();
-        proceedWithPDF(invoice, 'consumidor');
-    };
-    document.getElementById('btn-pdf-cancel').onclick = () => {
-        cleanUp();
-    };
+    proceedWithPDF(invoice, determinedFormat);
 }
 
-function proceedWithPDF(invoice, format) {
-    if (typeof html2pdf === 'undefined') {
-        showToast('Error: html2pdf.js no está cargado', 'error');
+async function proceedWithPDF(invoice, format) {
+    // Normalizar factura básica como consumidor final B02 de forma segura sin mutar el original
+    if (invoice.type === 'basica') {
+        invoice = {
+            ...invoice,
+            ncfType: 'B02',
+            ncf: invoice.ncf || ('B02' + (String(invoice.id || '').replace(/\D/g, '') || '0').padStart(8, '0')),
+            taxRate: (invoice.taxRate === undefined || invoice.taxRate === null || invoice.taxRate === 0) ? 18 : invoice.taxRate
+        };
+    }
+
+    const jsPDFConstructor = getJsPDFConstructor();
+
+    if (!jsPDFConstructor) {
+        console.error('jsPDF NOT FOUND! Window state: ' + JSON.stringify({
+            jspdf: typeof window.jspdf,
+            jsPDF: typeof window.jsPDF,
+            html2pdf: typeof window.html2pdf,
+            html2pdf_jsPDF: window.html2pdf ? typeof window.html2pdf.jsPDF : 'undefined'
+        }));
+        if (typeof showToast === 'function') {
+            showToast('Error: jsPDF no está cargado (ver consola)', 'error');
+        }
         return;
     }
 
-    const isBasica = format === 'basica';
-    const isConsumidor = format === 'consumidor';
-    
-    let htmlContent = '';
-    if (isBasica) {
-        htmlContent = getBasicaHTML(invoice);
-    } else if (isConsumidor) {
-        htmlContent = getConsumidorFinalHTML(invoice);
-    } else {
-        htmlContent = getNormalHTML(invoice);
+    // Configuración de marca blanca
+    let settings = {};
+    try {
+        const sessionStr = localStorage.getItem('recim_session');
+        let accountId = 'default';
+        if (sessionStr) {
+            accountId = JSON.parse(sessionStr).accountId || 'default';
+        }
+        const key = typeof userKey === 'function' ? userKey('recim_settings') : `recim_settings_${accountId}`;
+        settings = JSON.parse(localStorage.getItem(key) || '{}');
+        if (!settings.companyName) {
+            settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+        }
+    } catch(e) {
+        console.error("Error reading settings in PDF:", e);
     }
-    
-    const opt = {
-        margin: isBasica ? [10, 10] : 10,
-        filename: `Factura_${invoice.id}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, windowWidth: (isBasica || isConsumidor) ? 800 : 1000, scrollX: 0, scrollY: 0 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: (isBasica || isConsumidor) ? 'portrait' : 'landscape' }
-    };
 
-    // Crear contenedor temporal
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '0';
-    container.style.top = '0';
-    container.style.width = (isBasica || isConsumidor) ? '800px' : '1000px';
-    container.style.height = '0';
-    container.style.overflow = 'hidden';
-    container.style.zIndex = '-9999';
-    container.style.pointerEvents = 'none';
-    document.body.appendChild(container);
+    const companyName  = settings.companyName  || 'RECIMINSA, SRL';
+    const companyAddr  = settings.companyAddress || 'Calle Principal #01, Santo Domingo, Rep. Dom.';
+    const companyLogo  = settings.companyLogo || window.DEFAULT_APP_LOGO || '';
 
-    const wrapper = document.createElement('div');
-    wrapper.style.width = (isBasica || isConsumidor) ? '800px' : '1000px';
-    wrapper.style.background = '#fff';
-    wrapper.innerHTML = htmlContent;
-    container.appendChild(wrapper);
+    let companyRNC = settings.companyRNC || '133250233';
+    let companyTel = settings.companyPhone || settings.userPhone || '+1 (849) 585-0386';
+    let companyEmail = settings.companyEmail || settings.userEmail || 'contacto@reciminsa.com';
 
-    showToast('Generando PDF...', 'info');
+    if (typeof userKey === 'function') {
+        try {
+            const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
+            if (sharedSettings.companyRNC) companyRNC = sharedSettings.companyRNC;
+            if (sharedSettings.companyPhone || sharedSettings.userPhone) companyTel = sharedSettings.companyPhone || sharedSettings.userPhone;
+            if (sharedSettings.companyEmail || sharedSettings.userEmail) companyEmail = sharedSettings.companyEmail || sharedSettings.userEmail;
+            if (sharedSettings.companyAddress) companyAddr = sharedSettings.companyAddress;
+        } catch (e) {
+            console.error('Error loading shared settings in PDF:', e);
+        }
+    }
 
-    html2pdf().set(opt).from(wrapper).output('datauristring').then(async function (pdfBase64) {
-        if (container.parentNode) {
-            container.parentNode.removeChild(container);
+    // Datos de factura
+    const invoiceNum = invoice.id || '--';
+    let emissionDate = invoice.date || new Date().toISOString().split('T')[0];
+    const parts = emissionDate.split('-');
+    const emisionFmt = parts.length === 3 ? (parts[2] + '/' + parts[1] + '/' + parts[0]) : emissionDate;
+
+    const clientName = invoice.company || invoice.client || 'CONSUMIDOR FINAL';
+    const clientRNC  = invoice.nit     || '--';
+    const clientAddr = invoice.address || '--';
+    const clientContact = invoice.contact || '--';
+
+    const items    = invoice.items || [];
+    const taxRate  = parseFloat(invoice.taxRate) || 0;
+
+    const isBasica = format === 'basica';
+    const isLetter = format === 'letter' || isBasica;
+    const isTicket = format === 'ticket';
+
+    // Calculate logo dimensions if logo exists
+    let computedLogoWidth = 0;
+    let computedLogoHeight = 0;
+    let logoFormat = 'PNG';
+    if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
+        if (companyLogo.includes('image/jpeg') || companyLogo.includes('image/jpg')) {
+            logoFormat = 'JPEG';
+        }
+        try {
+            const dims = await getImageDimensions(companyLogo);
+            if (dims.width > 0 && dims.height > 0) {
+                const aspectRatio = dims.width / dims.height;
+                if (isTicket) {
+                    computedLogoWidth = 22;
+                    computedLogoHeight = computedLogoWidth / aspectRatio;
+                    if (computedLogoHeight > 22) {
+                        computedLogoHeight = 22;
+                        computedLogoWidth = computedLogoHeight * aspectRatio;
+                    }
+                } else {
+                    computedLogoWidth = 35;
+                    computedLogoHeight = computedLogoWidth / aspectRatio;
+                    if (computedLogoHeight > 18) {
+                        computedLogoHeight = 18;
+                        computedLogoWidth = computedLogoHeight * aspectRatio;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error calculating logo dimensions:", e);
+        }
+    }
+
+    let doc;
+    if (isTicket) {
+        // === FORMATO TICKET (POS 80mm) ===
+        const pageHeight = calculateTicketHeight(invoice, jsPDFConstructor, computedLogoHeight);
+        doc = new jsPDFConstructor({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: [80, pageHeight]
+        });
+
+        let y = 5;
+
+        // Logo centrado o nombre emisor
+        if (computedLogoHeight > 0) {
+            try {
+                const logoX = (80 - computedLogoWidth) / 2;
+                doc.addImage(companyLogo, logoFormat, logoX, y, computedLogoWidth, computedLogoHeight);
+                y += computedLogoHeight + 5;
+            } catch (e) {
+                console.error("Error drawing logo in ticket:", e);
+                doc.setFont('Helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.text(companyName, 40, y + 4, { align: 'center' });
+                y += 8;
+            }
+        } else {
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text(companyName, 40, y + 4, { align: 'center' });
+            y += 8;
         }
 
-        // Integración Capacitor para Móviles
-        if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
-            try {
-                const base64Data = pdfBase64.split(',')[1];
-                const fileName = `Factura_${invoice.id}.pdf`;
-                
-                const result = await Capacitor.Plugins.Filesystem.writeFile({
-                    path: fileName,
-                    data: base64Data,
-                    directory: Capacitor.Plugins.Filesystem.Directory.Documents
-                });
-                
-                await Capacitor.Plugins.Share.share({
-                    title: 'Factura',
-                    text: 'Adjunto factura generada.',
-                    url: result.uri,
-                    dialogTitle: 'Compartir Factura'
-                });
-                showToast('📄 Factura lista', 'success');
-            } catch (err) {
-                console.error('Error guardando PDF en Android', err);
-                showToast('❌ Error guardando el PDF en tu móvil', 'error');
+        // Datos del emisor centrados
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`RNC: ${companyRNC}`, 40, y, { align: 'center' });
+        y += 3.5;
+        doc.text(`Tel: ${companyTel}`, 40, y, { align: 'center' });
+        y += 3.5;
+
+        if (companyEmail) {
+            doc.text(`Email: ${companyEmail}`, 40, y, { align: 'center' });
+            y += 3.5;
+        }
+        
+        if (companyAddr) {
+            const addrLines = doc.splitTextToSize(companyAddr, 74);
+            addrLines.forEach(l => {
+                doc.text(l, 40, y, { align: 'center' });
+                y += 3.5;
+            });
+        }
+
+        // Separador punteado
+        y += 1;
+        doc.setLineWidth(0.15);
+        doc.setDrawColor(150, 150, 150);
+        doc.setLineDashPattern([1, 1], 0);
+        doc.line(2, y, 78, y);
+        doc.setLineDashPattern([], 0); // reset
+        y += 4;
+
+        // Título del documento destacado
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8.5);
+        
+        let ticketTitle = "RECIBO INTERNO";
+        if (invoice.ncfType === 'B02') {
+            ticketTitle = "FACTURA DE CONSUMIDOR FINAL";
+        } else if (invoice.notes && invoice.notes.toUpperCase().includes("COTIZACION")) {
+            ticketTitle = "COTIZACIÓN";
+        } else if (invoice.typeName) {
+            ticketTitle = invoice.typeName.toUpperCase();
+        }
+        doc.text(ticketTitle, 40, y, { align: 'center' });
+        y += 4.5;
+
+        // Metadatos
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.text(`Factura: ${invoiceNum.replace('RICI ', '')}`, 2, y);
+        doc.text(`Fecha: ${emisionFmt}`, 78, y, { align: 'right' });
+        y += 3.5;
+
+        if (invoice.ncf) {
+            doc.setFont('Helvetica', 'bold');
+            doc.text(`NCF: ${invoice.ncf}`, 2, y);
+            doc.setFont('Helvetica', 'normal');
+            doc.text("Vence: 31/12/2027", 78, y, { align: 'right' });
+            y += 3.5;
+        }
+
+        // Cliente
+        const displayClient = (clientName && clientName !== '--') ? clientName : "Cliente al Contado";
+        doc.text(`Cliente: ${displayClient}`, 2, y);
+        y += 4;
+
+        // Separador punteado
+        doc.setLineDashPattern([1, 1], 0);
+        doc.line(2, y, 78, y);
+        doc.setLineDashPattern([], 0);
+        y += 3.5;
+
+        // Cabecera tabla
+        doc.setFont('Helvetica', 'bold');
+        doc.text("Cant", 2, y);
+        doc.text("Descripción", 12, y);
+        doc.text("Precio", 60, y, { align: 'right' });
+        doc.text("Importe", 78, y, { align: 'right' });
+        y += 2.5;
+
+        doc.setLineWidth(0.1);
+        doc.line(2, y, 78, y);
+        y += 4;
+
+        // Ítems
+        doc.setFont('Helvetica', 'normal');
+        doc.setTextColor(30, 41, 59);
+        
+        let subtotal = 0;
+        let totalITBIS = 0;
+
+        items.forEach((item) => {
+            const qty = parseFloat(item.qty) || 0;
+            const uprice = parseFloat(item.uprice || item.priceSell || item.price || 0) || 0;
+            const valor = qty * uprice;
+            
+            subtotal += valor;
+            
+            // ITBIS
+            let itemTax = 0;
+            if (invoice.ncfType !== 'B14') {
+                itemTax = valor * (taxRate / 100);
             }
-        } else if (window.chrome && window.chrome.webview) {
-            // WebView2 (Windows Desktop App)
-            const base64Data = pdfBase64.split(',')[1];
+            totalITBIS += itemTax;
+
+            let desc = item.desc || item.name || '--';
+            const splitDesc = doc.splitTextToSize(desc, 42); // 42mm de ancho para descripción
+
+            // Primera línea
+            doc.text(String(qty), 2, y);
+            doc.text(splitDesc[0], 12, y);
+            doc.text(safeFormatMoney(uprice).replace('RD$', '').trim(), 60, y, { align: 'right' });
+            doc.text(safeFormatMoney(valor).replace('RD$', '').trim(), 78, y, { align: 'right' });
+            
+            // Líneas adicionales si el texto es largo
+            if (splitDesc.length > 1) {
+                for (let i = 1; i < splitDesc.length; i++) {
+                    y += 3.5;
+                    doc.text(splitDesc[i], 12, y);
+                }
+            }
+            y += 4.5;
+        });
+
+        // Separador antes de totales
+        y -= 1;
+        doc.setLineWidth(0.1);
+        doc.line(2, y, 78, y);
+        y += 4.5;
+
+        // Totales
+        doc.setFont('Helvetica', 'normal');
+        doc.text("Sub-Total:", 45, y);
+        doc.text(safeFormatMoney(subtotal), 78, y, { align: 'right' });
+        y += 4;
+
+        // ITBIS desglosado
+        if (invoice.ncfType === 'B14') {
+            doc.text("ITBIS (0%):", 45, y);
+            doc.text("RD$ 0.00", 78, y, { align: 'right' });
+            y += 4;
+        } else if (taxRate > 0) {
+            doc.text(`ITBIS (${taxRate}%):`, 45, y);
+            doc.text(safeFormatMoney(totalITBIS), 78, y, { align: 'right' });
+            y += 4;
+        }
+
+        // ISC
+        if (invoice.iscAmount > 0) {
+            doc.text(`ISC (${invoice.iscRate}%):`, 45, y);
+            doc.text(`+${safeFormatMoney(invoice.iscAmount)}`, 78, y, { align: 'right' });
+            y += 4;
+        }
+
+        // Retenciones
+        if (invoice.retIsrAmount > 0 && invoice.ncfType !== 'B14') {
+            doc.text(`Ret. ISR (${invoice.retIsrRate}%):`, 45, y);
+            doc.text(`-${safeFormatMoney(invoice.retIsrAmount)}`, 78, y, { align: 'right' });
+            y += 4;
+        }
+        if (invoice.retItbisAmount > 0 && invoice.ncfType !== 'B14') {
+            doc.text(`Ret. ITBIS (${invoice.retItbisRate}%):`, 45, y);
+            doc.text(`-${safeFormatMoney(invoice.retItbisAmount)}`, 78, y, { align: 'right' });
+            y += 4;
+        }
+
+        // Total Neto a Pagar
+        const total = subtotal + (invoice.iscAmount || 0) + totalITBIS - (invoice.retIsrAmount || 0) - (invoice.retItbisAmount || 0);
+        doc.setFont('Helvetica', 'bold');
+        doc.text("Total a Pagar:", 45, y);
+        doc.text(safeFormatMoney(total), 78, y, { align: 'right' });
+        y += 6;
+
+        // Notas
+        if (invoice.notes) {
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(100, 116, 139);
+            const notesLines = doc.splitTextToSize(`Notas: ${invoice.notes}`, 74);
+            notesLines.forEach(l => {
+                doc.text(l, 2, y);
+                y += 3.2;
+            });
+            y += 2;
+        }
+
+        // Pie de página de ticket
+        y += 1;
+        doc.setLineWidth(0.1);
+        doc.setLineDashPattern([1, 1], 0);
+        doc.line(2, y, 78, y);
+        doc.setLineDashPattern([], 0);
+        y += 4;
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(7.0);
+        doc.setTextColor(30, 41, 59);
+        doc.text("un respiro al planeta, un residuo a la vez", 40, y, { align: 'center' });
+        y += 4;
+
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(5.5);
+        doc.setTextColor(140, 140, 140);
+        doc.text("hecho con reciminsaapp: un respiro al planeta, un residuo a la vez", 40, y, { align: 'center' });
+
+    } else {
+        // === FORMATO CORPORATIVO (CARTA / LETTER) ===
+        doc = new jsPDFConstructor({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'letter'
+        });
+
+        const accentColor = isBasica ? [59, 130, 246] : [22, 163, 74]; // Azul para Básica, Verde Reciminsa para Ventas NCF
+        let y = 15;
+
+        // 1. Cabecera - Logo & Datos Emisor
+        let logoHeightToUse = 0;
+        if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
+            try {
+                doc.addImage(companyLogo, logoFormat, 15, y, computedLogoWidth, computedLogoHeight);
+                logoHeightToUse = computedLogoHeight;
+            } catch (e) {
+                console.error("Error drawing logo in letter PDF:", e);
+                doc.setFont('Helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+                doc.text(companyName, 15, y + 6);
+                logoHeightToUse = 8;
+            }
+        } else {
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+            doc.text(companyName, 15, y + 6);
+            logoHeightToUse = 8;
+        }
+
+        // Datos del Emisor (Columna Izquierda)
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        
+        let emisorTextY = y + logoHeightToUse + 4;
+        doc.text(`RNC: ${companyRNC}`, 15, emisorTextY);
+        emisorTextY += 3.8;
+        doc.text(`Tel: ${companyTel}`, 15, emisorTextY);
+        emisorTextY += 3.8;
+        
+        if (companyEmail) {
+            doc.text(`Email: ${companyEmail}`, 15, emisorTextY);
+            emisorTextY += 3.8;
+        }
+
+        if (companyAddr) {
+            const addrLines = doc.splitTextToSize(companyAddr, 95);
+            addrLines.forEach(l => {
+                doc.text(l, 15, emisorTextY);
+                emisorTextY += 3.8;
+            });
+        }
+
+        // Bloque del Comprobante (Ficha Derecha Destacada)
+        let blockTitle = "FACTURA DE CRÉDITO FISCAL";
+        if (isBasica) {
+            blockTitle = "FACTURA BÁSICA";
+        } else if (invoice.ncfType === 'B14') {
+            blockTitle = "FACTURA DE RÉGIMEN ESPECIAL";
+        } else if (invoice.ncfType === 'B15') {
+            blockTitle = "FACTURA GUBERNAMENTAL";
+        } else if (invoice.ncfType === 'B02') {
+            blockTitle = "FACTURA DE CONSUMIDOR FINAL";
+        } else if (invoice.typeName) {
+            blockTitle = invoice.typeName.toUpperCase();
+        }
+
+        // Tarjeta para metadatos del NCF
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(125, y, 75.9, 36, 1.5, 1.5, 'FD');
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.text(blockTitle, 162.95, y + 5, { align: 'center' });
+
+        // Divider interno en tarjeta
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.line(125, y + 8, 200.9, y + 8);
+
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(30, 41, 59);
+
+        let dataY = y + 13;
+        doc.setFont('Helvetica', 'bold');
+        doc.text(`Factura No:`, 128, dataY);
+        doc.setFont('Helvetica', 'normal');
+        doc.text(invoiceNum.replace('RICI ', ''), 155, dataY);
+        dataY += 4.2;
+
+        if (invoice.ncf) {
+            doc.setFont('Helvetica', 'bold');
+            doc.text(`NCF:`, 128, dataY);
+            doc.text(invoice.ncf, 155, dataY);
+            dataY += 4.2;
+
+            doc.setFont('Helvetica', 'bold');
+            doc.text(`Vence:`, 128, dataY);
+            doc.setFont('Helvetica', 'normal');
+            doc.text("31/12/2027", 155, dataY);
+            dataY += 4.2;
+        }
+
+        doc.setFont('Helvetica', 'bold');
+        doc.text(`Fecha:`, 128, dataY);
+        doc.setFont('Helvetica', 'normal');
+        doc.text(emisionFmt, 155, dataY);
+        dataY += 4.2;
+        
+        doc.text(`Ciudad:`, 128, dataY);
+        doc.text("Santo Domingo, R.D.", 155, dataY);
+
+        // 2. Sección del Cliente (Aislado y Limpio)
+        y = 56;
+        doc.setFillColor(250, 250, 250);
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.25);
+        doc.roundedRect(15, y, 185.9, 25, 1, 1, 'FD');
+
+        // Borde verde/azul acentuado izquierdo
+        doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.rect(15, y, 1.5, 25, 'F');
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        
+        let clientLabel = "FACTURAR A";
+        if (isBasica) {
+            clientLabel = "PROVEEDOR / CLIENTE";
+        } else if (invoice.ncfType === 'B15') {
+            clientLabel = "INSTITUCIÓN DEL ESTADO";
+        } else if (invoice.ncfType === 'B02') {
+            clientLabel = "DATOS DEL CLIENTE";
+        }
+        doc.text(clientLabel, 19, y + 4.5);
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(15, 23, 42);
+        doc.text(clientName, 19, y + 9.5);
+
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+
+        // Grid de datos del cliente
+        doc.text(`RNC/Cédula: ${clientRNC}`, 19, y + 14.5);
+        doc.text(`Contacto: ${clientContact}`, 19, y + 19.5);
+
+        doc.text(`Dirección: ${clientAddr}`, 115, y + 14.5);
+
+        // 3. Tabla de Artículos
+        y = 88;
+        doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.rect(15, y, 185.9, 7.5, 'F');
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(255, 255, 255);
+        
+        if (isBasica) {
+            doc.text("Descripción", 17, y + 5);
+            doc.text("Cantidad", 115, y + 5);
+            doc.text("P. Unitario", 150, y + 5);
+            doc.text("Total", 199, y + 5, { align: 'right' });
+        } else {
+            doc.text("Cant", 17, y + 5);
+            doc.text("Descripción del Producto / Servicio", 35, y + 5);
+            doc.text("Precio Unitario", 155, y + 5, { align: 'right' });
+            doc.text("Importe", 199, y + 5, { align: 'right' });
+        }
+
+        y += 7.5;
+
+        let subtotal = 0;
+        let totalITBIS = 0;
+
+        // Paginación corporativa
+        const checkPageBreakLetter = (lineHeight) => {
+            if (y + lineHeight > 240) {
+                doc.addPage();
+                
+                // Dibujar cabecera de tabla de nuevo en la siguiente página
+                y = 20;
+                doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+                doc.rect(15, y, 185.9, 7.5, 'F');
+
+                doc.setFont('Helvetica', 'bold');
+                doc.setFontSize(8.5);
+                doc.setTextColor(255, 255, 255);
+
+                if (isBasica) {
+                    doc.text("Descripción", 17, y + 5);
+                    doc.text("Cantidad", 115, y + 5);
+                    doc.text("P. Unitario", 150, y + 5);
+                    doc.text("Total", 199, y + 5, { align: 'right' });
+                } else {
+                    doc.text("Cant", 17, y + 5);
+                    doc.text("Descripción del Producto / Servicio", 35, y + 5);
+                    doc.text("Precio Unitario", 155, y + 5, { align: 'right' });
+                    doc.text("Importe", 199, y + 5, { align: 'right' });
+                }
+
+                y += 7.5;
+            }
+        };
+
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(30, 41, 59);
+
+        items.forEach((item, idx) => {
+            const qty = parseFloat(item.qty) || 0;
+            const price = parseFloat(item.uprice || item.priceBuy || item.price || 0) || 0;
+            const valor = qty * price;
+
+            subtotal += valor;
+            
+            let itemTax = 0;
+            if (!isBasica && invoice.ncfType !== 'B14') {
+                itemTax = valor * (taxRate / 100);
+            }
+            totalITBIS += itemTax;
+
+            let desc = item.desc || item.name || '--';
+            const splitDesc = doc.splitTextToSize(desc, isBasica ? 90 : 110);
+            const rowHeight = Math.max(splitDesc.length * 4.5 + 2.5, 7.5);
+
+            checkPageBreakLetter(rowHeight);
+
+            // Fondo alternado para filas
+            if (idx % 2 === 1) {
+                doc.setFillColor(250, 250, 250);
+                doc.rect(15, y, 185.9, rowHeight, 'F');
+            }
+
+            // Borde inferior
+            doc.setDrawColor(241, 245, 249);
+            doc.setLineWidth(0.15);
+            doc.line(15, y + rowHeight, 200.9, y + rowHeight);
+
+            // Rellenar celdas
+            if (isBasica) {
+                doc.text(splitDesc, 17, y + 4.8);
+                doc.text(`${qty} ${item.unit || ''}`, 115, y + 4.8);
+                doc.text(safeFormatMoney(price).replace('RD$', '').trim(), 150, y + 4.8);
+                
+                doc.setFont('Helvetica', 'bold');
+                doc.text(safeFormatMoney(valor).replace('RD$', '').trim(), 199, y + 4.8, { align: 'right' });
+                doc.setFont('Helvetica', 'normal');
+            } else {
+                doc.text(String(qty), 17, y + 4.8);
+                doc.text(splitDesc, 35, y + 4.8);
+                doc.text(safeFormatMoney(price).replace('RD$', '').trim(), 155, y + 4.8, { align: 'right' });
+                
+                doc.setFont('Helvetica', 'bold');
+                doc.text(safeFormatMoney(valor).replace('RD$', '').trim(), 199, y + 4.8, { align: 'right' });
+                doc.setFont('Helvetica', 'normal');
+            }
+
+            y += rowHeight;
+        });
+
+        // Asegurar que la firma y los totales no queden huérfanos
+        const spacingNeeded = isBasica ? 35 : 55;
+        if (y + spacingNeeded > 245) {
+            doc.addPage();
+            y = 20;
+        }
+
+        // Totales y Notas
+        y += 5;
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.4);
+        doc.line(15, y, 200.9, y);
+
+        y += 5;
+        
+        // Bloque de Totales
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(71, 85, 105);
+
+        let totalRowY = y;
+        
+        if (isBasica) {
+            doc.text("Total Compra:", 145, totalRowY);
+            doc.setTextColor(239, 68, 68);
+            doc.text(`-${safeFormatMoney(subtotal)}`, 199, totalRowY, { align: 'right' });
+            
+            totalRowY += 5.5;
+            doc.setFont('Helvetica', 'bold');
+            doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+            doc.text("Balance Neto:", 145, totalRowY);
+            
+            const bal = parseFloat(invoice.balance) || 0;
+            const balColor = bal >= 0 ? [59, 130, 246] : [239, 68, 68];
+            doc.setTextColor(balColor[0], balColor[1], balColor[2]);
+            doc.text(safeFormatMoney(bal), 199, totalRowY, { align: 'right' });
+        } else {
+            doc.text("Sub-Total:", 145, totalRowY);
+            doc.setTextColor(30, 41, 59);
+            doc.text(safeFormatMoney(subtotal), 199, totalRowY, { align: 'right' });
+            
+            if (invoice.ncfType === 'B14') {
+                totalRowY += 4.5;
+                doc.setTextColor(71, 85, 105);
+                doc.text("ITBIS (0%):", 145, totalRowY);
+                doc.setTextColor(30, 41, 59);
+                doc.text("RD$ 0.00", 199, totalRowY, { align: 'right' });
+            } else if (taxRate > 0) {
+                totalRowY += 4.5;
+                doc.setTextColor(71, 85, 105);
+                doc.text(`ITBIS (${taxRate}%):`, 145, totalRowY);
+                doc.setTextColor(30, 41, 59);
+                doc.text(safeFormatMoney(totalITBIS), 199, totalRowY, { align: 'right' });
+            }
+            
+            // Retenciones/Otros
+            if (invoice.ncfType !== 'B14') {
+                if (invoice.retIsrAmount > 0) {
+                    totalRowY += 4.5;
+                    doc.setTextColor(71, 85, 105);
+                    doc.text(`Retención ISR (${invoice.retIsrRate}%):`, 145, totalRowY);
+                    doc.setTextColor(239, 68, 68);
+                    doc.text(`-${safeFormatMoney(invoice.retIsrAmount)}`, 199, totalRowY, { align: 'right' });
+                }
+                if (invoice.retItbisAmount > 0) {
+                    totalRowY += 4.5;
+                    doc.setTextColor(71, 85, 105);
+                    doc.text(`Retención ITBIS (${invoice.retItbisRate}%):`, 145, totalRowY);
+                    doc.setTextColor(239, 68, 68);
+                    doc.text(`-${safeFormatMoney(invoice.retItbisAmount)}`, 199, totalRowY, { align: 'right' });
+                }
+            }
+            
+            if (invoice.iscAmount > 0) {
+                totalRowY += 4.5;
+                doc.setTextColor(71, 85, 105);
+                doc.text(`ISC (${invoice.iscRate}%):`, 145, totalRowY);
+                doc.setTextColor(30, 41, 59);
+                doc.text(`+${safeFormatMoney(invoice.iscAmount)}`, 199, totalRowY, { align: 'right' });
+            }
+
+            // Total Neto a Pagar
+            const total = subtotal + (invoice.iscAmount || 0) + totalITBIS - (invoice.retIsrAmount || 0) - (invoice.retItbisAmount || 0);
+            totalRowY += 5.5;
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(10.5);
+            doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+            doc.text("Total a Pagar:", 145, totalRowY);
+            doc.text(safeFormatMoney(total), 199, totalRowY, { align: 'right' });
+        }
+
+        // Notas (Lado Izquierdo)
+        if (invoice.notes) {
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(100, 116, 139);
+            const notesLines = doc.splitTextToSize(`Notas: ${invoice.notes}`, 120);
+            
+            let noteYOffset = y;
+            notesLines.forEach(l => {
+                doc.text(l, 15, noteYOffset);
+                noteYOffset += 4;
+            });
+        }
+
+        // Firmas (Exclusivo de Facturas de Crédito Fiscal, Régimen Especial, Gubernamental o Básicas)
+        // Las facturas de Consumidor Final (B02) NO llevan firma
+        if (invoice.ncfType !== 'B02') {
+            let sigY = Math.max(totalRowY + 15, y + 20);
+            if (sigY > 250) {
+                doc.addPage();
+                sigY = 40;
+            }
+
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.35);
+
+            // Gerente de Turno
+            doc.line(30, sigY, 90, sigY);
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text("Gerente de Turno", 60, sigY + 5, { align: 'center' });
+
+            // Recibido Conforme
+            doc.line(125, sigY, 185, sigY);
+            doc.text("Recibido Conforme", 155, sigY + 5, { align: 'center' });
+        }
+
+        // Numeración y Pie de página en todas las páginas corporativas
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+
+            doc.setFont('Helvetica', 'bold');
+            doc.text("un respiro al planeta, un residuo a la vez", 107.95, 267, { align: 'center' });
+
+            doc.setFontSize(7.5);
+            doc.setTextColor(150, 150, 150);
+            doc.text("hecho con reciminsaapp: un respiro al planeta, un residuo a la vez", 107.95, 272, { align: 'center' });
+
+            doc.text(
+                `Página ${i} de ${totalPages}`, 
+                200.9, 
+                272, 
+                { align: 'right' }
+            );
+        }
+    }
+
+    // === ENVIAR O DESCARGAR EL PDF GENERADO ===
+    if (typeof showToast === 'function') {
+        showToast('Generando y procesando PDF...', 'info');
+    }
+
+    const pdfBase64 = doc.output('datauristring');
+    const base64Data = pdfBase64.split(',')[1];
+
+    // --- PUENTE NATIVO MOBILE (Capacitor) ---
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.Plugins) {
+        const { Filesystem, Share } = Capacitor.Plugins;
+        if (Filesystem && Share) {
+            try {
+                if (typeof showToast === 'function') {
+                    showToast('Generando archivo local...', 'info');
+                }
+                Filesystem.writeFile({
+                    path: `Factura_${invoice.id}.pdf`,
+                    data: base64Data,
+                    directory: 'CACHE'
+                }).then((res) => {
+                    if (typeof showToast === 'function') {
+                        showToast('📄 PDF generado con éxito', 'success');
+                    }
+                    Share.share({
+                        title: `Factura_${invoice.id}.pdf`,
+                        url: res.uri
+                    }).catch(shareErr => {
+                        console.error('Error al compartir PDF:', shareErr);
+                    });
+                }).catch(fileErr => {
+                    console.error('Error al escribir archivo PDF:', fileErr);
+                    if (typeof showToast === 'function') {
+                        showToast('❌ Error al escribir archivo PDF local: ' + fileErr.message, 'error');
+                    }
+                });
+                return;
+            } catch (capErr) {
+                console.warn('Error en Capacitor, intentando fallback de descarga...', capErr);
+            }
+        }
+    }
+
+    // --- PUENTE NATIVO DESKTOP (Electron IPC) ---
+    if (window.electronAPI && typeof window.electronAPI.savePDF === 'function') {
+        try {
+            window.electronAPI.savePDF(base64Data, `Factura_${invoice.id}.pdf`);
+            if (typeof showToast === 'function') {
+                showToast('📄 Abriendo diálogo para guardar PDF...', 'success');
+            }
+            return;
+        } catch (elecErr) {
+            console.warn('Electron savePDF error, continuando con descarga...', elecErr);
+        }
+    }
+
+    // --- PUENTE NATIVO WINDOWS (MAUI WebView2) ---
+    if (window.chrome && window.chrome.webview) {
+        try {
             window.chrome.webview.postMessage(JSON.stringify({
                 action: 'download',
-                filename: opt.filename,
+                filename: `Factura_${invoice.id}.pdf`,
                 data: base64Data
             }));
-            showToast('📄 Factura abierta en tu programa predeterminado', 'success');
-        } else {
-            // Descarga Web / PC normal (Convertimos base64 a Blob directamente sin usar fetch para evitar bloqueos CSP)
-            try {
-                const base64Data = pdfBase64.split(',')[1];
-                const blob = base64ToBlob(base64Data, 'application/pdf');
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = opt.filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 100);
-                showToast('📄 PDF descargado', 'success');
-            } catch (err) {
-                console.error('Error al guardar PDF:', err);
-                showToast('❌ Error al guardar PDF', 'error');
+            if (typeof showToast === 'function') {
+                showToast('📄 Factura abierta en tu programa predeterminado', 'success');
             }
+            return;
+        } catch (bridgeErr) {
+            console.warn('WebView2 bridge error, continuando con descarga...', bridgeErr);
         }
-    }).catch(err => {
-        if (container.parentNode) {
-            container.parentNode.removeChild(container);
+    }
+
+    // --- NAVEGADORES WEB ESTÁNDAR ---
+    try {
+        doc.save(`Factura_${invoice.id}.pdf`);
+        if (typeof showToast === 'function') {
+            showToast('📄 Factura descargada con éxito', 'success');
         }
-        console.error('PDF error:', err);
-        showToast('❌ Error al generar PDF', 'error');
-    });
+        return;
+    } catch (saveErr) {
+        console.warn('Error con doc.save, intentando fallback de subida...', saveErr);
+    }
+
+    // Subir y abrir en navegador (Fallback secundario si falla doc.save)
+    try {
+        const blob = base64ToBlob(base64Data, 'application/pdf');
+        const formData = new FormData();
+        formData.append('file', blob, `Factura_${invoice.id}.pdf`);
+
+        fetch('https://tmpfiles.org/api/v1/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => {
+            if (!res.ok) throw new Error('Upload failed');
+            return res.json();
+        })
+        .then(data => {
+            if (data.status === 'success' && data.data && data.data.url) {
+                const downloadUrl = data.data.url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+                if (typeof showToast === 'function') {
+                    showToast('📄 Abriendo PDF en el navegador...', 'success');
+                }
+                if (typeof window.openExternalLink === 'function') {
+                    window.openExternalLink(downloadUrl);
+                } else {
+                    window.open(downloadUrl, '_blank');
+                }
+            } else {
+                throw new Error('Invalid response');
+            }
+        })
+        .catch(uploadErr => {
+            console.error('Error uploading PDF, falling back to local download:', uploadErr);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Factura_${invoice.id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        });
+    } catch (err) {
+        console.error('PDF native generation crash:', err);
+        if (typeof showToast === 'function') {
+            showToast('❌ Error al procesar PDF: ' + err.message, 'error');
+        }
+    }
 }

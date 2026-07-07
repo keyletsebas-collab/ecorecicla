@@ -23,61 +23,59 @@ function renderFacturaForm(type) {
   return `
     <div class="card" style="max-width: 950px; margin: 0 auto;">
       <div class="card-header">
-        <h3 class="card-title">${isEmpresa ? t('inv.biz_title') : 'Factura Local'}</h3>
-        <p class="card-subtitle">${isEmpresa ? t('inv.biz_sub') : 'Para consumidores finales (Sin RNC)'}</p>
+        <h3 class="card-title">${isEmpresa ? t('inv.biz_title') : t('inv.local_title')}</h3>
+        <p class="card-subtitle">${isEmpresa ? t('inv.biz_sub') : t('inv.local_sub')}</p>
       </div>
 
       <div class="form-row" style="margin-bottom: 15px;">
         <div class="form-group" style="margin-bottom: 0;">
-          <label class="form-label">Seleccionar Cliente Guardado (Opcional)</label>
+          <label class="form-label">${t('inv.select_client')}</label>
           <select id="fac-client-select-${type}" class="form-select" onchange="autofillClient('${type}', this.value)">
-            <option value="">-- Escribir datos manualmente --</option>
+            <option value="">${t('inv.manual_entry')}</option>
           </select>
         </div>
       </div>
 
       <div class="form-row" style="grid-template-columns: 1fr 1fr;">
         <div class="form-group">
-          <label class="form-label">${isEmpresa ? t('inv.company_name') : 'Nombre del Cliente'} <span style="color: #ef4444; font-weight: bold;">*</span></label>
-          <input id="fac-name-${type}" type="text" class="form-input" placeholder="Nombre completo" />
+          <label class="form-label">${isEmpresa ? t('inv.company_name') : t('inv.client_name')} <span style="color: #ef4444; font-weight: bold;">*</span></label>
+          <input id="fac-name-${type}" type="text" class="form-input" placeholder="${t('inv.full_name_ph')}" />
         </div>
         <div class="form-group">
-          <label class="form-label">RNC o Cédula ${isEmpresa ? '<span style="color: #ef4444; font-weight: bold;">*</span>' : ''}</label>
+          <label class="form-label">${t('inv.rnc_label')} ${isEmpresa ? '<span style="color: #ef4444; font-weight: bold;">*</span>' : ''}</label>
           <div style="display:flex; gap: 8px;">
-            <input id="fac-nit-${type}" type="text" class="form-input" placeholder="9 u 11 dígitos" maxlength="11" />
-            <button class="btn-secondary" onclick="autoFillInvoiceDGII('${type}')" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button">🔍</button>
+            <input id="fac-nit-${type}" type="text" class="form-input" placeholder="${t('inv.rnc_ph')}" maxlength="11" />
+            <button class="btn-secondary" onclick="autoFillInvoiceDGII('${type}')" style="margin:0; padding: 0 15px;" title="${t('inv.rnc_search')}" type="button">🔍</button>
           </div>
         </div>
       </div>
 
-      ${isEmpresa ? `
       <div class="form-row" style="grid-template-columns: 1fr 1fr;">
         <div class="form-group">
-          <label class="form-label">Tipo de Comprobante <span style="color: #ef4444; font-weight: bold;">*</span></label>
+          <label class="form-label">${t('inv.voucher_type')} <span style="color: #ef4444; font-weight: bold;">*</span></label>
           <select id="fac-ncf-type-${type}" class="form-select" onchange="handleNcfTypeChange('${type}')">
-            <option value="B01">B01 - Crédito Fiscal (18%)</option>
-            <option value="B02">B02 - Consumo (Consumidor Final)</option>
-            <option value="B14">B14 - Régimen Especial (0%)</option>
-            <option value="B15">B15 - Gubernamental</option>
-            <option value="">Sin comprobante</option>
+            ${isEmpresa ? `
+              <option value="B01">${t('inv.b01_label')}</option>
+              <option value="B02">${t('inv.b02_label')}</option>
+              <option value="B14">${t('inv.b14_label')}</option>
+              <option value="B15">${t('inv.b15_label')}</option>
+            ` : `
+              <option value="B02">${t('inv.b02_label')}</option>
+              <option value="">${t('inv.no_voucher')}</option>
+            `}
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label">NCF Completo <span style="color: #ef4444; font-weight: bold;">*</span></label>
-          <input id="fac-ncf-${type}" type="text" class="form-input" placeholder="Ej: B0100000001" maxlength="13" onchange="padNcf(this)" onkeyup="if(event.key==='Enter') padNcf(this)" />
+        <div class="form-group" id="fac-ncf-group-${type}">
+          <label class="form-label">${t('inv.ncf_full')} <span style="color: #ef4444; font-weight: bold;">*</span></label>
+          <input id="fac-ncf-${type}" type="text" class="form-input" placeholder="${t('inv.ncf_ph')}" maxlength="13" onchange="padNcf(this, '${type}')" onkeyup="if(event.key==='Enter') padNcf(this, '${type}')" />
         </div>
       </div>
       <div class="form-row" style="grid-template-columns: 1fr;">
         <div class="form-group">
           <label class="form-label">${t('inv.address')}</label>
-          <input id="fac-address-${type}" type="text" class="form-input" placeholder="Dirección / Email" />
+          <input id="fac-address-${type}" type="text" class="form-input" placeholder="${t('inv.address_ph')}" />
         </div>
       </div>
-      ` : `
-        <input type="hidden" id="fac-ncf-type-${type}" value="" />
-        <input type="hidden" id="fac-ncf-${type}" value="" />
-        <input type="hidden" id="fac-address-${type}" value="" />
-      `}
 
       <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
         <div class="form-group">
@@ -86,14 +84,14 @@ function renderFacturaForm(type) {
         </div>
         <div class="form-group">
           <label class="form-label">${t('inv.contact')}</label>
-          <input id="fac-contact-${type}" type="text" class="form-input" placeholder="Teléfono o Contacto" />
+          <input id="fac-contact-${type}" type="text" class="form-input" placeholder="${t('inv.contact_ph')}" />
         </div>
         <div class="form-group">
-          <label class="form-label">Colaborador Registrante</label>
+          <label class="form-label">${t('inv.collaborator')}</label>
           <select id="fac-colab-${type}" class="form-select">
             ${(function() {
               const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
-              let options = '<option value="">-- Sin Colaborador --</option>';
+              let options = `<option value="">${t('inv.no_collaborator')}</option>`;
               colabs.forEach(c => {
                 options += `<option value="${c.name}">${c.name} (${c.role})</option>`;
               });
@@ -104,7 +102,7 @@ function renderFacturaForm(type) {
       </div>
 
       <div style="margin-top:20px;">
-        <h4 style="margin-bottom: 10px; color: var(--clr-text-muted);">Ítems de Factura</h4>
+        <h4 style="margin-bottom: 10px; color: var(--clr-text-muted);">${t('inv.items_title')}</h4>
         <div id="fac-items-${type}" style="display:flex; flex-direction:column; gap:10px;">
           <!-- Rows added dynamically -->
         </div>
@@ -115,26 +113,26 @@ function renderFacturaForm(type) {
            ➕ ${t('inv.add_item')}
          </button>
          <div id="fac-totals-${type}" style="text-align:right;">
-            <div style="font-size:0.9rem; color:var(--clr-text-muted);">Subtotal: RD$0.00</div>
-            <div style="font-size:1.1rem; font-weight:700; color:var(--clr-primary-light);">Total: RD$0.00</div>
+            <div class="subtotal-label" style="font-size:0.9rem; color:var(--clr-text-muted);">Subtotal: ${formatMoney(0)}</div>
+            <div class="total-label" style="font-size:1.1rem; font-weight:700; color:var(--clr-primary-light);">Total: ${formatMoney(0)}</div>
          </div>
       </div>
 
       <div class="form-row" style="margin-top:20px; grid-template-columns: repeat(4, 1fr);">
         <div class="form-group">
-          <label class="form-label" title="Impuesto Selectivo al Consumo">ISC (%)</label>
+          <label class="form-label" title="${t('inv.isc_label') || 'Impuesto Selectivo al Consumo'}">ISC (%)</label>
           <input id="fac-isc-${type}" type="number" class="form-input" value="0" min="0" oninput="calcFacTotals('${type}')" />
         </div>
         <div class="form-group">
-          <label class="form-label">ITBIS (%)</label>
+          <label class="form-label">${t('inv.itbis_label') || 'ITBIS (%)'}</label>
           <input id="fac-tax-${type}" type="number" class="form-input" value="${isEmpresa ? '18' : '0'}" min="0" oninput="calcFacTotals('${type}')" />
         </div>
         <div class="form-group">
-          <label class="form-label">Retención ISR (%)</label>
+          <label class="form-label">${t('inv.ret_isr')}</label>
           <input id="fac-ret-isr-${type}" type="number" class="form-input" value="0" min="0" oninput="calcFacTotals('${type}')" />
         </div>
         <div class="form-group">
-          <label class="form-label">Retención ITBIS (%)</label>
+          <label class="form-label">${t('inv.ret_itbis')}</label>
           <input id="fac-ret-itbis-${type}" type="number" class="form-input" value="0" min="0" oninput="calcFacTotals('${type}')" />
         </div>
       </div>
@@ -163,6 +161,7 @@ function initFacturaForm(type) {
     const el = document.getElementById(`fac-date-${type}`);
     if (el) el.value = today;
     initClientSelect(type);
+    handleNcfTypeChange(type);
   }
 }
 
@@ -208,9 +207,20 @@ function autofillClient(type, clientId) {
   }
 }
 
-function padNcf(input) {
-  let val = input.value.trim().toUpperCase();
+function padNcf(input, type = null) {
+  let val = input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!val) return;
+  
+  if (type) {
+    const ncfTypeSelect = document.getElementById(`fac-ncf-type-${type}`);
+    const selectedNcfType = ncfTypeSelect ? ncfTypeSelect.value : '';
+    if (selectedNcfType && !val.startsWith(selectedNcfType)) {
+      if (!/^[A-Z]\d{2}/.test(val)) {
+        val = selectedNcfType + val;
+      }
+    }
+  }
+
   const match = val.match(/^([A-Z]\d{2})(\d+)$/);
   if (match) {
     const prefix = match[1];
@@ -220,7 +230,7 @@ function padNcf(input) {
     seq = seq.padStart(seqLength, '0');
     input.value = prefix + seq;
   } else {
-    input.value = val; // auto-uppercase it
+    input.value = val;
   }
 }
 
@@ -235,23 +245,23 @@ function addFacEntryRow(type) {
   div.style.cssText = 'display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--bg-card); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);';
   div.innerHTML = `
     <div style="flex: 1 1 100%; min-width: 200px;">
-      <input type="text" class="form-input row-desc" placeholder="Descripción del producto/servicio" style="margin:0;" />
+      <input type="text" class="form-input row-desc" placeholder="${t('inv.desc_ph')}" style="margin:0;" />
     </div>
     <div style="flex: 1 1 80px;">
-      <input type="number" class="form-input row-qty" placeholder="Cant." min="0.01" step="0.01" oninput="calcFacTotals('${type}')" style="margin:0;" />
+      <input type="number" class="form-input row-qty" placeholder="${t('inv.qty_ph')}" min="0.01" step="0.01" oninput="calcFacTotals('${type}')" style="margin:0;" />
     </div>
     <div style="flex: 1 1 100px;">
       <select class="form-select row-unit" style="margin:0;">
-        <option value="lb" selected>libra</option>
+        <option value="lb" selected>${t('inv.unit_lb') || 'libra'}</option>
         <option value="kg">kg</option>
-        <option value="unidad">unidad</option>
+        <option value="unidad">${t('inv.unit_each') || 'unidad'}</option>
       </select>
     </div>
     <div style="flex: 1 1 100px;">
-      <input type="number" class="form-input row-uprice" placeholder="Precio" min="0" step="0.01" oninput="calcFacTotals('${type}')" style="margin:0;" />
+      <input type="number" class="form-input row-uprice" placeholder="${t('inv.price_ph')}" min="0" step="0.01" oninput="calcFacTotals('${type}')" style="margin:0;" />
     </div>
     <div style="flex: 1 1 120px; display:flex; align-items:center; justify-content:space-between;">
-      <span class="row-total" style="font-weight:600; font-size:1rem; color: var(--clr-primary-light);">RD$0.00</span>
+      <span class="row-total" style="font-weight:600; font-size:1rem; color: var(--clr-primary-light);">${formatMoney(0)}</span>
       <button class="btn-icon" onclick="removeFacEntryRow('${rowId}', '${type}')" style="color:#ff4d4d; margin:0; padding:4px 8px;">✕</button>
     </div>
   `;
@@ -315,7 +325,7 @@ async function saveFactura(type) {
   });
 
   if (items.length === 0) {
-    showToast('❌ Agrega al menos un artículo con descripción y precio', 'error');
+    showToast(t('inv.err_no_items'), 'error');
     return;
   }
 
@@ -327,11 +337,11 @@ async function saveFactura(type) {
     const found = clients.find(c => c.id === selectedClientId);
     if (found) {
       if (type === 'empresa' && found.type !== 'empresa') {
-        showToast('❌ El cliente seleccionado no es de tipo Empresa', 'error');
+        showToast(t('inv.err_wrong_client_biz'), 'error');
         return;
       }
       if (type === 'local' && found.type === 'empresa') {
-        showToast('❌ El cliente seleccionado no es de tipo Local', 'error');
+        showToast(t('inv.err_wrong_client_local'), 'error');
         return;
       }
     }
@@ -341,31 +351,38 @@ async function saveFactura(type) {
   const date = document.getElementById(`fac-date-${type}`).value;
 
   if (!company) {
-    showToast(type === 'empresa' ? '❌ El nombre de la empresa es obligatorio' : '❌ El nombre del cliente es obligatorio', 'error');
+    showToast(t(type === 'empresa' ? 'inv.err_no_company' : 'inv.err_no_client'), 'error');
     return;
   }
 
   if (!date) {
-    showToast('❌ La fecha de la factura es obligatoria', 'error');
+    showToast(t('inv.err_no_date'), 'error');
     return;
   }
 
   const isEmpresa = type === 'empresa';
   const nit = document.getElementById(`fac-nit-${type}`).value.trim();
   const ncfType = document.getElementById(`fac-ncf-type-${type}`)?.value || '';
-  const ncf = document.getElementById(`fac-ncf-${type}`).value.trim();
+  const ncfInput = document.getElementById(`fac-ncf-${type}`);
+  if (ncfInput) {
+    padNcf(ncfInput, type);
+  }
+  const ncf = ncfInput ? ncfInput.value.trim() : '';
+
+  if (ncfType) {
+    if (!ncf) {
+      showToast(t('inv.err_no_ncf'), 'error');
+      return;
+    }
+  }
 
   if (isEmpresa) {
     if (!nit && ncfType !== 'B02') {
-      showToast('❌ El RNC o Cédula es obligatorio para facturas empresariales', 'error');
+      showToast(t('inv.err_no_rnc'), 'error');
       return;
     }
     if (!ncfType) {
-      showToast('❌ Selecciona un tipo de comprobante para facturas empresariales', 'error');
-      return;
-    }
-    if (!ncf) {
-      showToast('❌ El número NCF es obligatorio para facturas empresariales', 'error');
+      showToast(t('inv.err_no_voucher'), 'error');
       return;
     }
   }
@@ -374,7 +391,7 @@ async function saveFactura(type) {
     const existingInvoices = getAllInvoices();
     const isDuplicate = existingInvoices.some(inv => inv.ncf && inv.ncf.toUpperCase() === ncf.toUpperCase());
     if (isDuplicate) {
-      showToast(`❌ Error: El NCF ${ncf} ya fue utilizado en otra factura.`, 'error');
+      showToast(t('inv.err_dup_ncf').replace('{ncf}', ncf), 'error');
       return;
     }
   }
@@ -411,33 +428,66 @@ async function saveFactura(type) {
   saveInvoice(invoice);
 
   addFinanceEntry('ingreso', {
-    concept: `Venta ${typeName}: ${invoice.id} – ${company}`,
+    concept: `${t('inv.sale_label')} ${typeName}: ${invoice.id} – ${company}`,
     amount: total, date, category: 'Ventas', ref: invoice.id
   });
 
   showToast(`${t('toast.inv_saved')} ${invoice.id}`, 'success');
   initFacturaForm(type);
 
-  if (confirm("¿Deseas descargar la factura en PDF?")) {
+  if (confirm(t('inv.confirm_pdf'))) {
     generateInvoicePDF(invoice);
   }
+}
+
+function getNextNcf(ncfType) {
+  if (!ncfType) return '';
+  const invoices = getAllInvoices();
+  let maxSeq = 0;
+  invoices.forEach(inv => {
+    if (inv.ncf && inv.ncf.toUpperCase().startsWith(ncfType.toUpperCase())) {
+      const seqStr = inv.ncf.substring(ncfType.length);
+      const seqNum = parseInt(seqStr, 10);
+      if (!isNaN(seqNum) && seqNum > maxSeq) {
+        maxSeq = seqNum;
+      }
+    }
+  });
+  const nextSeq = maxSeq + 1;
+  let totalLength = ncfType.toUpperCase().startsWith('E') ? 13 : 11;
+  let seqLength = totalLength - ncfType.length;
+  const paddedSeq = String(nextSeq).padStart(seqLength, '0');
+  return ncfType + paddedSeq;
 }
 
 function handleNcfTypeChange(type) {
   const ncfType = document.getElementById(`fac-ncf-type-${type}`).value;
   const taxInput = document.getElementById(`fac-tax-${type}`);
   const ncfInput = document.getElementById(`fac-ncf-${type}`);
+  const ncfGroup = document.getElementById(`fac-ncf-group-${type}`);
   
+  if (ncfGroup) {
+    if (!ncfType) {
+      ncfGroup.style.display = 'none';
+    } else {
+      ncfGroup.style.display = 'block';
+    }
+  }
+  
+  if (!ncfType) {
+    ncfInput.value = '';
+    ncfInput.placeholder = 'Sin comprobante';
+    ncfInput.disabled = true;
+  } else {
+    ncfInput.disabled = false;
+    ncfInput.placeholder = `Ej: ${ncfType}00000001`;
+    ncfInput.value = getNextNcf(ncfType);
+  }
+
   if (ncfType === 'B01') {
     taxInput.value = '18';
-    if (!ncfInput.value) ncfInput.value = 'B01';
   } else if (ncfType === 'B14') {
     taxInput.value = '0';
-    if (!ncfInput.value) ncfInput.value = 'B14';
-  } else if (ncfType === 'B02') {
-    if (!ncfInput.value) ncfInput.value = 'B02';
-  } else if (ncfType === 'B15') {
-    if (!ncfInput.value) ncfInput.value = 'B15';
   }
   
   calcFacTotals(type);
@@ -448,7 +498,7 @@ async function autoFillInvoiceDGII(type) {
   if (!nitInput) return;
   const val = nitInput.value.trim();
   if (!val) {
-    showToast('Ingresa un RNC o Cédula primero', 'warning');
+    showToast(t('inv.rnc_enter_first'), 'warning');
     return;
   }
   const data = await fetchDGIIData(val);
@@ -470,7 +520,7 @@ async function autoFillInvoiceDGII(type) {
     if (localClient) {
       if (addrEl) addrEl.value = localClient.address || '';
       if (contactEl) contactEl.value = localClient.contact || localClient.phone || '';
-      showToast('✅ RNC verificado. Datos de dirección y teléfono cargados de la base de datos local.', 'success');
+      showToast(t('inv.rnc_verified'), 'success');
     } else {
       if (addrEl) addrEl.value = data.address || '';
       if (contactEl) contactEl.value = ''; // limpiar si no hay datos locales

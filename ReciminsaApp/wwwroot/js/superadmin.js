@@ -10,7 +10,12 @@ let _saCountdownInterval = null;
 function isSuperAdminUser() {
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   if (!session.accountId) return false;
-  if (session.email === 'keyletsebas@gmail.com') return true;
+  
+  const superEmails = [
+    'keyletsebas@gmail.com',
+    'noreplyreciminsasrl@gmail.com'
+  ];
+  if (superEmails.includes(session.email)) return true;
 
   // Permanent access
   const granted = JSON.parse(localStorage.getItem('recim_superadmin_granted') || '[]');

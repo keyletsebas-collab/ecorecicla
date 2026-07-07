@@ -13,6 +13,15 @@ function isCurrentUserAdminOrFounder() {
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   if (!session.accountId) return false;
 
+  const adminEmails = [
+    'keyletsebas@gmail.com',
+    'gerenciareciminsasrl@gmail.com',
+    'noreplyreciminsasrl@gmail.com'
+  ];
+  if (adminEmails.includes(session.email)) {
+    return true;
+  }
+
   // 1. ¿Es el creador / fundador original de la empresa?
   let companyAdminId = localStorage.getItem(userKey('recim_company_admin'));
   if (companyAdminId && companyAdminId.startsWith('"') && companyAdminId.endsWith('"')) {
@@ -33,7 +42,16 @@ function isCurrentUserAdminOrFounder() {
     return true;
   }
 
-  // 2. ¿Es un colaborador vinculado a esta cuenta de usuario con rol de Administrador?
+  // 2. ¿Es un colaborador con rol de Administrador asignado o en la lista de admins de la empresa?
+  try {
+    const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
+    const shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
+    const sharedAdmins = shared.companyAdmins || [];
+    if (sharedAdmins.includes(session.accountId)) {
+      return true;
+    }
+  } catch(e){}
+
   const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
   const linked = colabs.find(c => c.linkedAccountId === session.accountId);
   if (linked && linked.isAdminColab === true) {
@@ -857,5 +875,6 @@ window.saveCollaborator = saveCollaborator;
 window.deleteCollaborator = deleteCollaborator;
 window.handleSearchCollaborators = handleSearchCollaborators;
 window.handleImportCollaborators = handleImportCollaborators;
+window.isCurrentUserAdminOrFounder = isCurrentUserAdminOrFounder;
 window.changeColabsPage = changeColabsPage;
 window.isCurrentUserAdminOrFounder = isCurrentUserAdminOrFounder;
