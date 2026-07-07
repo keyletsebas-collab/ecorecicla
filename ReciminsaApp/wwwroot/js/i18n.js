@@ -718,5 +718,8 @@ function getCurrency() {
 /** Format a monetary amount using the current currency setting */
 function formatMoney(amount) {
     const cur = getCurrency();
-    return `${cur.symbol}${(amount || 0).toFixed(2)}`;
+    const val = parseFloat(amount || 0);
+    const parts = val.toFixed(2).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return `${cur.symbol}${parts.join('.')}`;
 }

@@ -103,6 +103,15 @@ function renderBasicForm() {
         <p class="card-subtitle">${t('inv.basic_sub')}</p>
       </div>
 
+      <div class="form-row" style="margin-bottom: 15px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">${t('inv.select_client')}</label>
+          <select id="basic-client-select" class="form-select" onchange="autofillBasicClient(this.value)">
+            <option value="">-- Escribir datos manualmente --</option>
+          </select>
+        </div>
+      </div>
+
       <div class="form-row" style="grid-template-columns: 1fr 1fr;">
         <div class="form-group">
           <label class="form-label">${t('lbl.client')}</label>
@@ -140,6 +149,38 @@ function renderBasicForm() {
   `;
 }
 
+function populateBasicClientSelect() {
+  const select = document.getElementById('basic-client-select');
+  if (!select) return;
+  
+  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  
+  let options = `<option value="">-- Escribir datos manualmente --</option>`;
+  clients.forEach(c => {
+    const typeLabel = c.type === 'empresa' ? 'Empresa' : 'Persona';
+    options += `<option value="${c.id}">${c.name} (${typeLabel}${c.nit ? ' - ' + c.nit : ''})</option>`;
+  });
+  
+  select.innerHTML = options;
+}
+
+function autofillBasicClient(clientId) {
+  const input = document.getElementById('basic-client');
+  if (!input) return;
+  
+  if (!clientId) {
+    input.value = '';
+    return;
+  }
+  
+  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const client = clients.find(c => c.id === clientId);
+  if (client) {
+    input.value = client.name;
+  }
+}
+window.autofillBasicClient = autofillBasicClient;
+
 function initBasicForm() {
   const container = document.getElementById('bit-tab-crear');
   if (container) {
@@ -148,6 +189,7 @@ function initBasicForm() {
     const today = new Date().toISOString().split('T')[0];
     const el = document.getElementById('basic-date');
     if (el) el.value = today;
+    populateBasicClientSelect();
   }
 }
 
@@ -264,7 +306,7 @@ async function saveBasicInvoiceBatch() {
     const pbuy = parseFloat(tr.querySelector('.row-pbuy').value) || 0;
     const psell = parseFloat(tr.querySelector('.row-psell').value) || 0;
 
-    if (qty > 0 && pbuy > 0) {
+    if (qty > 0 && pbuy >= 0) {
       const mat = mats.find(m => m.id === matId) || { name: 'Desconocido', icon: '♻️' };
       const totalCompra = qty * pbuy;
       const totalVenta = qty * psell;
@@ -279,10 +321,12 @@ async function saveBasicInvoiceBatch() {
   });
 
   if (items.length === 0) {
-    showToast('❌ Agrega al menos un material con cantidad y precio', 'error');
+    showToast('❌ Agrega al menos un material con cantidad', 'error');
     return;
   }
 
+  const clientSelect = document.getElementById('basic-client-select');
+  const clientId = clientSelect ? clientSelect.value : '';
   const client = document.getElementById('basic-client').value.trim() || 'Cliente General';
   const date = document.getElementById('basic-date').value || new Date().toISOString().split('T')[0];
   const notes = document.getElementById('basic-notes').value.trim();
@@ -294,7 +338,7 @@ async function saveBasicInvoiceBatch() {
   const invoice = {
     id: `BIT-${Date.now()}`,
     type: 'basica', typeName: 'Bitácora',
-    client, date, notes,
+    client, clientId, date, notes,
     items,
     totalCompra: totalC,
     totalVenta: totalV,
