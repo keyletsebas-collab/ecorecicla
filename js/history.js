@@ -222,7 +222,7 @@ function renderSingleInvoiceCard(inv) {
         <div class="invoice-summary-row total">
           <span class="invoice-summary-label">Monto</span>
           <span class="invoice-summary-value" style="color:${isIngreso ? 'var(--clr-primary-light)' : '#f87171'}; font-size:1.2rem; font-weight:700;">
-            ${isIngreso ? '+' : '-'}${formatMoney(inv.total)}
+            ${isIngreso ? '+' : '-'}${formatMoney(inv.total, inv.currency || 'DOP')}
           </span>
         </div>
       </div>
@@ -262,7 +262,7 @@ function renderSingleInvoiceCard(inv) {
   if (inv.collaborator) {
     cardMeta += ` &bull; 👤 Colaborador: ${inv.collaborator}`;
   }
-  const displayTotal = isEgreso ? `-${formatMoney(inv.total)}` : (isIngreso ? `+${formatMoney(inv.total)}` : formatMoney(inv.total));
+  const displayTotal = isEgreso ? `-${formatMoney(inv.total, inv.currency || 'DOP')}` : (isIngreso ? `+${formatMoney(inv.total, inv.currency || 'DOP')}` : formatMoney(inv.total, inv.currency || 'DOP'));
   const totalColor = isEgreso ? '#f87171' : (isIngreso ? 'var(--clr-primary-light)' : 'inherit');
 
   return `

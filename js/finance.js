@@ -10,11 +10,11 @@ function addFinanceEntry(type, entry) {
   const list = JSON.parse(localStorage.getItem(userKey(baseKey)) || '[]');
   const newEntry = {
     id: `${type.toUpperCase().slice(0, 3)}-${Date.now()}`,
+    currency: (typeof getCurrency === 'function') ? getCurrency().code : 'DOP',
     ...entry,
     createdAt: new Date().toISOString()
   };
   list.unshift(newEntry);
-  // localStorage override in sync.js automatically pushes to Firebase
   localStorage.setItem(userKey(baseKey), JSON.stringify(list));
 }
 
@@ -28,8 +28,9 @@ function renderCategoryBreakdown(entries, isIncome) {
   let grand = 0;
   entries.forEach(e => {
     const cat = e.category || '—';
-    totals[cat] = (totals[cat] || 0) + (e.amount || 0);
-    grand += (e.amount || 0);
+    const converted = typeof getConvertedAmount === 'function' ? getConvertedAmount(e.amount, e.currency) : (e.amount || 0);
+    totals[cat] = (totals[cat] || 0) + converted;
+    grand += converted;
   });
   if (grand === 0) return '';
   const color = isIncome ? 'var(--clr-primary)' : '#ef4444';
@@ -62,7 +63,7 @@ function renderCategoryBreakdown(entries, isIncome) {
 
 function renderIngresosPage(container) {
   const entries = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
-  const total = entries.reduce((s, e) => s + (e.amount || 0), 0);
+  const total = entries.reduce((s, e) => s + (typeof getConvertedAmount === 'function' ? getConvertedAmount(e.amount, e.currency) : (e.amount || 0)), 0);
 
   container.innerHTML = `
     <div class="page-header">
@@ -145,7 +146,7 @@ function handleAddIncome(evt) {
 
 function renderEgresosPage(container) {
   const entries = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
-  const total = entries.reduce((s, e) => s + (e.amount || 0), 0);
+  const total = entries.reduce((s, e) => s + (typeof getConvertedAmount === 'function' ? getConvertedAmount(e.amount, e.currency) : (e.amount || 0)), 0);
 
   container.innerHTML = `
     <div class="page-header">
@@ -241,7 +242,7 @@ function renderFinanceList(entries, type) {
           <div style="font-size:0.75rem;color:var(--clr-text-muted);">${formatDate(e.date)} &bull; ${e.category || '—'}${e.notes ? ' &bull; ' + e.notes : ''}</div>
         </div>
         <div style="font-weight:700;color:${isIncome ? 'var(--clr-primary-light)' : '#f87171'};white-space:nowrap;">
-          ${isIncome ? '+' : '-'}${formatMoney(e.amount)}
+          ${isIncome ? '+' : '-'}${formatMoney(e.amount, e.currency || 'DOP')}
         </div>
         <button class="btn-danger" style="padding:5px 8px;font-size:0.75rem;" onclick="deleteFinanceEntry('${type}','${e.id}')">✕</button>
       </div>`).join('')}
