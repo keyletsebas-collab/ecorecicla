@@ -633,6 +633,8 @@ async function proceedWithPDF(invoice, format) {
         let blockTitle = "FACTURA DE CRÉDITO FISCAL";
         if (isBasica) {
             blockTitle = "FACTURA BÁSICA";
+        } else if (invoice.ncfType === 'B01') {
+            blockTitle = "FACTURA DE CRÉDITO FISCAL";
         } else if (invoice.ncfType === 'B14') {
             blockTitle = "FACTURA DE RÉGIMEN ESPECIAL";
         } else if (invoice.ncfType === 'B15') {
@@ -640,7 +642,11 @@ async function proceedWithPDF(invoice, format) {
         } else if (invoice.ncfType === 'B02') {
             blockTitle = "FACTURA DE CONSUMIDOR FINAL";
         } else if (invoice.typeName) {
-            blockTitle = invoice.typeName.toUpperCase();
+            if (invoice.typeName.toLowerCase() === 'empresarial') {
+                blockTitle = "FACTURA DE CRÉDITO FISCAL";
+            } else {
+                blockTitle = invoice.typeName.toUpperCase();
+            }
         }
 
         // Tarjeta para metadatos del NCF
