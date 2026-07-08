@@ -171,6 +171,19 @@ function buildMaterialsSheet() {
 // ---------------------------------------------------------
 
 function downloadExcel(wb, filename) {
+    if (window.AndroidNative && typeof window.AndroidNative.DownloadFile === 'function') {
+        try {
+            const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+            window.AndroidNative.DownloadFile(filename, base64Data);
+            if (typeof showToast === 'function') {
+                showToast('✅ Excel guardado en Descargas', 'success');
+            }
+            return;
+        } catch (androidErr) {
+            console.warn('Android native bridge excel error:', androidErr);
+        }
+    }
+
     if (window.chrome && window.chrome.webview) {
         const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
         window.chrome.webview.postMessage(JSON.stringify({
