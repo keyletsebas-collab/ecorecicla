@@ -1060,6 +1060,19 @@ async function proceedWithPDF(invoice, format) {
         }
     }
 
+    // --- PUENTE NATIVO ANDROID (MAUI BlazorWebView) ---
+    if (window.AndroidNative && typeof window.AndroidNative.DownloadFile === 'function') {
+        try {
+            window.AndroidNative.DownloadFile(`Factura_${invoice.id}.pdf`, base64Data);
+            if (typeof showToast === 'function') {
+                showToast('📄 Factura guardada en Descargas', 'success');
+            }
+            return;
+        } catch (androidErr) {
+            console.warn('Android native bridge error, continuando...', androidErr);
+        }
+    }
+
     // --- PUENTE NATIVO WINDOWS (MAUI WebView2) ---
     if (window.chrome && window.chrome.webview) {
         try {
