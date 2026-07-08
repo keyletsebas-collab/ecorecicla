@@ -27,6 +27,8 @@ public partial class MainPage : ContentPage
 #if WINDOWS
         e.WebView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
         e.WebView.CoreWebView2.NavigationStarting += CoreWebView2_NavigationStarting;
+        e.WebView.CoreWebView2.Settings.AreDevToolsEnabled = true;
+        e.WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
         
         try
         {
