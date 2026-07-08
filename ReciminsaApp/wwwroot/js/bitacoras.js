@@ -241,6 +241,8 @@ function addBasicEntryRow() {
           <option value="lb" selected>libra</option>
           <option value="kg">kg</option>
           <option value="unidad">unidad</option>
+          <option value="litros">litros</option>
+          <option value="kilos">kilos</option>
         </select>
       </div>
     </div>

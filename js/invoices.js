@@ -20,7 +20,15 @@ function switchFacturacionTab(tabName) {
 // =============================================
 function renderFacturaForm(type) {
   const isEmpresa = type === 'empresa';
+  const materials = typeof getCustomCodes === 'function' ? getCustomCodes() : [];
+  let datalistHtml = `<datalist id="material-codes-datalist-${type}">`;
+  materials.forEach(m => {
+    datalistHtml += `<option value="${m.code} - ${m.name}">${m.name} (${m.code})</option>`;
+  });
+  datalistHtml += `</datalist>`;
+
   return `
+    ${datalistHtml}
     <div class="card" style="max-width: 950px; margin: 0 auto;">
       <div class="card-header">
         <h3 class="card-title">${isEmpresa ? t('inv.biz_title') : t('inv.local_title')}</h3>
@@ -245,7 +253,7 @@ function addFacEntryRow(type) {
   div.style.cssText = 'display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--bg-card); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);';
   div.innerHTML = `
     <div style="flex: 1 1 100%; min-width: 200px;">
-      <input type="text" class="form-input row-desc" placeholder="${t('inv.desc_ph')}" style="margin:0;" />
+      <input type="text" class="form-input row-desc" list="material-codes-datalist-${type}" placeholder="${t('inv.desc_ph')}" style="margin:0;" />
     </div>
     <div style="flex: 1 1 80px;">
       <input type="number" class="form-input row-qty" placeholder="${t('inv.qty_ph')}" min="0.01" step="0.01" oninput="calcFacTotals('${type}')" style="margin:0;" />
@@ -255,6 +263,8 @@ function addFacEntryRow(type) {
         <option value="lb" selected>${t('inv.unit_lb') || 'libra'}</option>
         <option value="kg">kg</option>
         <option value="unidad">${t('inv.unit_each') || 'unidad'}</option>
+        <option value="litros">litros</option>
+        <option value="kilos">kilos</option>
       </select>
     </div>
     <div style="flex: 1 1 100px;">
