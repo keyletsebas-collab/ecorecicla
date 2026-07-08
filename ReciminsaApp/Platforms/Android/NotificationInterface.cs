@@ -64,14 +64,35 @@ namespace ReciminsaApp.Platforms.Android
                 {
                     try
                     {
-                        await Launcher.OpenAsync(new OpenFileRequest
+                        bool opened = await Launcher.Default.OpenAsync(new OpenFileRequest
                         {
                             File = new ReadOnlyFile(finalPath)
                         });
+                        
+                        if (!opened)
+                        {
+                            await Share.Default.RequestAsync(new ShareFileRequest
+                            {
+                                Title = filename,
+                                File = new ShareFile(finalPath)
+                            });
+                        }
                     }
                     catch (Exception launchEx)
                     {
                         Console.WriteLine("Error al abrir archivo con Launcher: " + launchEx.Message);
+                        try
+                        {
+                            await Share.Default.RequestAsync(new ShareFileRequest
+                            {
+                                Title = filename,
+                                File = new ShareFile(finalPath)
+                            });
+                        }
+                        catch (Exception shareEx)
+                        {
+                            Console.WriteLine("Error al compartir archivo: " + shareEx.Message);
+                        }
                     }
                 });
             }
