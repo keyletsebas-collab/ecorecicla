@@ -19,6 +19,15 @@ public partial class MainPage : ContentPage
     {
 #if ANDROID
         e.WebView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(), "AndroidNative");
+        try
+        {
+            e.WebView.ClearCache(true);
+            e.WebView.EvaluateJavascript("if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); }", null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error clearing Android webview cache: " + ex.Message);
+        }
 #endif
 #if WINDOWS
         e.WebView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
