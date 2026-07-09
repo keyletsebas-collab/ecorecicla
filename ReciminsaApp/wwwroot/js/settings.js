@@ -883,7 +883,7 @@ async function handleClearCache(category) {
   if (!group) return;
   if (!confirm(`¿Eliminar ${group.label}? Esta acción no se puede deshacer.`)) return;
   
-  group.baseKeys.forEach(k => localStorage.removeItem(userKey(k)));
+  group.baseKeys.forEach(k => localStorage.setItem(userKey(k), '[]'));
   
   // Force cloud sync in the background without blocking the UI (Resolves Bug 1!)
   if (window.forceSync) {
