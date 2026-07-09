@@ -179,14 +179,14 @@ function showColabsList() {
                placeholder="${isEn ? 'Search by name, ID or code...' : 'Buscar por nombre, cédula o código...'}" 
                value="${currentSearchQuery}"
                oninput="handleSearchCollaborators(this.value)" 
-               style="width:100%; padding-left:36px; background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:6px; font-size:0.85rem; height:38px;" />
+               style="width:100%; padding-left:36px !important; background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:6px; font-size:0.85rem; height:38px;" />
       </div>
     </div>
 
     <!-- Tabla -->
     <div class="card card--elevated" style="padding:0; overflow:hidden;">
       <div style="overflow-x: auto;">
-        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+        <table class="data-table" style="width:100%; min-width:650px; border-collapse:collapse; font-size:0.85rem; white-space:nowrap;">
           <thead>
             <tr style="background:var(--clr-surface-2); border-bottom:1px solid var(--clr-border);">
               <th style="text-align:left; padding:12px 16px;">${isEn ? 'Code' : 'Código'}</th>

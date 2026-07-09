@@ -402,7 +402,7 @@ function renderSettingsPage(container) {
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
         <h3 class="settings-section-title">${t('set.info')}</h3>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+        <div class="settings-info-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0 15px;">
           <div class="settings-item">
             <span class="settings-item-label">${t('set.app_name')}</span>
             <span class="settings-item-value">Reciminsa</span>

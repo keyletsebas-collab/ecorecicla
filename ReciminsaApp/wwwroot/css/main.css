@@ -704,6 +704,10 @@ body {
   }
   
   .page {
-    padding: 12px 8px !important;
+    padding: 12px 8px 80px 8px !important;
+  }
+  
+  .settings-info-grid {
+    grid-template-columns: 1fr !important;
   }
 }
