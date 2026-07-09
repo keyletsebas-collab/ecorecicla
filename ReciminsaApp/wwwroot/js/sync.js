@@ -552,30 +552,9 @@ async function sendGDriveWelcomeDoc() {
                     // Exists in cloud = update local if different
                     const remoteStr = JSON.stringify(remoteVal);
                     if (localVal !== remoteStr) {
-                        // Check if remote is empty but local has items
-                        let remoteIsEmpty = false;
-                        let localIsEmpty = true;
-                        
-                        try {
-                            const rParsed = remoteVal;
-                            const lParsed = JSON.parse(localVal || 'null');
-                            
-                            if (Array.isArray(rParsed) && rParsed.length === 0) remoteIsEmpty = true;
-                            else if (rParsed && typeof rParsed === 'object' && Object.keys(rParsed).length === 0) remoteIsEmpty = true;
-                            else if (rParsed === null || rParsed === '') remoteIsEmpty = true;
-                            
-                            if (lParsed && Array.isArray(lParsed) && lParsed.length > 0) localIsEmpty = false;
-                            else if (lParsed && typeof lParsed === 'object' && Object.keys(lParsed).length > 0) localIsEmpty = false;
-                        } catch(e){}
-                        
-                        if (remoteIsEmpty && !localIsEmpty) {
-                            console.log(`☁️ Supabase Pull: ${k.label} está vacío en la nube pero local tiene datos. Conservando local y programando push.`);
-                            setTimeout(() => syncPushData(), 1000);
-                        } else {
-                            localStorage.setItem(userKey(k.pattern), remoteStr);
-                            changed = true;
-                            console.log(`☁️ Supabase Pull: Actualizando ${k.label} (Datos remotos)`);
-                        }
+                        localStorage.setItem(userKey(k.pattern), remoteStr);
+                        changed = true;
+                        console.log(`☁️ Supabase Pull: Actualizando ${k.label} (Datos remotos)`);
                     }
                 }
             });
