@@ -13,17 +13,13 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         blazorWebView.BlazorWebViewInitialized += BlazorWebView_BlazorWebViewInitialized;
-
-#if ANDROID
-        Microsoft.AspNetCore.Components.WebView.Maui.BlazorWebViewHandler.BlazorWebViewMapper.AppendToMapping("NotificationInterface", (handler, view) =>
-        {
-            handler.PlatformView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(), "AndroidNative");
-        });
-#endif
     }
 
     private async void BlazorWebView_BlazorWebViewInitialized(object sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
     {
+#if ANDROID
+        e.WebView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(), "AndroidNative");
+#endif
 #if WINDOWS
         e.WebView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
         e.WebView.CoreWebView2.NavigationStarting += CoreWebView2_NavigationStarting;
