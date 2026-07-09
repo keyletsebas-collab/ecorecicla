@@ -10,14 +10,28 @@ Este documento contiene las instrucciones y el prompt exacto que debes darle a *
 
 ---
 
-## 🛠️ Requisitos Previos en Windows
-Para que la compilación funcione correctamente en tu máquina Windows, asegúrate de tener instalado:
-1. **Git para Windows**: Para poder sincronizar los últimos cambios.
-2. **.NET 9 SDK**: Con el workload de MAUI instalado. Puedes instalarlo abriendo una terminal de administración y ejecutando:
-   ```powershell
-   dotnet workload install maui
-   ```
-3. **Inno Setup**: Necesario para compilar el instalador `.exe`. Asegúrate de que la ruta del compilador `ISCC.exe` (por defecto `C:\Program Files (x86)\Inno Setup 6`) esté agregada a las Variables de Entorno del Sistema (**PATH**), para que pueda ser llamado desde cualquier terminal.
+## 🛠️ Requisitos Previos en Windows (Instalación Fácil)
+
+Si no tienes instaladas las herramientas necesarias en tu máquina Windows, puedes instalarlas todas en 5 minutos abriendo una ventana de **PowerShell como Administrador** y ejecutando los siguientes comandos:
+
+### 1. Instalar Git, .NET 9 SDK e Inno Setup (usando Winget)
+Ejecuta este comando para descargar e instalar los tres programas automáticamente sin tener que buscar instaladores en la web:
+```powershell
+winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements; winget install --id Microsoft.DotNet.SDK.9 -e --source winget --accept-package-agreements; winget install --id JRSoftware.InnoSetup -e --source winget --accept-package-agreements
+```
+*(Nota: Después de ejecutar este comando, cierra PowerShell y vuelve a abrirlo como Administrador para que reconozca los nuevos programas en el sistema).*
+
+### 2. Instalar el Workload de MAUI
+Ejecuta este comando en la nueva consola de PowerShell para descargar las plantillas de compilación móvil y escritorio de .NET MAUI:
+```powershell
+dotnet workload install maui
+```
+
+### 3. Configurar Inno Setup en las variables de entorno (PATH)
+Para que Antigravity y tu sistema puedan compilar instaladores desde la terminal, ejecuta este comando para registrar el compilador de Inno Setup en el PATH del sistema de forma automática:
+```powershell
+[System.Environment]::SetEnvironmentVariable("PATH", [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";C:\Program Files (x86)\Inno Setup 6", "User")
+```
 
 ---
 
