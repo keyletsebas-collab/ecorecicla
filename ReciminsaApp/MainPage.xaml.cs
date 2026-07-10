@@ -17,7 +17,7 @@ public partial class MainPage : ContentPage
         {
             if (e.Url.Host != "0.0.0.0" && e.Url.Host != "localhost")
             {
-                e.UrlLoadingStrategy = Microsoft.AspNetCore.Components.WebView.UrlLoadingStrategy.OpenInSystemBrowser;
+                e.UrlLoadingStrategy = Microsoft.AspNetCore.Components.WebView.UrlLoadingStrategy.OpenExternally;
             }
         };
     }
