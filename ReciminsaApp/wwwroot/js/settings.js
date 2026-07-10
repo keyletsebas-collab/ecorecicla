@@ -283,12 +283,12 @@ function renderSettingsPage(container) {
 
       <!-- ===== CACHÉ Y DATOS ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">🗂 Almacenamiento y Caché</h3>
-        <div id="cache-breakdown">Calculando...</div>
+        <h3 class="settings-section-title">${t('set.cache_title')}</h3>
+        <div id="cache-breakdown">${t('set.cache_calculating')}</div>
         <div class="cache-btn-group">
-          <button class="btn-secondary" onclick="handleClearCache('facturas')">🧹 Facturas</button>
-          <button class="btn-secondary" onclick="handleClearCache('finanzas')">🧹 Finanzas</button>
-          <button class="btn-danger" onclick="handleClearCache('todo')">⚠️ Limpiar Todo</button>
+          <button class="btn-secondary" onclick="handleClearCache('facturas')">${t('set.cache_invoices_btn')}</button>
+          <button class="btn-secondary" onclick="handleClearCache('finanzas')">${t('set.cache_finance_btn')}</button>
+          <button class="btn-danger" onclick="handleClearCache('todo')">${t('set.cache_clear_all_btn')}</button>
         </div>
       </div>
 
@@ -316,10 +316,10 @@ function renderSettingsPage(container) {
 
       <!-- ===== REGISTRO DE EMPRESA ===== -->
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
-        <h3 class="settings-section-title">🏢 Registro de Empresa</h3>
+        <h3 class="settings-section-title">${t('set.company_title')}</h3>
         
         ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) 
-          ? `<div style="background: rgba(234, 179, 8, 0.1); border: 1px solid #eab308; border-radius: var(--r-md); padding: 12px; margin-bottom: 16px; font-size: 0.85rem; color: #eab308; display: flex; align-items: center; gap: 8px;"><span>⚠️</span> <span>Estos datos son compartidos por toda la empresa. Solo el <b>Administrador</b> puede modificarlos.</span></div>` 
+          ? `<div style="background: rgba(234, 179, 8, 0.1); border: 1px solid #eab308; border-radius: var(--r-md); padding: 12px; margin-bottom: 16px; font-size: 0.85rem; color: #eab308; display: flex; align-items: center; gap: 8px;"><span>⚠️</span> <span>${t('set.company_admin_only')}</span></div>` 
           : ''
         }
 
@@ -327,53 +327,53 @@ function renderSettingsPage(container) {
           <!-- Columna Izquierda: Formulario -->
           <div style="display:flex; flex-direction:column; gap:14px;">
             <div class="form-group">
-              <label class="form-label" for="set-company-name">Nombre de la Empresa</label>
+              <label class="form-label" for="set-company-name">${t('set.company_name_lbl')}</label>
               <input id="set-company-name" type="text" class="form-input" placeholder="Ej: Mi Recicladora" value="${settings.companyName || ''}" onchange="saveCompanyNameSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Aparecerá en el menú lateral y como nombre de la empresa emisora en facturas.</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_name_sub')}</p>
             </div>
             
             <div class="form-group">
-              <label class="form-label" for="set-company-rnc">RNC de tu Compañía</label>
+              <label class="form-label" for="set-company-rnc">${t('set.company_rnc_lbl')}</label>
               <div style="display:flex; gap: 8px;">
                 <input id="set-company-rnc" type="text" class="form-input" placeholder="9 u 11 dígitos" value="${settings.companyRNC || ''}" onchange="saveCompanyRNCSetting(this.value)" style="flex:1;" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-                <button class="btn-secondary" onclick="autoFillSettingsCompanyDGII()" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>🔍</button>
+                <button class="btn-secondary" onclick="autoFillSettingsCompanyDGII()" style="margin:0; padding: 0 15px;" title="${t('inv.rnc_search')}" type="button" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>🔍</button>
                 <button class="btn-danger" onclick="clearSettingsCompanyRNC()" style="margin:0; padding: 0 12px; display:flex; align-items:center; justify-content:center; background: var(--clr-danger-soft); border-color: var(--clr-danger);" title="Eliminar RNC" type="button" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>🗑</button>
               </div>
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_rnc_sub')}</p>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="set-company-phone">Teléfono de la Empresa</label>
+              <label class="form-label" for="set-company-phone">${t('set.company_phone_lbl')}</label>
               <input id="set-company-phone" type="text" class="form-input" placeholder="Ej: +1 (849) 585-0386" value="${settings.companyPhone || settings.userPhone || ''}" onchange="saveCompanyPhoneSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_phone_sub')}</p>
             </div>
             
             <div class="form-group">
-              <label class="form-label" for="set-company-email">Correo Electrónico</label>
+              <label class="form-label" for="set-company-email">${t('set.company_email_lbl')}</label>
               <input id="set-company-email" type="email" class="form-input" placeholder="Ej: contacto@empresa.com" value="${settings.companyEmail || settings.userEmail || ''}" onchange="saveCompanyEmailSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_email_sub')}</p>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="set-company-address">Dirección de la Empresa</label>
+              <label class="form-label" for="set-company-address">${t('set.company_address_lbl')}</label>
               <input id="set-company-address" type="text" class="form-input" placeholder="Ej: Calle Duarte #12, Santo Domingo" value="${settings.companyAddress || ''}" onchange="saveCompanyAddressSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_address_sub')}</p>
             </div>
             
             <div class="form-group">
-              <label class="form-label" for="set-company-logo">Logo de la App / Membrete (Opcional)</label>
+              <label class="form-label" for="set-company-logo">${t('set.company_logo_lbl')}</label>
               <input id="set-company-logo" type="file" accept="image/*" class="form-input" onchange="handleSettingsLogoUpload(this)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Aparecerá en el panel lateral y en la cabecera de las facturas (PDF). Formato recomendado: PNG transparente.</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_logo_sub')}</p>
             </div>
           </div>
           
           <!-- Columna Derecha: Vista Previa del Logo -->
           <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; min-height: 180px; border: 1px dashed var(--clr-primary); border-radius: var(--r-md); background: var(--clr-surface-2); padding: 20px; position:relative;">
-            <div style="font-size:0.8rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; margin-bottom:12px; position:absolute; top:12px;">Vista Previa del Logo</div>
+            <div style="font-size:0.8rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; margin-bottom:12px; position:absolute; top:12px;">${t('set.company_logo_preview')}</div>
             <div id="set-logo-preview-container" style="display:flex; align-items:center; justify-content:center; width:100%; height:120px; margin-top:20px;">
               ${settings.companyLogo 
                 ? `<img src="${settings.companyLogo}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />` 
-                : `<span style="font-size: 0.9rem; color: var(--clr-text-muted);">Sin Logo</span>`}
+                : `<span style="font-size: 0.9rem; color: var(--clr-text-muted);">${t('set.company_logo_none')}</span>`}
             </div>
           </div>
         </div>
@@ -382,7 +382,7 @@ function renderSettingsPage(container) {
         ${(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) 
           ? `<div style="display:flex; justify-content:flex-end; margin-top:20px; padding-top:15px; border-top:1px solid var(--clr-border);">
               <button class="btn-secondary" onclick="restoreWhiteLabelToOriginal()" style="color: #ef4444; border-color: #ef4444; background: rgba(239, 68, 68, 0.05); font-weight:600; display:flex; align-items:center; gap:6px;">
-                🔄 Restaurar Todo al Original
+                ${t('set.company_restore_btn')}
               </button>
             </div>`
           : ''
@@ -391,8 +391,8 @@ function renderSettingsPage(container) {
 
       <!-- ===== SOPORTE IT ===== -->
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
-        <h3 class="settings-section-title">🛠️ Soporte IT</h3>
-        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">¿Tienes algún problema con la aplicación? Contáctanos para recibir ayuda.</p>
+        <h3 class="settings-section-title">${t('set.support_title')}</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">${t('set.support_desc')}</p>
         <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #10b981, #059669);" onclick="window.location.href='soporte-it/index.html'">
           Acceder a Soporte IT
         </button>
@@ -853,10 +853,10 @@ function renderCacheBreakdown() {
   if (!el) return;
 
   const CACHE_GROUPS = [
-    { key: 'facturas', label: '🧾 Facturas', baseKeys: ['recim_invoices'] },
-    { key: 'finanzas', label: '💰 Finanzas', baseKeys: ['recim_ingresos', 'recim_egresos'] },
-    { key: 'materiales', label: '🏷️ Materiales', baseKeys: ['recim_material_codes'] },
-    { key: 'ajustes', label: '⚙️ Ajustes', baseKeys: ['recim_settings'] },
+    { key: 'facturas', label: '🧾 ' + t('set.cache_group_invoices'), baseKeys: ['recim_invoices'] },
+    { key: 'finanzas', label: '💰 ' + t('set.cache_group_finance'), baseKeys: ['recim_ingresos', 'recim_egresos'] },
+    { key: 'materiales', label: '🏷️ ' + t('set.cache_group_materials'), baseKeys: ['recim_material_codes'] },
+    { key: 'ajustes', label: '⚙️ ' + t('set.cache_group_settings'), baseKeys: ['recim_settings'] },
   ];
 
   const rows = CACHE_GROUPS.map(g => {
@@ -872,7 +872,7 @@ function renderCacheBreakdown() {
         </div>`;
   }).join('');
 
-  el.innerHTML = rows || '<p style="color:var(--clr-text-muted);font-size:0.85rem;">Sin datos almacenados.</p>';
+  el.innerHTML = rows || `<p style="color:var(--clr-text-muted);font-size:0.85rem;">${t('set.cache_no_data')}</p>`;
 }
 
 async function handleClearCache(category) {

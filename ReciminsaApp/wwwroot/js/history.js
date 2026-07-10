@@ -98,15 +98,15 @@ function renderHistoryPage(container) {
         <div class="stat-value stat-value--blue">${items.filter(i => i.itemType === 'invoice').length}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Ingresos</div>
+        <div class="stat-label">${t('hist.income_count')}</div>
         <div class="stat-value stat-value--green">${items.filter(i => i.type === 'ingreso').length}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Egresos</div>
+        <div class="stat-label">${t('hist.expense_count')}</div>
         <div class="stat-value stat-value--red">${items.filter(i => i.type === 'egreso').length}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Bitácoras</div>
+        <div class="stat-label">${t('hist.logs_count')}</div>
         <div class="stat-value stat-value--green">${items.filter(i => i.type === 'basica').length}</div>
       </div>
       <div class="stat-card">
@@ -118,7 +118,7 @@ function renderHistoryPage(container) {
     <!-- Visual Dashboard Toggle Button -->
     <div style="margin-bottom:14px;">
       <button class="btn-secondary" onclick="toggleVisualDashboard()" style="width:100%; justify-content:center; font-weight:600; padding:10px 14px; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px; border:1px solid var(--clr-border); background:var(--clr-surface-2); color:var(--clr-text);">
-        📊 <span id="visual-dashboard-toggle-text">Ver Análisis Visual (Gráficos)</span>
+        📊 <span id="visual-dashboard-toggle-text">${t('hist.show_charts')}</span>
       </button>
     </div>
 
@@ -517,11 +517,11 @@ function toggleVisualDashboard() {
   const isHidden = card.style.display === 'none';
   if (isHidden) {
     card.style.display = 'flex';
-    toggleText.textContent = 'Ocultar Análisis Visual (Gráficos)';
+    toggleText.textContent = t('hist.hide_charts');
     renderVisualDashboardCharts();
   } else {
     card.style.display = 'none';
-    toggleText.textContent = 'Ver Análisis Visual (Gráficos)';
+    toggleText.textContent = t('hist.show_charts');
   }
 }
 window.toggleVisualDashboard = toggleVisualDashboard;
@@ -545,7 +545,7 @@ function renderVisualDashboardCharts() {
   );
 
   if (items.length === 0) {
-    card.innerHTML = `<div style="text-align:center; color:var(--clr-text-muted); padding:20px; font-size:0.85rem;">No hay registros para mostrar gráficos de análisis.</div>`;
+    card.innerHTML = `<div style="text-align:center; color:var(--clr-text-muted); padding:20px; font-size:0.85rem;">${t('hist.no_chart_data')}</div>`;
     return;
   }
 
@@ -568,12 +568,6 @@ function renderVisualDashboardCharts() {
     maxVal = Math.max(maxVal, monthly[m].income, monthly[m].expense);
   });
 
-  // Render month names helper
-  const monthNamesFmt = {
-    '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun',
-    '07': 'Jul', '08': 'Ago', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic'
-  };
-
   // Generate Bar SVG Rectangles
   let barSvgContent = '';
   const startX = 40;
@@ -593,7 +587,7 @@ function renderVisualDashboardCharts() {
     const expY = zeroY - expHeight;
     
     const [y, mm] = m.split('-');
-    const label = monthNamesFmt[mm] || mm;
+    const label = t('hist.month_' + mm).substring(0, 3);
     
     barSvgContent += `
       <!-- Income Bar -->
@@ -608,10 +602,10 @@ function renderVisualDashboardCharts() {
   // Bar Chart Title and Legend
   const barChartHtml = `
     <div style="flex:1; min-width:280px; display:flex; flex-direction:column; gap:10px;">
-      <h4 style="margin:0; font-size:0.9rem; font-weight:700; color:var(--clr-text);">📈 Ingresos vs. Egresos (Mensual)</h4>
+      <h4 style="margin:0; font-size:0.9rem; font-weight:700; color:var(--clr-text);">📈 ${t('hist.income_vs_expenses')}</h4>
       <div style="display:flex; gap:12px; font-size:0.75rem; font-weight:600; margin-bottom:4px;">
-        <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#10b981; display:inline-block;"></span>Ingresos</span>
-        <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#ef4444; display:inline-block;"></span>Egresos</span>
+        <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#10b981; display:inline-block;"></span>${t('hist.income')}</span>
+        <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#ef4444; display:inline-block;"></span>${t('hist.expenses')}</span>
       </div>
       <svg width="100%" viewBox="0 0 380 180" style="background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:8px;">
         <defs>

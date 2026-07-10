@@ -213,34 +213,34 @@ function addBasicEntryRow() {
   
   html.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-      <h4 style="margin:0; font-size:14px; color:var(--clr-text-muted);">Ítem</h4>
-      <button class="btn-icon" onclick="removeBasicEntryRow('${rowId}')" title="Eliminar" style="color:#ef4444;">✕</button>
+      <h4 style="margin:0; font-size:14px; color:var(--clr-text-muted);">${t('bit.item_label')}</h4>
+      <button class="btn-icon" onclick="removeBasicEntryRow('${rowId}')" title="${t('bit.delete_label') || 'Delete'}" style="color:#ef4444;">✕</button>
     </div>
     <div class="form-row" style="grid-template-columns: ${isMobile ? '1fr' : '2fr 1fr'}; margin-bottom:10px;">
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">Material</label>
+        <label class="form-label" style="font-size:12px;">${t('bit.material_label')}</label>
         <select class="form-select row-mat" onchange="const m = getMaterialCodes().find(x=>x.id===this.value); this.closest('.bitacora-row').querySelector('.row-code').value = m?m.code:''; calculateBatchTotals()">
-          <option value="" disabled selected>Seleccionar...</option>
+          <option value="" disabled selected>${t('bit.select_ph')}</option>
           ${options}
         </select>
       </div>
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">Código</label>
+        <label class="form-label" style="font-size:12px;">${t('bit.code_label')}</label>
         <input type="text" class="form-input row-code" readonly style="background:var(--clr-surface); font-family:monospace; font-size:0.8rem;" />
       </div>
     </div>
     
     <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-bottom:10px;">
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">Cantidad / Peso</label>
+        <label class="form-label" style="font-size:12px;">${t('bit.qty_weight')}</label>
         <input type="number" class="form-input row-qty" placeholder="0" min="0" step="0.01" oninput="calculateBatchTotals()" />
       </div>
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">Unidad</label>
+        <label class="form-label" style="font-size:12px;">${t('bit.unit_label')}</label>
         <select class="form-select row-unit">
-          <option value="lb" selected>libra</option>
+          <option value="lb" selected>${t('inv.unit_lb')}</option>
           <option value="kg">kg</option>
-          <option value="unidad">unidad</option>
+          <option value="unidad">${t('inv.unit_each')}</option>
           <option value="litros">litros</option>
           <option value="kilos">kilos</option>
         </select>
@@ -249,11 +249,11 @@ function addBasicEntryRow() {
 
     <div class="form-row" style="grid-template-columns: 1fr 1fr;">
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">Costo Compra (${getCurrency().symbol})</label>
+        <label class="form-label" style="font-size:12px;">${t('bit.buy_cost')} (${getCurrency().symbol})</label>
         <input type="number" class="form-input row-pbuy" placeholder="0" min="0" step="0.1" oninput="calculateBatchTotals()" />
       </div>
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">Prec. Venta (${getCurrency().symbol})</label>
+        <label class="form-label" style="font-size:12px;">${t('bit.sell_price')} (${getCurrency().symbol})</label>
         <input type="number" class="form-input row-psell" placeholder="0" min="0" step="0.1" oninput="calculateBatchTotals()" />
       </div>
     </div>
@@ -389,10 +389,10 @@ function renderBitacorasPage(container) {
 
     <div class="invoice-tabs">
       <button class="invoice-tab bitacora-tab active" id="bit-tab-btn-crear" onclick="switchBitacoraTab('crear')">
-        ➕ Crear Bitácora
+        ➕ ${t('bit.tab_create')}
       </button>
       <button class="invoice-tab bitacora-tab" id="bit-tab-btn-conteo" onclick="switchBitacoraTab('conteo'); refreshBitacoraCountTab()">
-        📊 Conteo
+        📊 ${t('bit.tab_count')}
       </button>
     </div>
 
