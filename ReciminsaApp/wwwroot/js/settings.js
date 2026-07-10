@@ -905,20 +905,53 @@ function handleClearData() {
 function updateSidebarLabels() {
   const labels = {
     historial: t('nav.historial'),
+    bitacoras: t('nav.bitacoras'),
     facturas: t('nav.facturas'),
     codigos: t('nav.codigos'),
+    clientes: t('nav.clientes'),
     ingresos: t('nav.ingresos'),
     egresos: t('nav.egresos'),
+    ecologia: t('page.ecologia'),
+    colaboradores: t('nav.colaboradores'),
     ajustes: t('nav.ajustes'),
   };
+  
   document.querySelectorAll('.sidebar-link[data-page]').forEach(link => {
     const page = link.getAttribute('data-page');
     const labelEl = link.querySelector('.sidebar-label');
     if (labelEl && labels[page]) labelEl.textContent = labels[page];
   });
+
+  // Update bottom nav labels on mobile
+  const bottomLabels = {
+    historial: t('nav.historial'),
+    bitacoras: t('nav.bitacoras_short') || 'Bitácoras',
+    facturas: t('nav.facturas'),
+    ingresos: t('nav.ingresos'),
+  };
+  document.querySelectorAll('.bottom-nav-item[data-page]').forEach(item => {
+    const page = item.getAttribute('data-page');
+    const labelEl = item.querySelector('.bottom-nav-label');
+    if (labelEl && bottomLabels[page]) labelEl.textContent = bottomLabels[page];
+  });
+  
+  // Update bottom nav "Más/More" button
+  const moreBtn = document.querySelector('.bottom-nav-item:not([data-page])');
+  if (moreBtn) {
+    const labelEl = moreBtn.querySelector('.bottom-nav-label');
+    if (labelEl) labelEl.textContent = t('nav.more');
+  }
+
+  // Update logout button
+  const logoutBtn = document.querySelector('.btn-logout');
+  if (logoutBtn) {
+    logoutBtn.innerHTML = `<span>🚪</span> ${t('nav.logout')}`;
+  }
+
   // Update topbar title
   const topTitle = document.getElementById('topbar-title');
-  const curPage = document.querySelector('.sidebar-link.active')?.getAttribute('data-page');
+  const activeLink = document.querySelector('.sidebar-link.active');
+  const curPage = activeLink ? activeLink.getAttribute('data-page') : (window._currentPage || 'historial');
   if (topTitle && curPage) {
     const pageKey = `page.${curPage}`;
     topTitle.textContent = t(pageKey);

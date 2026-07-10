@@ -196,6 +196,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const lang = (typeof getSettings === 'function' ? getSettings().language : null) || 'es';
         updateQuickLangUI(lang);
     }
+    if (typeof updateSidebarLabels === 'function') {
+        updateSidebarLabels();
+    }
 
     // Verify subscription and device integrity on load
     if (localStorage.getItem('recim_session') && typeof checkSubscriptionAndDevice === 'function') {

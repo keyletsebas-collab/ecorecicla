@@ -130,16 +130,16 @@ function renderHistoryPage(container) {
     <div class="history-filters">
       <select id="history-filter-type" class="form-select" style="width:auto;" onchange="filterHistory()">
         <option value="all">${t('hist.all_types')}</option>
-        <option value="basica">Bitácoras</option>
-        <option value="local">Facturas Locales</option>
-        <option value="empresa">Facturas Empresariales</option>
-        <option value="ingreso">Ingresos Financieros</option>
-        <option value="egreso">Egresos Financieros</option>
+        <option value="basica">${t('hist.logs')}</option>
+        <option value="local">${t('hist.local_inv')}</option>
+        <option value="empresa">${t('hist.biz_inv')}</option>
+        <option value="ingreso">${t('hist.fin_income')}</option>
+        <option value="egreso">${t('hist.fin_expense')}</option>
       </select>
       <input id="history-search" type="text" class="form-input" style="width:auto;min-width:200px;" placeholder="${t('hist.search')}" oninput="filterHistory()" />
-      <button class="btn-secondary" onclick="exportFilteredHistoryToExcel()">📊 Exportar Excel</button>
+      <button class="btn-secondary" onclick="exportFilteredHistoryToExcel()">${t('hist.export_excel')}</button>
       <input type="file" id="history-import-excel-input" accept=".xlsx, .xls" style="display:none;" onchange="handleHistoryImportExcel(this)" />
-      <button class="btn-secondary" onclick="document.getElementById('history-import-excel-input').click()">📥 Importar Excel</button>
+      <button class="btn-secondary" onclick="document.getElementById('history-import-excel-input').click()">${t('hist.import_excel')}</button>
       <button class="btn-danger" onclick="clearHistory()">${t('hist.clear_all')}</button>
     </div>
 
@@ -178,11 +178,11 @@ function renderInvoiceCards(items) {
     groups[monthKey][dayKey].push(item);
   });
 
-  const monthNames = {
-    '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
-    '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
-    '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
-  };
+  const monthNames = {};
+  for (let i = 1; i <= 12; i++) {
+    const k = String(i).padStart(2, '0');
+    monthNames[k] = t('hist.month_' + k);
+  }
 
   let html = '';
   // Iterate months (desc)
@@ -212,19 +212,19 @@ function renderSingleInvoiceCard(inv) {
   
   let badge, icon;
   if (isBasica) {
-    badge = `<span class="badge badge--green">Bitácora</span>`;
+    badge = `<span class="badge badge--green">${t('hist.badge_log')}</span>`;
     icon = '🚛';
   } else if (isLocal) {
-    badge = `<span class="badge badge--blue">Fact. Local</span>`;
+    badge = `<span class="badge badge--blue">${t('hist.badge_local')}</span>`;
     icon = '🏠';
   } else if (isIngreso) {
-    badge = `<span class="badge badge--green">Ingreso</span>`;
+    badge = `<span class="badge badge--green">${t('hist.badge_income')}</span>`;
     icon = '💰';
   } else if (isEgreso) {
-    badge = `<span class="badge badge--red">Egreso</span>`;
+    badge = `<span class="badge badge--red">${t('hist.badge_expense')}</span>`;
     icon = '💸';
   } else {
-    badge = `<span class="badge badge--yellow">Fact. Empresa</span>`;
+    badge = `<span class="badge badge--yellow">${t('hist.badge_biz')}</span>`;
     icon = '🏢';
   }
 
@@ -232,12 +232,12 @@ function renderSingleInvoiceCard(inv) {
   if (isIngreso || isEgreso) {
     itemRows = `
       <tr>
-        <td><b>Concepto</b></td>
+        <td><b>${t('lbl.concept')}</b></td>
         <td colspan="3">${inv.concept}</td>
       </tr>
       ${inv.category ? `
       <tr>
-        <td><b>Categoría</b></td>
+        <td><b>${t('lbl.category')}</b></td>
         <td colspan="3">${inv.category}</td>
       </tr>` : ''}
     `;
@@ -263,9 +263,9 @@ function renderSingleInvoiceCard(inv) {
   if (isIngreso || isEgreso) {
     detailRows = `
       <div style="margin-bottom:12px;">
-        <p style="margin: 4px 0;"><b>Concepto:</b> ${inv.concept || '—'}</p>
-        <p style="margin: 4px 0;"><b>Categoría:</b> ${inv.category || 'General'}</p>
-        ${inv.notes ? `<p style="margin: 4px 0;"><b>Notas:</b> ${inv.notes}</p>` : ''}
+        <p style="margin: 4px 0;"><b>${t('lbl.concept')}:</b> ${inv.concept || '—'}</p>
+        <p style="margin: 4px 0;"><b>${t('lbl.category')}:</b> ${inv.category || t('hist.category_general')}</p>
+        ${inv.notes ? `<p style="margin: 4px 0;"><b>${t('lbl.notes')}:</b> ${inv.notes}</p>` : ''}
       </div>
     `;
   } else if (isBasica) {
