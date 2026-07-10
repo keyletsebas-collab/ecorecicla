@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=0.85, maximum-scale=0.85, viewport-fit=cover, user-scalable=no" />
   <title>Reciminsaap – Gestión de Reciclaje</title>
   <meta name="description"
     content="Aplicación de conteo y gestión de materiales reciclables para empresas y centros de acopio." />
@@ -24,35 +24,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Reciminsaap">
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', async () => {
-        try {
-          // 1. Unregister ALL old service workers to wipe broken cached versions
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const reg of registrations) {
-            const swUrl = reg.active?.scriptURL || '';
-            // Only force-kill if it's an old cache version
-            if (!swUrl.includes('service-worker.js') || await isOldSW(reg)) {
-              await reg.unregister();
-              console.log('🧹 Old SW removed:', swUrl);
-            }
-          }
-        } catch(e) { /* ignore */ }
-
-        // 2. Register the fresh service worker
-        navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
-          .then(reg => {
-            console.log('✅ SW Registered (v23)', reg);
-            reg.update();
-          })
-          .catch(err => console.warn('SW Error', err));
+    // Force clear all Cache Storage on load to prevent cached old JS/CSS files
+    if ('caches' in window) {
+      caches.keys().then(keys => {
+        keys.forEach(k => caches.delete(k));
       });
     }
-    async function isOldSW(reg) {
-      try {
-        const keys = await caches.keys();
-        return keys.some(k => k.startsWith('reciminsa-') && !k.startsWith('reciminsaap-v23'));
-      } catch { return false; }
+    // Force unregister all service workers
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
+      });
     }
   </script>
 </head>
