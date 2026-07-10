@@ -113,15 +113,15 @@ const colabStyles = `
     }
     
     /* Responsive table to block cards */
-    .data-table, .data-table thead, .data-table tbody, .data-table th, .data-table td, .data-table tr {
+    .colab-data-table, .colab-data-table thead, .colab-data-table tbody, .colab-data-table th, .colab-data-table td, .colab-data-table tr {
       display: block !important;
       width: 100% !important;
       min-width: 100% !important;
     }
-    .data-table thead {
+    .colab-data-table thead {
       display: none !important;
     }
-    .data-table tr {
+    .colab-data-table tr {
       border: 1px solid var(--clr-border) !important;
       border-radius: var(--r-md, 8px) !important;
       margin-bottom: 14px !important;
@@ -129,7 +129,7 @@ const colabStyles = `
       padding: 10px 14px !important;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
-    .data-table td {
+    .colab-data-table td {
       border: none !important;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
       position: relative !important;
@@ -141,12 +141,12 @@ const colabStyles = `
       align-items: center;
       justify-content: flex-end;
     }
-    .data-table td:last-child {
+    .colab-data-table td:last-child {
       border-bottom: 0 !important;
       justify-content: center !important;
       padding-left: 10px !important;
     }
-    .data-table td::before {
+    .colab-data-table td::before {
       content: attr(data-label);
       position: absolute;
       left: 12px;
@@ -163,10 +163,12 @@ const colabStyles = `
 `;
 
 async function renderCollaboratorsPage(container) {
-  // Asegurar que los estilos estén cargados
-  if (!document.getElementById('colab-custom-styles')) {
-    document.head.insertAdjacentHTML('beforeend', colabStyles);
+  // Asegurar que los estilos estén cargados y actualizados
+  const existingStyles = document.getElementById('colab-custom-styles');
+  if (existingStyles) {
+    existingStyles.remove();
   }
+  document.head.insertAdjacentHTML('beforeend', colabStyles);
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   const familyId = session.familyId;
@@ -233,7 +235,7 @@ function showColabsList() {
     <!-- Tabla -->
     <div class="card card--elevated" style="padding:0; overflow:hidden;">
       <div style="overflow-x: auto;">
-        <table class="data-table" style="width:100%; min-width:650px; border-collapse:collapse; font-size:0.85rem; white-space:nowrap;">
+        <table class="colab-data-table" style="width:100%; min-width:650px; border-collapse:collapse; font-size:0.85rem; white-space:nowrap;">
           <thead>
             <tr style="background:var(--clr-surface-2); border-bottom:1px solid var(--clr-border);">
               <th style="text-align:left; padding:12px 16px;">${isEn ? 'Code' : 'Código'}</th>
