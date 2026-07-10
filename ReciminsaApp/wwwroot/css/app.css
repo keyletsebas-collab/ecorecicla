@@ -1107,16 +1107,51 @@
     white-space: nowrap;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     /* Optimize settings sections padding to maximize horizontal space */
     .card.settings-section {
-        padding: 14px !important;
+        padding: 12px !important;
         border-radius: var(--r-md) !important;
+    }
+    
+    .settings-grid {
+        gap: 12px !important;
+    }
+    
+    .settings-section-title {
+        font-size: 0.84rem !important;
+        margin-bottom: 12px !important;
+        padding-bottom: 8px !important;
     }
     
     .settings-item {
         gap: 6px;
         padding: 8px 0;
+    }
+    
+    .settings-item-label, 
+    .settings-item-value {
+        font-size: 0.78rem !important;
+    }
+    
+    .form-label {
+        font-size: 0.78rem !important;
+        margin-bottom: 4px !important;
+    }
+    
+    .form-input, 
+    .form-select {
+        font-size: 0.78rem !important;
+        padding: 8px 10px !important;
+        height: auto !important;
+    }
+    
+    .btn-primary, 
+    .btn-secondary, 
+    .btn-danger {
+        padding: 8px 12px !important;
+        font-size: 0.78rem !important;
+        min-height: auto !important;
     }
     
     /* Make language and currency options fit perfectly in columns */
