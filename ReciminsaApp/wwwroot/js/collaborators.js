@@ -111,6 +111,53 @@ const colabStyles = `
     .colab-grid-2 {
       grid-template-columns: 1fr;
     }
+    
+    /* Responsive table to block cards */
+    .data-table, .data-table thead, .data-table tbody, .data-table th, .data-table td, .data-table tr {
+      display: block !important;
+      width: 100% !important;
+      min-width: 100% !important;
+    }
+    .data-table thead {
+      display: none !important;
+    }
+    .data-table tr {
+      border: 1px solid var(--clr-border) !important;
+      border-radius: var(--r-md, 8px) !important;
+      margin-bottom: 14px !important;
+      background: var(--clr-surface-3) !important;
+      padding: 10px 14px !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .data-table td {
+      border: none !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+      position: relative !important;
+      padding: 12px 10px 12px 45% !important;
+      text-align: right !important;
+      white-space: normal !important;
+      min-height: 44px;
+      display: flex !important;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .data-table td:last-child {
+      border-bottom: 0 !important;
+      justify-content: center !important;
+      padding-left: 10px !important;
+    }
+    .data-table td::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 12px;
+      width: 40%;
+      text-align: left;
+      font-weight: 600;
+      color: var(--clr-text-muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
   }
 </style>
 `;
@@ -263,16 +310,16 @@ function renderCollaboratorsTable() {
     
     html += `
       <tr style="border-bottom:1px solid var(--clr-border);">
-        <td style="padding:14px 16px; font-weight:600; font-family:monospace; color:var(--clr-text-secondary);">${c.code || 'EMPL-00000'}</td>
-        <td style="padding:14px 16px; color:var(--clr-text);">${c.cedula || '000-0000000-0'}</td>
-        <td style="padding:14px 16px; font-weight:600; color:var(--clr-text); text-transform: capitalize;">${c.name || 'Sin nombre'}</td>
-        <td style="padding:14px 16px; color:var(--clr-text-secondary);">${c.role || 'Operario'}</td>
-        <td style="padding:14px 16px;">
+        <td data-label="${isEn ? 'Code' : 'Código'}" style="padding:14px 16px; font-weight:600; font-family:monospace; color:var(--clr-text-secondary);">${c.code || 'EMPL-00000'}</td>
+        <td data-label="${isEn ? 'National ID' : 'Cédula'}" style="padding:14px 16px; color:var(--clr-text);">${c.cedula || '000-0000000-0'}</td>
+        <td data-label="${isEn ? 'Full Name' : 'Nombre Completo'}" style="padding:14px 16px; font-weight:600; color:var(--clr-text); text-transform: capitalize;">${c.name || 'Sin nombre'}</td>
+        <td data-label="${isEn ? 'Position' : 'Cargo'}" style="padding:14px 16px; color:var(--clr-text-secondary);">${c.role || 'Operario'}</td>
+        <td data-label="${isEn ? 'Status & Situation' : 'Estado y Situación'}" style="padding:14px 16px;">
           <span class="badge" style="background-color:rgba(${hexToRgb(badgeColor)}, 0.15); color:${badgeColor}; font-size:0.75rem; padding:4px 8px; border-radius:4px; font-weight:700;">
             ${statusText}
           </span>
         </td>
-        <td style="padding:14px 16px; text-align:center; display:flex; justify-content:center; gap:8px;">
+        <td data-label="${isEn ? 'Actions' : 'Acciones'}" style="padding:14px 16px; text-align:center; display:flex; justify-content:center; gap:8px;">
           ${hasEditPermissions ? `
           <button class="btn-icon" onclick="showColabForm(${originalIndex})" style="background:transparent; border:none; cursor:pointer; color:var(--clr-primary-light); font-size:1.1rem; padding:4px;" title="Editar">
             ✏️
