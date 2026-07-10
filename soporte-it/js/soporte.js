@@ -39,10 +39,12 @@ function closeImageViewer() {
 // Esperar a que el DOM cargue y supabase esté listo
 document.addEventListener('DOMContentLoaded', async () => {
   applyTheme();
+  if (typeof translateSupportITPage === 'function') translateSupportITPage();
+
   // Verificar sesión
   const sessionStr = localStorage.getItem('recim_session');
   if (!sessionStr) {
-    alert("Debes iniciar sesión para acceder al Soporte IT.");
+    alert(typeof t === 'function' ? t('sup.ticket_alert_login') : "Debes iniciar sesión para acceder al Soporte IT.");
     window.location.href = "../index.html";
     return;
   }
@@ -64,6 +66,51 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   loadUsersForDatalist();
 });
+
+function translateSupportITPage() {
+  if (typeof t !== 'function') return;
+  
+  try {
+    const selectors = [
+      { sel: 'header .btn-secondary', key: 'sup.back', prop: 'innerHTML' },
+      { sel: 'header .topbar-title', key: 'sup.title', prop: 'innerHTML' },
+      { sel: '#loading-state p', key: 'sup.verifying', prop: 'innerHTML' },
+      { sel: '#user-view .section-title', key: 'sup.report_title', prop: 'innerHTML' },
+      { sel: '#ticket-module option[value=""]', key: 'sup.select_module', prop: 'innerHTML' },
+      { sel: '#ticket-desc', key: 'sup.desc_ph', prop: 'placeholder' },
+      { sel: '#btn-submit-ticket span', key: 'sup.submit_btn', prop: 'innerHTML' },
+      { sel: '#user-view .card:nth-child(2) .section-title', key: 'sup.my_tickets', prop: 'innerHTML' },
+      { sel: '#my-tickets-list p', key: 'sup.loading_tickets', prop: 'innerHTML' },
+      { sel: '#admin-view .section-title', key: 'sup.admin_title', prop: 'innerHTML' },
+      { sel: '#admin-view button.btn-secondary', key: 'sup.refresh_btn', prop: 'innerHTML' },
+      { sel: '#admin-tickets-list p', key: 'sup.admin_loading', prop: 'innerHTML' },
+      { sel: '#chat-title', key: 'sup.title', prop: 'innerHTML' },
+      { sel: '#btn-close-ticket', key: 'sup.close_ticket', prop: 'innerHTML' },
+      { sel: '#chat-messages p', key: 'sup.chat_conn', prop: 'innerHTML' },
+      { sel: '#image-preview-container button', key: 'btn.cancel', prop: 'innerHTML', prefix: '✕ ' },
+      { sel: '#chat-form button:nth-of-type(1)', key: 'sup.attach_img', prop: 'title' },
+      { sel: '#chat-input', key: 'sup.write_msg_ph', prop: 'placeholder' },
+      { sel: '#btn-send-msg', key: 'sup.send_title', prop: 'title' }
+    ];
+
+    selectors.forEach(item => {
+      const el = document.querySelector(item.sel);
+      if (el) {
+        let txt = t(item.key);
+        if (item.prefix) txt = item.prefix + txt;
+        el[item.prop] = txt;
+      }
+    });
+
+    const labels = document.querySelectorAll('#user-view .form-label');
+    const labelKeys = ['sup.user_lbl', 'sup.module_lbl', 'sup.date_lbl', 'sup.spec_lbl'];
+    labels.forEach((el, idx) => {
+      if (labelKeys[idx]) el.innerHTML = t(labelKeys[idx]);
+    });
+  } catch(e) {
+    console.error("Error translating Support IT page:", e);
+  }
+}
 
 // ==========================================
 // PERSONALIZACIÓN
