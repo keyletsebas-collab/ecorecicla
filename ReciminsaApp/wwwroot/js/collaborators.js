@@ -107,9 +107,51 @@ const colabStyles = `
     grid-template-columns: 1fr 1fr;
     gap: 20px;
   }
+  .colab-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 30px;
+    border-top: 1px solid var(--clr-border);
+    padding-top: 20px;
+  }
   @media (max-width: 768px) {
     .colab-grid-2 {
       grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .colab-card-wrapper {
+      padding: 14px 12px !important;
+    }
+    .colab-tabs-container {
+      flex-wrap: wrap !important;
+      gap: 6px !important;
+      margin-bottom: 18px !important;
+      border-bottom: none !important;
+    }
+    .colab-tab-btn {
+      padding: 6px 10px !important;
+      font-size: 0.76rem !important;
+      border-radius: 4px !important;
+      border: 1px solid var(--clr-border) !important;
+      background: rgba(255,255,255,0.03) !important;
+    }
+    .colab-tab-btn.active {
+      background: rgba(16, 185, 129, 0.1) !important;
+      border-color: var(--clr-primary-light) !important;
+    }
+    .colab-form-actions {
+      justify-content: space-between !important;
+      gap: 8px !important;
+      margin-top: 20px !important;
+      padding-top: 15px !important;
+    }
+    .colab-form-actions button {
+      flex: 1 !important;
+      padding: 8px 10px !important;
+      font-size: 0.78rem !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
     }
     
     /* Responsive table to block cards */
@@ -429,7 +471,7 @@ async function showColabForm(colabIndex = null) {
     </div>
 
     <!-- Contenedor del Formulario con Pestañas -->
-    <div class="card card--elevated" style="padding:24px;">
+    <div class="card card--elevated colab-card-wrapper" style="padding:24px;">
       
       <!-- Pestañas -->
       <div class="colab-tabs-container">
@@ -600,11 +642,11 @@ async function showColabForm(colabIndex = null) {
         </div>
 
         <!-- Botones de Acción Formulario -->
-        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:40px; border-top:1px solid var(--clr-border); padding-top:20px;">
-          <button type="button" class="btn-secondary" onclick="showColabsList()" style="gap:6px; padding:10px 20px; font-weight:600; font-size:0.9rem;">
+        <div class="colab-form-actions">
+          <button type="button" class="btn-secondary" onclick="showColabsList()" style="gap:6px; font-weight:600;">
             ❌ ${isEn ? 'Cancel' : 'Cancelar'}
           </button>
-          <button type="button" class="btn-primary" onclick="saveCollaborator()" style="background-color:var(--clr-primary-light); color:#0a0f1d; gap:6px; padding:10px 24px; font-weight:700; font-size:0.9rem;">
+          <button type="button" class="btn-primary" onclick="saveCollaborator()" style="background-color:var(--clr-primary-light); color:#0a0f1d; gap:6px; font-weight:700;">
             💾 ${isEn ? 'Save' : 'Guardar'}
           </button>
         </div>
