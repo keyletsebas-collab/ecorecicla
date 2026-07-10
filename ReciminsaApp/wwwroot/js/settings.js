@@ -219,8 +219,8 @@ function renderSettingsPage(container) {
 
       <!-- ===== MÓDULOS ACTIVOS ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">🧩 Módulos Activos</h3>
-        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">Activa o desactiva las secciones de la aplicación que no utilices.</p>
+        <h3 class="settings-section-title">${t('set.modules_title')}</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">${t('set.modules_desc')}</p>
         <div style="display:flex; flex-direction:column; gap:12px; background:var(--clr-surface-3); border-radius:var(--r-md); padding:16px;">
           ${renderModulesChecklist()}
         </div>
@@ -228,7 +228,7 @@ function renderSettingsPage(container) {
 
       <!-- ===== COMPARTIR EN EMPRESA ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">🏢 Compartir en Empresa</h3>
+        <h3 class="settings-section-title">${t('set.share_title')}</h3>
         <div id="settings-family-container">
           <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
         </div>
@@ -1141,7 +1141,7 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
 
   const renderList = (members) => {
     if (members.length === 0) {
-      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">No hay otros miembros.</div>`;
+      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">${t('set.share_member_no_others')}</div>`;
       return;
     }
     
@@ -1171,9 +1171,9 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
           <div style="flex:1; min-width:0;">
             <div style="font-size:0.84rem; font-weight:600; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px;">
               <span>${cName}</span>
-              ${isFounder ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#2563eb; color:#fff;">Fundador</span>` : ''}
-              ${(!isFounder && isMemberAdmin) ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#10b981; color:#fff;">Admin</span>` : ''}
-              ${isMe ? `<span class="badge badge--green" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px;">Tú</span>` : ''}
+              ${isFounder ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#2563eb; color:#fff;">${t('set.share_member_founder')}</span>` : ''}
+              ${(!isFounder && isMemberAdmin) ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#10b981; color:#fff;">${t('set.share_member_admin')}</span>` : ''}
+              ${isMe ? `<span class="badge badge--green" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px;">${t('set.share_member_you')}</span>` : ''}
             </div>
             <div style="font-size:0.74rem; color:var(--clr-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
               ${m.email || '—'}
@@ -1182,12 +1182,12 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
           <div style="display:flex; gap:6px; flex-shrink:0;">
             ${canManageAdmin ? `
               <button class="btn-secondary" style="padding:4px 8px; font-size:0.72rem; margin:0; line-height:1; display:flex; align-items:center; gap:4px; font-weight:bold;" onclick="toggleMemberAdminRole('${m.accountId}', ${isMemberAdmin})">
-                ${isMemberAdmin ? '🛡️ Quitar Admin' : '🛡️ Hacer Admin'}
+                ${isMemberAdmin ? t('set.share_member_remove_admin') : t('set.share_member_make_admin')}
               </button>
             ` : ''}
             ${showKick ? `
               <button class="btn-danger" style="padding:4px 8px; font-size:0.72rem; margin:0; line-height:1; display:flex; align-items:center; gap:4px; font-weight:bold;" onclick="kickFamilyMember('${m.accountId}', '${cName.replace(/'/g, "\\'")}')">
-                🗑️ Eliminar
+                ${t('set.share_member_remove')}
               </button>
             ` : ''}
           </div>
@@ -1217,10 +1217,10 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
       renderList(members);
     } catch (err) {
       console.warn("Error actualizando lista de miembros de la empresa desde Supabase:", err);
-      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-danger);">Error al cargar miembros de la empresa.</div>`;
+      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-danger);">${t('set.share_member_err_load')}</div>`;
     }
   } else {
-    listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">Sin conexión con el servidor.</div>`;
+    listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">${t('set.share_member_no_connection')}</div>`;
   }
 }
 
@@ -1303,25 +1303,25 @@ function renderFamilySection() {
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:12px;">
         <p style="font-size:0.8rem; color:var(--clr-text-muted);">
-          Actualmente estás en una empresa compartida. Tu base de datos está sincronizada y compartida en tiempo real con todos los miembros de este grupo.
+          ${t('set.share_desc')}
         </p>
         <div style="padding:12px; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:var(--r-md); display:flex; flex-direction:column; gap:8px;">
-          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Código de tu Empresa</div>
+          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">${t('set.share_code_lbl')}</div>
           <div style="display:flex; align-items:center; gap:8px;">
             <span id="family-code-text" style="font-family:monospace; font-size:1.25rem; font-weight:700; color:var(--clr-primary); letter-spacing:0.1em;">${familyId}</span>
-            <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="copyFamilyCode()">📋 Copiar</button>
+            <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="copyFamilyCode()">${t('set.share_copy_btn')}</button>
           </div>
         </div>
 
         <div style="margin-top:8px; border-top:1px solid var(--clr-border); padding-top:12px;">
-          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Miembros de la Empresa</div>
+          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">${t('set.share_members_lbl')}</div>
           <div id="family-members-list" style="display:flex; flex-direction:column; gap:8px;">
-            <div style="font-size:0.8rem; color:var(--clr-text-muted);">Cargando miembros...</div>
+            <div style="font-size:0.8rem; color:var(--clr-text-muted);">${t('set.share_loading_members')}</div>
           </div>
         </div>
         
         <button class="btn-danger" style="width:100%; justify-content:center; margin-top:8px;" onclick="handleLeaveFamily()">
-          🚪 Salir de la Empresa
+          ${t('set.share_leave_btn')}
         </button>
       </div>
     `;
@@ -1331,27 +1331,27 @@ function renderFamilySection() {
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:12px;">
         <p style="font-size:0.8rem; color:var(--clr-text-muted);">
-          Crea una empresa para compartir tu base de datos con otros miembros, o únete a una empresa existente usando su código de 10 dígitos.
+          ${t('set.share_no_family_desc')}
         </p>
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
           <button class="btn-primary" style="justify-content:center; font-size:0.85rem;" onclick="handleCreateFamily()">
-            ➕ Crear Empresa
+            ${t('set.share_create_btn')}
           </button>
           <button class="btn-secondary" style="justify-content:center; font-size:0.85rem;" onclick="showJoinFamilyInput()">
-            🔑 Unirse a Empresa
+            ${t('set.share_join_btn')}
           </button>
         </div>
         
         <div id="join-family-box" style="display:none; margin-top:8px; padding-top:12px; border-top:1px solid var(--clr-border);">
           <div class="form-group" style="margin-bottom:8px;">
-            <label class="form-label" style="font-size:0.75rem;">Código de Empresa (10 dígitos)</label>
+            <label class="form-label" style="font-size:0.75rem;">${t('set.share_join_code_lbl')}</label>
             <input id="join-family-code-input" type="text" class="form-input" placeholder="Ej: 1234567890" maxlength="10" 
                    oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn-primary" style="flex:1; justify-content:center; padding:6px 12px; font-size:0.82rem;" onclick="submitJoinFamily()">Unirse</button>
-            <button class="btn-secondary" style="padding:6px 12px; font-size:0.82rem;" onclick="hideJoinFamilyInput()">Cancelar</button>
+            <button class="btn-primary" style="flex:1; justify-content:center; padding:6px 12px; font-size:0.82rem;" onclick="submitJoinFamily()">${t('set.share_join_submit_btn')}</button>
+            <button class="btn-secondary" style="padding:6px 12px; font-size:0.82rem;" onclick="hideJoinFamilyInput()">${t('btn.cancel')}</button>
           </div>
         </div>
       </div>
@@ -1870,15 +1870,29 @@ function toggleModule(moduleId, isEnabled) {
 
 function renderModulesChecklist() {
   const config = getModuleConfig();
-  return TOGGLEABLE_MODULES.map(m => `
-    <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.05);">
-      <span style="font-size:0.9rem; font-weight:600;">${m.label}</span>
-      <label class="toggle-switch">
-        <input type="checkbox" ${config[m.id] ? 'checked' : ''} onchange="toggleModule('${m.id}', this.checked)" />
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-  `).join('');
+  const iconMap = {
+    bitacoras: '🚛',
+    facturas: '🧾',
+    codigos: '🏷️',
+    clientes: '👥',
+    ingresos: '📈',
+    egresos: '📉'
+  };
+
+  return TOGGLEABLE_MODULES.map(m => {
+    const labelText = m.id === 'ecologia' 
+      ? t('page.ecologia') 
+      : `${iconMap[m.id] || ''} ${t('nav.' + m.id) || t('page.' + m.id) || m.label}`;
+
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:0.9rem; font-weight:600;">${labelText}</span>
+        <label class="toggle-switch">
+          <input type="checkbox" ${config[m.id] ? 'checked' : ''} onchange="toggleModule('${m.id}', this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>`;
+  }).join('');
 }
 
 function applyModuleVisibility() {
