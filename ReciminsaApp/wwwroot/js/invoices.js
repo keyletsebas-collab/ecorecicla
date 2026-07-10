@@ -445,9 +445,7 @@ async function saveFactura(type) {
   showToast(`${t('toast.inv_saved')} ${invoice.id}`, 'success');
   initFacturaForm(type);
 
-  if (confirm(t('inv.confirm_pdf'))) {
-    generateInvoicePDF(invoice);
-  }
+  showInvoicePostSaveModal(invoice);
 }
 
 function getNextNcf(ncfType) {
@@ -579,3 +577,43 @@ function renderInvoicesPage(container, initialTab = 'local') {
   initFacturaForm('local');
   initFacturaForm('empresa');
 }
+
+function showInvoicePostSaveModal(invoice) {
+  let modal = document.getElementById('invoice-post-save-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'invoice-post-save-modal';
+    modal.style = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.65); display:flex; align-items:center; justify-content:center; z-index:9999; backdrop-filter:blur(4px);';
+    document.body.appendChild(modal);
+  }
+  
+  modal.style.display = 'flex';
+  
+  const clientName = invoice.company || invoice.client || 'Consumidor Final';
+  
+  modal.innerHTML = `
+    <div class="card" style="width:90%; max-width:400px; padding:24px; border-radius:12px; background:var(--clr-surface); border:1px solid var(--clr-border); box-shadow:0 10px 25px rgba(0,0,0,0.3); text-align:center; display:flex; flex-direction:column; gap:16px;">
+      <div style="font-size:3rem; margin-bottom:8px;">🎉</div>
+      <h3 style="margin:0; font-size:1.25rem; font-weight:700; color:var(--clr-text);">¡Factura Creada con Éxito!</h3>
+      <p style="margin:0; font-size:0.85rem; color:var(--clr-text-muted);">¿Qué acción deseas realizar con la factura <b>${invoice.id}</b> para <b>${clientName}</b>?</p>
+      
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+        <button class="btn-primary" onclick="window.closeInvoicePostSaveModal(); generateInvoicePDF(JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(invoice))}')));" style="justify-content:center; padding:10px; font-weight:600; cursor:pointer;">
+          📄 Descargar Factura en PDF
+        </button>
+        <button class="btn-secondary" onclick="window.closeInvoicePostSaveModal(); shareInvoiceViaWhatsApp('${invoice.id}');" style="justify-content:center; padding:10px; font-weight:600; background:#25d366; color:white; border-color:#25d366; cursor:pointer;">
+          💬 Enviar por WhatsApp
+        </button>
+        <button class="btn-secondary" onclick="window.closeInvoicePostSaveModal();" style="justify-content:center; padding:10px; font-weight:600; color:var(--clr-text-secondary); cursor:pointer;">
+          ❌ Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+window.closeInvoicePostSaveModal = function() {
+  const modal = document.getElementById('invoice-post-save-modal');
+  if (modal) modal.style.display = 'none';
+};
+window.showInvoicePostSaveModal = showInvoicePostSaveModal;

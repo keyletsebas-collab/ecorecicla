@@ -192,6 +192,10 @@ function initApp(user) {
 // ---- Restore session on load ----
 document.addEventListener('DOMContentLoaded', () => {
     applySettings(); // apply color theme + dark mode before anything renders
+    if (typeof updateQuickLangUI === 'function') {
+        const lang = (typeof getSettings === 'function' ? getSettings().language : null) || 'es';
+        updateQuickLangUI(lang);
+    }
 
     // Verify subscription and device integrity on load
     if (localStorage.getItem('recim_session') && typeof checkSubscriptionAndDevice === 'function') {
@@ -334,4 +338,35 @@ async function handleAppRefresh() {
         window.location.href = 'index.html';
     }, 1200);
 }
+
+function toggleLanguageQuickly() {
+    const current = (typeof getSettings === 'function' ? getSettings().language : localStorage.getItem('recim_language')) || 'es';
+    const next = current === 'es' ? 'en' : 'es';
+    if (typeof handleLangChange === 'function') {
+        handleLangChange(next);
+    } else {
+        if (typeof saveSetting === 'function') {
+            saveSetting('language', next);
+        } else {
+            localStorage.setItem('recim_language', next);
+        }
+        window.location.reload();
+    }
+    updateQuickLangUI(next);
+}
+window.toggleLanguageQuickly = toggleLanguageQuickly;
+
+function updateQuickLangUI(lang) {
+    const flagEl = document.getElementById('quick-lang-flag');
+    const labelEl = document.getElementById('quick-lang-label');
+    if (!flagEl || !labelEl) return;
+    if (lang === 'es') {
+        flagEl.textContent = '🇪🇸';
+        labelEl.textContent = 'ES';
+    } else {
+        flagEl.textContent = '🇺🇸';
+        labelEl.textContent = 'EN';
+    }
+}
+window.updateQuickLangUI = updateQuickLangUI;
 

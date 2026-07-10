@@ -5,7 +5,7 @@ namespace ReciminsaApp;
 
 public partial class MainPage : ContentPage
 {
-    private const string CurrentVersion = "v1.0.14";
+    private const string CurrentVersion = "v1.0.15";
     // Nota: Reemplaza esta URL con la ruta final donde alojes tu version.json (puede ser un Bucket público en Supabase o Github)
     private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json"; 
 
@@ -13,6 +13,13 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         blazorWebView.BlazorWebViewInitialized += BlazorWebView_BlazorWebViewInitialized;
+        blazorWebView.UrlLoading += (sender, e) =>
+        {
+            if (e.Url.Host != "0.0.0.0" && e.Url.Host != "localhost")
+            {
+                e.UrlLoadingStrategy = Microsoft.AspNetCore.Components.WebView.UrlLoadingStrategy.OpenInSystemBrowser;
+            }
+        };
     }
 
     private async void BlazorWebView_BlazorWebViewInitialized(object sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)

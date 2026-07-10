@@ -295,7 +295,13 @@
           <span></span><span></span><span></span>
         </button>
         <h2 class="topbar-title" id="topbar-title">Historial</h2>
-        <div class="topbar-date" id="topbar-date"></div>
+        <div class="topbar-date-wrapper" style="display:flex; align-items:center; gap:12px;">
+          <button id="quick-lang-toggle" onclick="toggleLanguageQuickly()" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; display:flex; align-items:center; gap:6px; background:var(--clr-surface-2); border-color:var(--clr-border); cursor:pointer; height:32px; border-radius:6px; border:1px solid var(--clr-border);">
+            <span id="quick-lang-flag">🇪🇸</span>
+            <span id="quick-lang-label" style="font-weight:600; color:var(--clr-text-secondary);">ES</span>
+          </button>
+          <div class="topbar-date" id="topbar-date"></div>
+        </div>
       </header>
 
       <!-- Pages -->

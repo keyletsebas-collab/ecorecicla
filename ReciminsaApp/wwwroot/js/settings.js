@@ -2,7 +2,7 @@
    SETTINGS.JS – Página de Ajustes de la App
    ============================================= */
 
-const APP_VERSION = 'v1.0.14';
+const APP_VERSION = 'v1.0.15';
 
 function isElectron() {
   return typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.includes('Electron');
@@ -825,6 +825,9 @@ function handleLangChange(code) {
   saveSetting('language', code);
   // Update sidebar labels immediately
   updateSidebarLabels();
+  if (typeof updateQuickLangUI === 'function') {
+    updateQuickLangUI(code);
+  }
   // Re-render current page in new language
   rerenderCurrentPage();
   showToast(t('toast.lang'), 'success');
