@@ -5,7 +5,7 @@ namespace ReciminsaApp;
 
 public partial class MainPage : ContentPage
 {
-    private const string CurrentVersion = "v1.0.15";
+    private const string CurrentVersion = "v1.0.16";
     // Nota: Reemplaza esta URL con la ruta final donde alojes tu version.json (puede ser un Bucket público en Supabase o Github)
     private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json"; 
 
