@@ -1108,6 +1108,9 @@
 }
 
 @media (max-width: 768px) {
+    body {
+        zoom: 0.85 !important;
+    }
     /* Make language and currency options fit perfectly in columns */
     .lang-options {
         display: grid !important;

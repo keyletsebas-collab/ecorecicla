@@ -338,7 +338,7 @@ async function handleAppRefresh() {
 
     // 5. Reload the page after 1.2 seconds to let the user see the rotation and feedback
     setTimeout(() => {
-        window.location.href = 'index.html';
+        window.location.reload();
     }, 1200);
 }
 
