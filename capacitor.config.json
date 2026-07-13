@@ -1,5 +1,9 @@
 {
   "appId": "com.reciminsaap",
   "appName": "Reciminsaap",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "url": "http://10.0.0.141:8080",
+    "cleartext": true
+  }
 }

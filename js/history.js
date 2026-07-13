@@ -32,8 +32,48 @@ function getAllHistoryItems() {
   return [...normInvoices, ...normIngresos, ...normEgresos];
 }
 
+function applyDateFilter(items) {
+  window.currentHistoryDateFilter = window.currentHistoryDateFilter || 'all';
+  if (window.currentHistoryDateFilter === 'all') return items;
+  
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  return items.filter(i => {
+      if (!i.date) return false;
+      const parts = i.date.split('-');
+      const itemDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      itemDate.setHours(0,0,0,0);
+      
+      if (window.currentHistoryDateFilter === 'today') {
+          return itemDate.getTime() === today.getTime();
+      } else if (window.currentHistoryDateFilter === 'week') {
+          const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return itemDate >= oneWeekAgo && itemDate <= today;
+      } else if (window.currentHistoryDateFilter === 'month') {
+          return itemDate.getMonth() === today.getMonth() && itemDate.getFullYear() === today.getFullYear();
+      } else if (window.currentHistoryDateFilter === 'last_month') {
+          const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+          return itemDate.getMonth() === lastMonth.getMonth() && itemDate.getFullYear() === lastMonth.getFullYear();
+      }
+      return true;
+  });
+}
+
+function setHistoryDateFilter(filterName) {
+  window.currentHistoryDateFilter = filterName;
+  const container = document.getElementById('page-historial');
+  if (container) {
+    renderHistoryPage(container);
+  }
+}
+window.setHistoryDateFilter = setHistoryDateFilter;
+
 function renderHistoryPage(container) {
-  const items = getAllHistoryItems();
+  const allItems = getAllHistoryItems();
+  const items = applyDateFilter(allItems);
+
+  const currentFilter = window.currentHistoryDateFilter || 'all';
 
   container.innerHTML = `
     <div class="page-header">
@@ -43,21 +83,30 @@ function renderHistoryPage(container) {
       </div>
     </div>
 
+    <!-- Quick Date Filters -->
+    <div class="history-date-filters" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; background:var(--clr-surface-2); padding:10px; border:1px solid var(--clr-border); border-radius:var(--r-md);">
+      <button class="btn-secondary" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer; font-weight:600; border:1px solid var(--clr-border); ${currentFilter === 'all' ? 'background:var(--clr-primary);color:white;border-color:var(--clr-primary);' : 'background:var(--clr-surface-3);color:var(--clr-text);'}" onclick="setHistoryDateFilter('all')">${t('hist.filter_all')}</button>
+      <button class="btn-secondary" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer; font-weight:600; border:1px solid var(--clr-border); ${currentFilter === 'today' ? 'background:var(--clr-primary);color:white;border-color:var(--clr-primary);' : 'background:var(--clr-surface-3);color:var(--clr-text);'}" onclick="setHistoryDateFilter('today')">${t('hist.filter_today')}</button>
+      <button class="btn-secondary" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer; font-weight:600; border:1px solid var(--clr-border); ${currentFilter === 'week' ? 'background:var(--clr-primary);color:white;border-color:var(--clr-primary);' : 'background:var(--clr-surface-3);color:var(--clr-text);'}" onclick="setHistoryDateFilter('week')">${t('hist.filter_week')}</button>
+      <button class="btn-secondary" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer; font-weight:600; border:1px solid var(--clr-border); ${currentFilter === 'month' ? 'background:var(--clr-primary);color:white;border-color:var(--clr-primary);' : 'background:var(--clr-surface-3);color:var(--clr-text);'}" onclick="setHistoryDateFilter('month')">${t('hist.filter_month')}</button>
+      <button class="btn-secondary" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer; font-weight:600; border:1px solid var(--clr-border); ${currentFilter === 'last_month' ? 'background:var(--clr-primary);color:white;border-color:var(--clr-primary);' : 'background:var(--clr-surface-3);color:var(--clr-text);'}" onclick="setHistoryDateFilter('last_month')">${t('hist.filter_last_month')}</button>
+    </div>
+
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">${t('hist.total_inv')}</div>
         <div class="stat-value stat-value--blue">${items.filter(i => i.itemType === 'invoice').length}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Ingresos</div>
+        <div class="stat-label">${t('hist.income_count')}</div>
         <div class="stat-value stat-value--green">${items.filter(i => i.type === 'ingreso').length}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Egresos</div>
+        <div class="stat-label">${t('hist.expense_count')}</div>
         <div class="stat-value stat-value--red">${items.filter(i => i.type === 'egreso').length}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Bitácoras</div>
+        <div class="stat-label">${t('hist.logs_count')}</div>
         <div class="stat-value stat-value--green">${items.filter(i => i.type === 'basica').length}</div>
       </div>
       <div class="stat-card">
@@ -66,19 +115,31 @@ function renderHistoryPage(container) {
       </div>
     </div>
 
+    <!-- Visual Dashboard Toggle Button -->
+    <div style="margin-bottom:14px;">
+      <button class="btn-secondary" onclick="toggleVisualDashboard()" style="width:100%; justify-content:center; font-weight:600; padding:10px 14px; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px; border:1px solid var(--clr-border); background:var(--clr-surface-2); color:var(--clr-text);">
+        📊 <span id="visual-dashboard-toggle-text">${t('hist.show_charts')}</span>
+      </button>
+    </div>
+
+    <!-- Visual Dashboard Card (collapsible) -->
+    <div id="visual-dashboard-card" class="card" style="display:none; flex-direction:column; gap:24px; margin-bottom:14px; padding:20px; border-radius:12px; border:1px solid var(--clr-border); background:var(--clr-surface);">
+      <!-- SVG Charts injected here dynamically -->
+    </div>
+
     <div class="history-filters">
       <select id="history-filter-type" class="form-select" style="width:auto;" onchange="filterHistory()">
         <option value="all">${t('hist.all_types')}</option>
-        <option value="basica">Bitácoras</option>
-        <option value="local">Facturas Locales</option>
-        <option value="empresa">Facturas Empresariales</option>
-        <option value="ingreso">Ingresos Financieros</option>
-        <option value="egreso">Egresos Financieros</option>
+        <option value="basica">${t('hist.logs')}</option>
+        <option value="local">${t('hist.local_inv')}</option>
+        <option value="empresa">${t('hist.biz_inv')}</option>
+        <option value="ingreso">${t('hist.fin_income')}</option>
+        <option value="egreso">${t('hist.fin_expense')}</option>
       </select>
       <input id="history-search" type="text" class="form-input" style="width:auto;min-width:200px;" placeholder="${t('hist.search')}" oninput="filterHistory()" />
-      <button class="btn-secondary" onclick="exportFilteredHistoryToExcel()">📊 Exportar Excel</button>
+      <button class="btn-secondary" onclick="exportFilteredHistoryToExcel()">${t('hist.export_excel')}</button>
       <input type="file" id="history-import-excel-input" accept=".xlsx, .xls" style="display:none;" onchange="handleHistoryImportExcel(this)" />
-      <button class="btn-secondary" onclick="document.getElementById('history-import-excel-input').click()">📥 Importar Excel</button>
+      <button class="btn-secondary" onclick="document.getElementById('history-import-excel-input').click()">${t('hist.import_excel')}</button>
       <button class="btn-danger" onclick="clearHistory()">${t('hist.clear_all')}</button>
     </div>
 
@@ -117,11 +178,11 @@ function renderInvoiceCards(items) {
     groups[monthKey][dayKey].push(item);
   });
 
-  const monthNames = {
-    '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
-    '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
-    '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
-  };
+  const monthNames = {};
+  for (let i = 1; i <= 12; i++) {
+    const k = String(i).padStart(2, '0');
+    monthNames[k] = t('hist.month_' + k);
+  }
 
   let html = '';
   // Iterate months (desc)
@@ -151,19 +212,19 @@ function renderSingleInvoiceCard(inv) {
   
   let badge, icon;
   if (isBasica) {
-    badge = `<span class="badge badge--green">Bitácora</span>`;
+    badge = `<span class="badge badge--green">${t('hist.badge_log')}</span>`;
     icon = '🚛';
   } else if (isLocal) {
-    badge = `<span class="badge badge--blue">Fact. Local</span>`;
+    badge = `<span class="badge badge--blue">${t('hist.badge_local')}</span>`;
     icon = '🏠';
   } else if (isIngreso) {
-    badge = `<span class="badge badge--green">Ingreso</span>`;
+    badge = `<span class="badge badge--green">${t('hist.badge_income')}</span>`;
     icon = '💰';
   } else if (isEgreso) {
-    badge = `<span class="badge badge--red">Egreso</span>`;
+    badge = `<span class="badge badge--red">${t('hist.badge_expense')}</span>`;
     icon = '💸';
   } else {
-    badge = `<span class="badge badge--yellow">Fact. Empresa</span>`;
+    badge = `<span class="badge badge--yellow">${t('hist.badge_biz')}</span>`;
     icon = '🏢';
   }
 
@@ -171,12 +232,12 @@ function renderSingleInvoiceCard(inv) {
   if (isIngreso || isEgreso) {
     itemRows = `
       <tr>
-        <td><b>Concepto</b></td>
+        <td><b>${t('lbl.concept')}</b></td>
         <td colspan="3">${inv.concept}</td>
       </tr>
       ${inv.category ? `
       <tr>
-        <td><b>Categoría</b></td>
+        <td><b>${t('lbl.category')}</b></td>
         <td colspan="3">${inv.category}</td>
       </tr>` : ''}
     `;
@@ -202,9 +263,9 @@ function renderSingleInvoiceCard(inv) {
   if (isIngreso || isEgreso) {
     detailRows = `
       <div style="margin-bottom:12px;">
-        <p style="margin: 4px 0;"><b>Concepto:</b> ${inv.concept || '—'}</p>
-        <p style="margin: 4px 0;"><b>Categoría:</b> ${inv.category || 'General'}</p>
-        ${inv.notes ? `<p style="margin: 4px 0;"><b>Notas:</b> ${inv.notes}</p>` : ''}
+        <p style="margin: 4px 0;"><b>${t('lbl.concept')}:</b> ${inv.concept || '—'}</p>
+        <p style="margin: 4px 0;"><b>${t('lbl.category')}:</b> ${inv.category || t('hist.category_general')}</p>
+        ${inv.notes ? `<p style="margin: 4px 0;"><b>${t('lbl.notes')}:</b> ${inv.notes}</p>` : ''}
       </div>
     `;
   } else if (isBasica) {
@@ -312,10 +373,11 @@ function renderSingleInvoiceCard(inv) {
       </div>
       <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:8px;">
         ${(!isIngreso && !isEgreso) ? `
-          <button class="btn-secondary" onclick="exportarExcelResiduos(${isBasica ? 'getAllHistoryItems' : 'getAllInvoices'}().find(i => i.id === '${inv.id}'))">📊 Excel</button>
-          <button class="btn-secondary" onclick="generateInvoicePDF(${isBasica ? 'getAllHistoryItems' : 'getAllInvoices'}().find(i => i.id === '${inv.id}'))">📄 PDF</button>
+          <button class="btn-secondary" onclick="event.stopPropagation(); exportarExcelResiduos(${isBasica ? 'getAllHistoryItems' : 'getAllInvoices'}().find(i => i.id === '${inv.id}'))">📊 Excel</button>
+          <button class="btn-secondary" onclick="event.stopPropagation(); generateInvoicePDF(${isBasica ? 'getAllHistoryItems' : 'getAllInvoices'}().find(i => i.id === '${inv.id}'))">📄 PDF</button>
+          <button class="btn-secondary btn-whatsapp" onclick="event.stopPropagation(); shareInvoiceViaWhatsApp('${inv.id}')" style="padding: 4px 8px; font-size: 0.75rem; font-weight: 600; min-width: 65px; background:#25d366; color:white; border-color:#25d366;" title="Enviar por WhatsApp">💬 WhatsApp</button>
         ` : ''}
-        <button class="btn-danger" onclick="deleteHistoryItem('${inv.type}', '${inv.id}')">${t('hist.del_inv')}</button>
+        <button class="btn-danger" onclick="event.stopPropagation(); deleteHistoryItem('${inv.type}', '${inv.id}')">${t('hist.del_inv')}</button>
       </div>
     </div>
   </div>`;
@@ -329,7 +391,7 @@ function toggleHistoryCard(id) {
 function filterHistory() {
   const typeFilter = document.getElementById('history-filter-type')?.value || 'all';
   const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
-  let items = getAllHistoryItems();
+  let items = applyDateFilter(getAllHistoryItems());
 
   if (typeFilter !== 'all') items = items.filter(i => i.type === typeFilter);
   if (searchQuery) items = items.filter(i =>
@@ -423,3 +485,236 @@ function handleHistoryImportExcel(input) {
   }
   input.value = '';
 }
+
+function shareInvoiceViaWhatsApp(invoiceId) {
+  const allItems = getAllHistoryItems();
+  const inv = allItems.find(i => i.id === invoiceId);
+  if (!inv) return;
+
+  const clientName = inv.company || inv.client || 'Consumidor Final';
+  const totalVal = inv.total;
+  
+  // Format money safely
+  let totalFmt = '';
+  if (typeof formatMoney === 'function') {
+    totalFmt = formatMoney(totalVal);
+  } else {
+    totalFmt = 'RD$ ' + parseFloat(totalVal || 0).toFixed(2);
+  }
+
+  const text = `Hola *${clientName}*,\n\nGracias por reciclar con nosotros. Aquí tienes el detalle de tu recibo/factura *${inv.id}* por un monto de *${totalFmt}*.\n\n_Un respiro al planeta, un residuo a la vez._`;
+
+  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+}
+window.shareInvoiceViaWhatsApp = shareInvoiceViaWhatsApp;
+
+function toggleVisualDashboard() {
+  const card = document.getElementById('visual-dashboard-card');
+  const toggleText = document.getElementById('visual-dashboard-toggle-text');
+  if (!card || !toggleText) return;
+  
+  const isHidden = card.style.display === 'none';
+  if (isHidden) {
+    card.style.display = 'flex';
+    toggleText.textContent = t('hist.hide_charts');
+    renderVisualDashboardCharts();
+  } else {
+    card.style.display = 'none';
+    toggleText.textContent = t('hist.show_charts');
+  }
+}
+window.toggleVisualDashboard = toggleVisualDashboard;
+
+function renderVisualDashboardCharts() {
+  const card = document.getElementById('visual-dashboard-card');
+  if (!card) return;
+  
+  // Get active filtered items
+  const typeFilter = document.getElementById('history-filter-type')?.value || 'all';
+  const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
+  let items = applyDateFilter(getAllHistoryItems());
+
+  if (typeFilter !== 'all') items = items.filter(i => i.type === typeFilter);
+  if (searchQuery) items = items.filter(i =>
+    (i.id || '').toLowerCase().includes(searchQuery) ||
+    (i.client || '').toLowerCase().includes(searchQuery) ||
+    (i.company || '').toLowerCase().includes(searchQuery) ||
+    (i.concept || '').toLowerCase().includes(searchQuery) ||
+    (i.category || '').toLowerCase().includes(searchQuery)
+  );
+
+  if (items.length === 0) {
+    card.innerHTML = `<div style="text-align:center; color:var(--clr-text-muted); padding:20px; font-size:0.85rem;">${t('hist.no_chart_data')}</div>`;
+    return;
+  }
+
+  // --- 1. Bar Chart Data Aggregation (Monthly Income vs Expense) ---
+  const monthly = {};
+  items.forEach(i => {
+    if (!i.date) return;
+    const monthKey = i.date.substring(0, 7); // 'YYYY-MM'
+    if (!monthly[monthKey]) monthly[monthKey] = { income: 0, expense: 0 };
+    if (i.type === 'ingreso' || i.itemType === 'invoice') {
+      monthly[monthKey].income += i.total || 0;
+    } else if (i.type === 'egreso') {
+      monthly[monthKey].expense += i.total || 0;
+    }
+  });
+
+  const sortedMonths = Object.keys(monthly).sort().slice(-6); // last 6 months
+  let maxVal = 1000;
+  sortedMonths.forEach(m => {
+    maxVal = Math.max(maxVal, monthly[m].income, monthly[m].expense);
+  });
+
+  // Generate Bar SVG Rectangles
+  let barSvgContent = '';
+  const startX = 40;
+  const spacingX = 55;
+  const graphHeight = 120;
+  const zeroY = 140;
+
+  sortedMonths.forEach((m, idx) => {
+    const xPos = startX + idx * spacingX;
+    const incVal = monthly[m].income;
+    const expVal = monthly[m].expense;
+    
+    const incHeight = Math.max(2, (incVal / maxVal) * graphHeight);
+    const expHeight = Math.max(2, (expVal / maxVal) * graphHeight);
+    
+    const incY = zeroY - incHeight;
+    const expY = zeroY - expHeight;
+    
+    const [y, mm] = m.split('-');
+    const label = t('hist.month_' + mm).substring(0, 3);
+    
+    barSvgContent += `
+      <!-- Income Bar -->
+      <rect x="${xPos}" y="${incY}" width="14" height="${incHeight}" rx="3" fill="url(#incomeGrad)" />
+      <!-- Expense Bar -->
+      <rect x="${xPos + 18}" y="${expY}" width="14" height="${expHeight}" rx="3" fill="url(#expenseGrad)" />
+      <!-- Labels -->
+      <text x="${xPos + 16}" y="160" font-size="9" fill="var(--clr-text-muted)" text-anchor="middle" font-family="sans-serif">${label}</text>
+    `;
+  });
+
+  // Bar Chart Title and Legend
+  const barChartHtml = `
+    <div style="flex:1; min-width:280px; display:flex; flex-direction:column; gap:10px;">
+      <h4 style="margin:0; font-size:0.9rem; font-weight:700; color:var(--clr-text);">📈 ${t('hist.income_vs_expenses')}</h4>
+      <div style="display:flex; gap:12px; font-size:0.75rem; font-weight:600; margin-bottom:4px;">
+        <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#10b981; display:inline-block;"></span>${t('hist.income')}</span>
+        <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#ef4444; display:inline-block;"></span>${t('hist.expenses')}</span>
+      </div>
+      <svg width="100%" viewBox="0 0 380 180" style="background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:8px;">
+        <defs>
+          <linearGradient id="incomeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#10b981" />
+            <stop offset="100%" stop-color="#059669" />
+          </linearGradient>
+          <linearGradient id="expenseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#ef4444" />
+            <stop offset="100%" stop-color="#dc2626" />
+          </linearGradient>
+        </defs>
+        
+        <!-- Y-Axis Grid Lines -->
+        <line x1="35" y1="20" x2="360" y2="20" stroke="var(--clr-border)" stroke-width="0.5" stroke-dasharray="2,2" />
+        <line x1="35" y1="80" x2="360" y2="80" stroke="var(--clr-border)" stroke-width="0.5" stroke-dasharray="2,2" />
+        <line x1="35" y1="140" x2="360" y2="140" stroke="var(--clr-border)" stroke-width="1" />
+        
+        <!-- Y-Axis labels -->
+        <text x="30" y="23" font-size="8" fill="var(--clr-text-muted)" text-anchor="end" font-family="sans-serif">${safeFormatMoney(maxVal).replace('RD$', '').trim()}</text>
+        <text x="30" y="83" font-size="8" fill="var(--clr-text-muted)" text-anchor="end" font-family="sans-serif">${safeFormatMoney(maxVal/2).replace('RD$', '').trim()}</text>
+        <text x="30" y="143" font-size="8" fill="var(--clr-text-muted)" text-anchor="end" font-family="sans-serif">0</text>
+        
+        ${barSvgContent}
+      </svg>
+    </div>
+  `;
+
+  // --- 2. Donut Chart Data Aggregation (Expenses Categories) ---
+  const catTotals = {};
+  let totalExpenses = 0;
+  items.forEach(i => {
+    if (i.type === 'egreso') {
+      const cat = i.category || 'Otros';
+      catTotals[cat] = (catTotals[cat] || 0) + i.total;
+      totalExpenses += i.total;
+    }
+  });
+
+  const sortedCats = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);
+  const catColors = ['#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#6b7280'];
+
+  let donutSvgContent = '';
+  let accumulatedPct = 0;
+  const perimeter = 2 * Math.PI * 60; // 376.99
+
+  sortedCats.forEach(([cat, amt], idx) => {
+    const pct = amt / totalExpenses;
+    const strokeLen = pct * perimeter;
+    const strokeOffset = perimeter - (accumulatedPct * perimeter);
+    const color = catColors[idx % catColors.length];
+    
+    donutSvgContent += `
+      <circle cx="100" cy="100" r="60" fill="transparent" stroke="${color}" stroke-width="18" 
+              stroke-dasharray="${strokeLen} ${perimeter}" stroke-dashoffset="${strokeOffset}" 
+              transform="rotate(-90 100 100)" />
+    `;
+    accumulatedPct += pct;
+  });
+
+  // Fallback if no expenses
+  let expenseChartHtml = '';
+  if (totalExpenses === 0) {
+    expenseChartHtml = `
+      <div style="flex:1; min-width:280px; display:flex; flex-direction:column; gap:10px;">
+        <h4 style="margin:0; font-size:0.9rem; font-weight:700; color:var(--clr-text);">💸 Gastos por Categoría</h4>
+        <div style="display:flex; align-items:center; justify-content:center; height:180px; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:8px; font-size:0.8rem; color:var(--clr-text-muted);">
+          No hay gastos registrados en este rango de fechas.
+        </div>
+      </div>
+    `;
+  } else {
+    // Generate Legend Rows
+    const legendRows = sortedCats.map(([cat, amt], idx) => {
+      const pct = Math.round((amt / totalExpenses) * 100);
+      const color = catColors[idx % catColors.length];
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.75rem; gap:12px;">
+          <span style="display:inline-flex; align-items:center; gap:6px; font-weight:600;"><span style="width:8px; height:8px; border-radius:2px; background:${color}; display:inline-block;"></span>${cat}</span>
+          <span style="color:var(--clr-text-muted);">${formatMoney(amt)} (${pct}%)</span>
+        </div>
+      `;
+    }).join('');
+
+    expenseChartHtml = `
+      <div style="flex:1; min-width:280px; display:flex; flex-direction:column; gap:10px;">
+        <h4 style="margin:0; font-size:0.9rem; font-weight:700; color:var(--clr-text);">💸 Gastos por Categoría (Total: ${formatMoney(totalExpenses)})</h4>
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:8px; padding:12px;">
+          <svg width="150" height="150" viewBox="0 0 200 200" style="flex-shrink:0;">
+            <!-- Background base circle -->
+            <circle cx="100" cy="100" r="60" fill="transparent" stroke="var(--clr-border)" stroke-width="18" />
+            ${donutSvgContent}
+            <!-- Inner white cut-out -->
+            <circle cx="100" cy="100" r="50" fill="var(--clr-surface-2)" />
+          </svg>
+          <div style="flex:1; display:flex; flex-direction:column; gap:6px; min-width:140px;">
+            ${legendRows}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Combine Grid HTML
+  card.innerHTML = `
+    <div style="display:flex; flex-wrap:wrap; gap:20px;">
+      ${barChartHtml}
+      ${expenseChartHtml}
+    </div>
+  `;
+}
+window.renderVisualDashboardCharts = renderVisualDashboardCharts;

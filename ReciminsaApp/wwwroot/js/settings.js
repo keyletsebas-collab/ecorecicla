@@ -2,7 +2,7 @@
    SETTINGS.JS – Página de Ajustes de la App
    ============================================= */
 
-const APP_VERSION = 'v1.15.2';
+const APP_VERSION = 'v1.0.14';
 
 function isElectron() {
   return typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.includes('Electron');
@@ -219,8 +219,8 @@ function renderSettingsPage(container) {
 
       <!-- ===== MÓDULOS ACTIVOS ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">${t('set.modules_title')}</h3>
-        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">${t('set.modules_desc')}</p>
+        <h3 class="settings-section-title">🧩 Módulos Activos</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">Activa o desactiva las secciones de la aplicación que no utilices.</p>
         <div style="display:flex; flex-direction:column; gap:12px; background:var(--clr-surface-3); border-radius:var(--r-md); padding:16px;">
           ${renderModulesChecklist()}
         </div>
@@ -228,15 +228,14 @@ function renderSettingsPage(container) {
 
       <!-- ===== COMPARTIR EN EMPRESA ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">${t('set.share_title')}</h3>
+        <h3 class="settings-section-title">🏢 Compartir en Empresa</h3>
         <div id="settings-family-container">
           <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
         </div>
       </div>
 
-      <!-- ===== FIRMA DE SEGURIDAD DEL DISPOSITIVO ===== -->
+      <!-- ===== SUSCRIPCIÓN Y LICENCIA (ID DISPOSITIVO) ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">📱 Firma de Dispositivo</h3>
         <div id="settings-subscription-container">
           <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
         </div>
@@ -282,12 +281,12 @@ function renderSettingsPage(container) {
 
       <!-- ===== CACHÉ Y DATOS ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">${t('set.cache_title')}</h3>
-        <div id="cache-breakdown">${t('set.cache_calculating')}</div>
+        <h3 class="settings-section-title">🗂 Almacenamiento y Caché</h3>
+        <div id="cache-breakdown">Calculando...</div>
         <div class="cache-btn-group">
-          <button class="btn-secondary" onclick="handleClearCache('facturas')">${t('set.cache_invoices_btn')}</button>
-          <button class="btn-secondary" onclick="handleClearCache('finanzas')">${t('set.cache_finance_btn')}</button>
-          <button class="btn-danger" onclick="handleClearCache('todo')">${t('set.cache_clear_all_btn')}</button>
+          <button class="btn-secondary" onclick="handleClearCache('facturas')">🧹 Facturas</button>
+          <button class="btn-secondary" onclick="handleClearCache('finanzas')">🧹 Finanzas</button>
+          <button class="btn-danger" onclick="handleClearCache('todo')">⚠️ Limpiar Todo</button>
         </div>
       </div>
 
@@ -315,10 +314,10 @@ function renderSettingsPage(container) {
 
       <!-- ===== REGISTRO DE EMPRESA ===== -->
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
-        <h3 class="settings-section-title">${t('set.company_title')}</h3>
+        <h3 class="settings-section-title">🏢 Registro de Empresa</h3>
         
         ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) 
-          ? `<div style="background: rgba(234, 179, 8, 0.1); border: 1px solid #eab308; border-radius: var(--r-md); padding: 12px; margin-bottom: 16px; font-size: 0.85rem; color: #eab308; display: flex; align-items: center; gap: 8px;"><span>⚠️</span> <span>${t('set.company_admin_only')}</span></div>` 
+          ? `<div style="background: rgba(234, 179, 8, 0.1); border: 1px solid #eab308; border-radius: var(--r-md); padding: 12px; margin-bottom: 16px; font-size: 0.85rem; color: #eab308; display: flex; align-items: center; gap: 8px;"><span>⚠️</span> <span>Estos datos son compartidos por toda la empresa. Solo el <b>Administrador</b> puede modificarlos.</span></div>` 
           : ''
         }
 
@@ -326,53 +325,53 @@ function renderSettingsPage(container) {
           <!-- Columna Izquierda: Formulario -->
           <div style="display:flex; flex-direction:column; gap:14px;">
             <div class="form-group">
-              <label class="form-label" for="set-company-name">${t('set.company_name_lbl')}</label>
+              <label class="form-label" for="set-company-name">Nombre de la Empresa</label>
               <input id="set-company-name" type="text" class="form-input" placeholder="Ej: Mi Recicladora" value="${settings.companyName || ''}" onchange="saveCompanyNameSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_name_sub')}</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Aparecerá en el menú lateral y como nombre de la empresa emisora en facturas.</p>
             </div>
             
             <div class="form-group">
-              <label class="form-label" for="set-company-rnc">${t('set.company_rnc_lbl')}</label>
+              <label class="form-label" for="set-company-rnc">RNC de tu Compañía</label>
               <div style="display:flex; gap: 8px;">
                 <input id="set-company-rnc" type="text" class="form-input" placeholder="9 u 11 dígitos" value="${settings.companyRNC || ''}" onchange="saveCompanyRNCSetting(this.value)" style="flex:1;" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-                <button class="btn-secondary" onclick="autoFillSettingsCompanyDGII()" style="margin:0; padding: 0 15px;" title="${t('inv.rnc_search')}" type="button" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>🔍</button>
+                <button class="btn-secondary" onclick="autoFillSettingsCompanyDGII()" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>🔍</button>
                 <button class="btn-danger" onclick="clearSettingsCompanyRNC()" style="margin:0; padding: 0 12px; display:flex; align-items:center; justify-content:center; background: var(--clr-danger-soft); border-color: var(--clr-danger);" title="Eliminar RNC" type="button" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>🗑</button>
               </div>
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_rnc_sub')}</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="set-company-phone">${t('set.company_phone_lbl')}</label>
+              <label class="form-label" for="set-company-phone">Teléfono de la Empresa</label>
               <input id="set-company-phone" type="text" class="form-input" placeholder="Ej: +1 (849) 585-0386" value="${settings.companyPhone || settings.userPhone || ''}" onchange="saveCompanyPhoneSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_phone_sub')}</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
             </div>
             
             <div class="form-group">
-              <label class="form-label" for="set-company-email">${t('set.company_email_lbl')}</label>
+              <label class="form-label" for="set-company-email">Correo Electrónico</label>
               <input id="set-company-email" type="email" class="form-input" placeholder="Ej: contacto@empresa.com" value="${settings.companyEmail || settings.userEmail || ''}" onchange="saveCompanyEmailSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_email_sub')}</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="set-company-address">${t('set.company_address_lbl')}</label>
+              <label class="form-label" for="set-company-address">Dirección de la Empresa</label>
               <input id="set-company-address" type="text" class="form-input" placeholder="Ej: Calle Duarte #12, Santo Domingo" value="${settings.companyAddress || ''}" onchange="saveCompanyAddressSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_address_sub')}</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
             </div>
             
             <div class="form-group">
-              <label class="form-label" for="set-company-logo">${t('set.company_logo_lbl')}</label>
+              <label class="form-label" for="set-company-logo">Logo de la App / Membrete (Opcional)</label>
               <input id="set-company-logo" type="file" accept="image/*" class="form-input" onchange="handleSettingsLogoUpload(this)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">${t('set.company_logo_sub')}</p>
+              <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Aparecerá en el panel lateral y en la cabecera de las facturas (PDF). Formato recomendado: PNG transparente.</p>
             </div>
           </div>
           
           <!-- Columna Derecha: Vista Previa del Logo -->
           <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; min-height: 180px; border: 1px dashed var(--clr-primary); border-radius: var(--r-md); background: var(--clr-surface-2); padding: 20px; position:relative;">
-            <div style="font-size:0.8rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; margin-bottom:12px; position:absolute; top:12px;">${t('set.company_logo_preview')}</div>
+            <div style="font-size:0.8rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; margin-bottom:12px; position:absolute; top:12px;">Vista Previa del Logo</div>
             <div id="set-logo-preview-container" style="display:flex; align-items:center; justify-content:center; width:100%; height:120px; margin-top:20px;">
               ${settings.companyLogo 
                 ? `<img src="${settings.companyLogo}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />` 
-                : `<span style="font-size: 0.9rem; color: var(--clr-text-muted);">${t('set.company_logo_none')}</span>`}
+                : `<span style="font-size: 0.9rem; color: var(--clr-text-muted);">Sin Logo</span>`}
             </div>
           </div>
         </div>
@@ -381,7 +380,7 @@ function renderSettingsPage(container) {
         ${(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) 
           ? `<div style="display:flex; justify-content:flex-end; margin-top:20px; padding-top:15px; border-top:1px solid var(--clr-border);">
               <button class="btn-secondary" onclick="restoreWhiteLabelToOriginal()" style="color: #ef4444; border-color: #ef4444; background: rgba(239, 68, 68, 0.05); font-weight:600; display:flex; align-items:center; gap:6px;">
-                ${t('set.company_restore_btn')}
+                🔄 Restaurar Todo al Original
               </button>
             </div>`
           : ''
@@ -390,8 +389,8 @@ function renderSettingsPage(container) {
 
       <!-- ===== SOPORTE IT ===== -->
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
-        <h3 class="settings-section-title">${t('set.support_title')}</h3>
-        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">${t('set.support_desc')}</p>
+        <h3 class="settings-section-title">🛠️ Soporte IT</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">¿Tienes algún problema con la aplicación? Contáctanos para recibir ayuda.</p>
         <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #10b981, #059669);" onclick="window.location.href='soporte-it/index.html'">
           Acceder a Soporte IT
         </button>
@@ -401,7 +400,7 @@ function renderSettingsPage(container) {
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
         <h3 class="settings-section-title">${t('set.info')}</h3>
 
-        <div class="settings-info-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0 15px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
           <div class="settings-item">
             <span class="settings-item-label">${t('set.app_name')}</span>
             <span class="settings-item-value">Reciminsa</span>
@@ -824,9 +823,6 @@ function handleLangChange(code) {
   saveSetting('language', code);
   // Update sidebar labels immediately
   updateSidebarLabels();
-  if (typeof updateQuickLangUI === 'function') {
-    updateQuickLangUI(code);
-  }
   // Re-render current page in new language
   rerenderCurrentPage();
   showToast(t('toast.lang'), 'success');
@@ -852,10 +848,10 @@ function renderCacheBreakdown() {
   if (!el) return;
 
   const CACHE_GROUPS = [
-    { key: 'facturas', label: '🧾 ' + t('set.cache_group_invoices'), baseKeys: ['recim_invoices'] },
-    { key: 'finanzas', label: '💰 ' + t('set.cache_group_finance'), baseKeys: ['recim_ingresos', 'recim_egresos'] },
-    { key: 'materiales', label: '🏷️ ' + t('set.cache_group_materials'), baseKeys: ['recim_material_codes'] },
-    { key: 'ajustes', label: '⚙️ ' + t('set.cache_group_settings'), baseKeys: ['recim_settings'] },
+    { key: 'facturas', label: '🧾 Facturas', baseKeys: ['recim_invoices'] },
+    { key: 'finanzas', label: '💰 Finanzas', baseKeys: ['recim_ingresos', 'recim_egresos'] },
+    { key: 'materiales', label: '🏷️ Materiales', baseKeys: ['recim_material_codes'] },
+    { key: 'ajustes', label: '⚙️ Ajustes', baseKeys: ['recim_settings'] },
   ];
 
   const rows = CACHE_GROUPS.map(g => {
@@ -871,7 +867,7 @@ function renderCacheBreakdown() {
         </div>`;
   }).join('');
 
-  el.innerHTML = rows || `<p style="color:var(--clr-text-muted);font-size:0.85rem;">${t('set.cache_no_data')}</p>`;
+  el.innerHTML = rows || '<p style="color:var(--clr-text-muted);font-size:0.85rem;">Sin datos almacenados.</p>';
 }
 
 async function handleClearCache(category) {
@@ -885,7 +881,7 @@ async function handleClearCache(category) {
   if (!group) return;
   if (!confirm(`¿Eliminar ${group.label}? Esta acción no se puede deshacer.`)) return;
   
-  group.baseKeys.forEach(k => localStorage.setItem(userKey(k), '[]'));
+  group.baseKeys.forEach(k => localStorage.removeItem(userKey(k)));
   
   // Force cloud sync in the background without blocking the UI (Resolves Bug 1!)
   if (window.forceSync) {
@@ -904,53 +900,20 @@ function handleClearData() {
 function updateSidebarLabels() {
   const labels = {
     historial: t('nav.historial'),
-    bitacoras: t('nav.bitacoras'),
     facturas: t('nav.facturas'),
     codigos: t('nav.codigos'),
-    clientes: t('nav.clientes'),
     ingresos: t('nav.ingresos'),
     egresos: t('nav.egresos'),
-    ecologia: t('page.ecologia'),
-    colaboradores: t('nav.colaboradores'),
     ajustes: t('nav.ajustes'),
   };
-  
   document.querySelectorAll('.sidebar-link[data-page]').forEach(link => {
     const page = link.getAttribute('data-page');
     const labelEl = link.querySelector('.sidebar-label');
     if (labelEl && labels[page]) labelEl.textContent = labels[page];
   });
-
-  // Update bottom nav labels on mobile
-  const bottomLabels = {
-    historial: t('nav.historial'),
-    bitacoras: t('nav.bitacoras_short') || 'Bitácoras',
-    facturas: t('nav.facturas'),
-    ingresos: t('nav.ingresos'),
-  };
-  document.querySelectorAll('.bottom-nav-item[data-page]').forEach(item => {
-    const page = item.getAttribute('data-page');
-    const labelEl = item.querySelector('.bottom-nav-label');
-    if (labelEl && bottomLabels[page]) labelEl.textContent = bottomLabels[page];
-  });
-  
-  // Update bottom nav "Más/More" button
-  const moreBtn = document.querySelector('.bottom-nav-item:not([data-page])');
-  if (moreBtn) {
-    const labelEl = moreBtn.querySelector('.bottom-nav-label');
-    if (labelEl) labelEl.textContent = t('nav.more');
-  }
-
-  // Update logout button
-  const logoutBtn = document.querySelector('.btn-logout');
-  if (logoutBtn) {
-    logoutBtn.innerHTML = `<span>🚪</span> ${t('nav.logout')}`;
-  }
-
   // Update topbar title
   const topTitle = document.getElementById('topbar-title');
-  const activeLink = document.querySelector('.sidebar-link.active');
-  const curPage = activeLink ? activeLink.getAttribute('data-page') : (window._currentPage || 'historial');
+  const curPage = document.querySelector('.sidebar-link.active')?.getAttribute('data-page');
   if (topTitle && curPage) {
     const pageKey = `page.${curPage}`;
     topTitle.textContent = t(pageKey);
@@ -1140,7 +1103,7 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
 
   const renderList = (members) => {
     if (members.length === 0) {
-      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">${t('set.share_member_no_others')}</div>`;
+      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">No hay otros miembros.</div>`;
       return;
     }
     
@@ -1170,9 +1133,9 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
           <div style="flex:1; min-width:0;">
             <div style="font-size:0.84rem; font-weight:600; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px;">
               <span>${cName}</span>
-              ${isFounder ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#2563eb; color:#fff;">${t('set.share_member_founder')}</span>` : ''}
-              ${(!isFounder && isMemberAdmin) ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#10b981; color:#fff;">${t('set.share_member_admin')}</span>` : ''}
-              ${isMe ? `<span class="badge badge--green" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px;">${t('set.share_member_you')}</span>` : ''}
+              ${isFounder ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#2563eb; color:#fff;">Fundador</span>` : ''}
+              ${(!isFounder && isMemberAdmin) ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#10b981; color:#fff;">Admin</span>` : ''}
+              ${isMe ? `<span class="badge badge--green" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px;">Tú</span>` : ''}
             </div>
             <div style="font-size:0.74rem; color:var(--clr-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
               ${m.email || '—'}
@@ -1181,12 +1144,12 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
           <div style="display:flex; gap:6px; flex-shrink:0;">
             ${canManageAdmin ? `
               <button class="btn-secondary" style="padding:4px 8px; font-size:0.72rem; margin:0; line-height:1; display:flex; align-items:center; gap:4px; font-weight:bold;" onclick="toggleMemberAdminRole('${m.accountId}', ${isMemberAdmin})">
-                ${isMemberAdmin ? t('set.share_member_remove_admin') : t('set.share_member_make_admin')}
+                ${isMemberAdmin ? '🛡️ Quitar Admin' : '🛡️ Hacer Admin'}
               </button>
             ` : ''}
             ${showKick ? `
               <button class="btn-danger" style="padding:4px 8px; font-size:0.72rem; margin:0; line-height:1; display:flex; align-items:center; gap:4px; font-weight:bold;" onclick="kickFamilyMember('${m.accountId}', '${cName.replace(/'/g, "\\'")}')">
-                ${t('set.share_member_remove')}
+                🗑️ Eliminar
               </button>
             ` : ''}
           </div>
@@ -1216,10 +1179,10 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
       renderList(members);
     } catch (err) {
       console.warn("Error actualizando lista de miembros de la empresa desde Supabase:", err);
-      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-danger);">${t('set.share_member_err_load')}</div>`;
+      listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-danger);">Error al cargar miembros de la empresa.</div>`;
     }
   } else {
-    listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">${t('set.share_member_no_connection')}</div>`;
+    listContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--clr-text-muted);">Sin conexión con el servidor.</div>`;
   }
 }
 
@@ -1302,25 +1265,25 @@ function renderFamilySection() {
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:12px;">
         <p style="font-size:0.8rem; color:var(--clr-text-muted);">
-          ${t('set.share_desc')}
+          Actualmente estás en una empresa compartida. Tu base de datos está sincronizada y compartida en tiempo real con todos los miembros de este grupo.
         </p>
         <div style="padding:12px; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:var(--r-md); display:flex; flex-direction:column; gap:8px;">
-          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">${t('set.share_code_lbl')}</div>
+          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Código de tu Empresa</div>
           <div style="display:flex; align-items:center; gap:8px;">
             <span id="family-code-text" style="font-family:monospace; font-size:1.25rem; font-weight:700; color:var(--clr-primary); letter-spacing:0.1em;">${familyId}</span>
-            <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="copyFamilyCode()">${t('set.share_copy_btn')}</button>
+            <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="copyFamilyCode()">📋 Copiar</button>
           </div>
         </div>
 
         <div style="margin-top:8px; border-top:1px solid var(--clr-border); padding-top:12px;">
-          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">${t('set.share_members_lbl')}</div>
+          <div style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Miembros de la Empresa</div>
           <div id="family-members-list" style="display:flex; flex-direction:column; gap:8px;">
-            <div style="font-size:0.8rem; color:var(--clr-text-muted);">${t('set.share_loading_members')}</div>
+            <div style="font-size:0.8rem; color:var(--clr-text-muted);">Cargando miembros...</div>
           </div>
         </div>
         
         <button class="btn-danger" style="width:100%; justify-content:center; margin-top:8px;" onclick="handleLeaveFamily()">
-          ${t('set.share_leave_btn')}
+          🚪 Salir de la Empresa
         </button>
       </div>
     `;
@@ -1330,27 +1293,27 @@ function renderFamilySection() {
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:12px;">
         <p style="font-size:0.8rem; color:var(--clr-text-muted);">
-          ${t('set.share_no_family_desc')}
+          Crea una empresa para compartir tu base de datos con otros miembros, o únete a una empresa existente usando su código de 10 dígitos.
         </p>
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
           <button class="btn-primary" style="justify-content:center; font-size:0.85rem;" onclick="handleCreateFamily()">
-            ${t('set.share_create_btn')}
+            ➕ Crear Empresa
           </button>
           <button class="btn-secondary" style="justify-content:center; font-size:0.85rem;" onclick="showJoinFamilyInput()">
-            ${t('set.share_join_btn')}
+            🔑 Unirse a Empresa
           </button>
         </div>
         
         <div id="join-family-box" style="display:none; margin-top:8px; padding-top:12px; border-top:1px solid var(--clr-border);">
           <div class="form-group" style="margin-bottom:8px;">
-            <label class="form-label" style="font-size:0.75rem;">${t('set.share_join_code_lbl')}</label>
+            <label class="form-label" style="font-size:0.75rem;">Código de Empresa (10 dígitos)</label>
             <input id="join-family-code-input" type="text" class="form-input" placeholder="Ej: 1234567890" maxlength="10" 
                    oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn-primary" style="flex:1; justify-content:center; padding:6px 12px; font-size:0.82rem;" onclick="submitJoinFamily()">${t('set.share_join_submit_btn')}</button>
-            <button class="btn-secondary" style="padding:6px 12px; font-size:0.82rem;" onclick="hideJoinFamilyInput()">${t('btn.cancel')}</button>
+            <button class="btn-primary" style="flex:1; justify-content:center; padding:6px 12px; font-size:0.82rem;" onclick="submitJoinFamily()">Unirse</button>
+            <button class="btn-secondary" style="padding:6px 12px; font-size:0.82rem;" onclick="hideJoinFamilyInput()">Cancelar</button>
           </div>
         </div>
       </div>
@@ -1713,7 +1676,7 @@ function renderSubscriptionSettings() {
   const container = document.getElementById('settings-subscription-container');
   if (!container) return;
 
-  if (typeof getDeviceUUID !== 'function') {
+  if (typeof getSubscriptionState !== 'function' || typeof getDeviceUUID !== 'function') {
     container.innerHTML = `<p style="font-size:0.8rem; color:var(--clr-text-muted);">Módulo de seguridad no cargado.</p>`;
     return;
   }
@@ -1721,15 +1684,38 @@ function renderSubscriptionSettings() {
   const deviceUuid = getDeviceUUID();
 
   container.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:12px; font-size:0.8rem;">
-      <div class="settings-item" style="padding:4px 0; flex-direction:column; align-items:flex-start; gap:4px;">
-        <span class="settings-item-label" style="font-size:0.75rem; font-weight:600; color:var(--clr-text-secondary);">ID de Dispositivo (Firma de Seguridad)</span>
-        <span class="settings-item-value" style="font-family:monospace; font-size:0.85rem; overflow-wrap:break-word; width:100%; color:var(--clr-text);">
+    <div style="display:flex; flex-direction:column; gap:4px; font-size:0.8rem;">
+      <div class="settings-item" style="padding:4px 0; border:none; flex-direction:column; align-items:flex-start; gap:4px;">
+        <span class="settings-item-label" style="font-size:0.75rem; color:var(--clr-text-muted);">ID de Dispositivo (Firma de Seguridad)</span>
+        <span class="settings-item-value" style="font-family:monospace; font-size:0.8rem; overflow-wrap:break-word; width:100%; color:#22c55e; font-weight:700; margin-top:2px;">
           ${deviceUuid}
         </span>
       </div>
     </div>
   `;
+}
+
+function triggerSubscriptionRenewal() {
+  const confirmation = confirm("¿Deseas renovar o cambiar tu plan de suscripción?\n\nEsto te redirigirá a la pasarela de planes.");
+  if (!confirmation) return;
+
+  const state = getSubscriptionState();
+  state.plan = null; // Clear active plan to trigger paywall
+  state.expiresAt = 0;
+  saveSubscriptionState(state);
+
+  window.location.reload();
+}
+
+function triggerDeviceUnlink() {
+  const confirmation = confirm("¿Estás seguro de que deseas desvincular esta cuenta de este dispositivo?\n\nLa sesión se cerrará y deberás reactivar la licencia en otro dispositivo.");
+  if (!confirmation) return;
+
+  const state = getSubscriptionState();
+  state.registeredDeviceId = ''; // Clear registered device ID
+  saveSubscriptionState(state);
+
+  handleLogout(); // logs out the user
 }
 
 // =============================================
@@ -1781,29 +1767,15 @@ function toggleModule(moduleId, isEnabled) {
 
 function renderModulesChecklist() {
   const config = getModuleConfig();
-  const iconMap = {
-    bitacoras: '🚛',
-    facturas: '🧾',
-    codigos: '🏷️',
-    clientes: '👥',
-    ingresos: '📈',
-    egresos: '📉'
-  };
-
-  return TOGGLEABLE_MODULES.map(m => {
-    const labelText = m.id === 'ecologia' 
-      ? t('page.ecologia') 
-      : `${iconMap[m.id] || ''} ${t('nav.' + m.id) || t('page.' + m.id) || m.label}`;
-
-    return `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.05);">
-        <span style="font-size:0.9rem; font-weight:600;">${labelText}</span>
-        <label class="toggle-switch">
-          <input type="checkbox" ${config[m.id] ? 'checked' : ''} onchange="toggleModule('${m.id}', this.checked)" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>`;
-  }).join('');
+  return TOGGLEABLE_MODULES.map(m => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.05);">
+      <span style="font-size:0.9rem; font-weight:600;">${m.label}</span>
+      <label class="toggle-switch">
+        <input type="checkbox" ${config[m.id] ? 'checked' : ''} onchange="toggleModule('${m.id}', this.checked)" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  `).join('');
 }
 
 function applyModuleVisibility() {

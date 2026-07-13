@@ -41,7 +41,7 @@ function renderCategoryBreakdown(entries, isIncome) {
       return `
       <div style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:4px;">
-          <span style="font-weight:600;">${cat}</span>
+          <span style="font-weight:600;">${t('cat.' + cat) || cat}</span>
           <span style="color:var(--clr-text-muted);">${formatMoney(amt)} <span style="font-size:0.75rem;">(${pct}%)</span></span>
         </div>
         <div style="background:var(--clr-surface-3);border-radius:4px;height:7px;overflow:hidden;">
@@ -51,7 +51,7 @@ function renderCategoryBreakdown(entries, isIncome) {
     }).join('');
   return `
     <div class="card" style="margin-bottom:16px;">
-      <h3 class="section-title" style="margin-bottom:14px;font-size:0.95rem;">📊 Por categoría</h3>
+      <h3 class="section-title" style="margin-bottom:14px;font-size:0.95rem;">📊 ${t('fin.by_category')}</h3>
       ${rows}
     </div>`;
 }
@@ -95,12 +95,12 @@ function renderIngresosPage(container) {
           <div class="form-group">
             <label class="form-label">${t('lbl.category')}</label>
             <select id="inc-category" class="form-select">
-              ${INCOME_CATEGORIES_KEYS.map(c => `<option>${c}</option>`).join('')}
+              ${INCOME_CATEGORIES_KEYS.map(c => `<option value="${c}">${t('cat.' + c)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">${t('lbl.notes')} (opcional)</label>
-            <input id="inc-notes" type="text" class="form-input" placeholder="Observaciones..." />
+            <label class="form-label">${t('lbl.notes')} (${t('fin.optional')})</label>
+            <input id="inc-notes" type="text" class="form-input" placeholder="${t('fin.observations_ph')}" />
           </div>
           <button type="submit" class="btn-primary">${t('inc.btn')}</button>
         </form>
@@ -178,12 +178,12 @@ function renderEgresosPage(container) {
           <div class="form-group">
             <label class="form-label">${t('lbl.category')}</label>
             <select id="exp-category" class="form-select">
-              ${EXPENSE_CATEGORIES_KEYS.map(c => `<option>${c}</option>`).join('')}
+              ${EXPENSE_CATEGORIES_KEYS.map(c => `<option value="${c}">${t('cat.' + c)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">${t('lbl.notes')} (opcional)</label>
-            <input id="exp-notes" type="text" class="form-input" placeholder="Observaciones..." />
+            <label class="form-label">${t('lbl.notes')} (${t('fin.optional')})</label>
+            <input id="exp-notes" type="text" class="form-input" placeholder="${t('fin.observations_ph')}" />
           </div>
           <button type="submit" class="btn-primary" style="background:linear-gradient(135deg,#ef4444,#b91c1c);box-shadow:0 4px 15px rgba(239,68,68,0.3);">${t('exp.btn')}</button>
         </form>
@@ -239,7 +239,7 @@ function renderFinanceList(entries, type) {
       <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--clr-surface-3);border-radius:var(--r-sm);border:1px solid var(--clr-border);">
         <div style="flex:1;min-width:0;">
           <div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.concept}</div>
-          <div style="font-size:0.75rem;color:var(--clr-text-muted);">${formatDate(e.date)} &bull; ${e.category || '—'}${e.notes ? ' &bull; ' + e.notes : ''}</div>
+          <div style="font-size:0.75rem;color:var(--clr-text-muted);">${formatDate(e.date)} &bull; ${(t('cat.' + e.category) !== 'cat.' + e.category ? t('cat.' + e.category) : e.category) || '—'}${e.notes ? ' &bull; ' + e.notes : ''}</div>
         </div>
         <div style="font-weight:700;color:${isIncome ? 'var(--clr-primary-light)' : '#f87171'};white-space:nowrap;">
           ${isIncome ? '+' : '-'}${formatMoney(e.amount, e.currency || 'DOP')}

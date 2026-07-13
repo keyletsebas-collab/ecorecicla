@@ -107,19 +107,110 @@ const colabStyles = `
     grid-template-columns: 1fr 1fr;
     gap: 20px;
   }
+  .colab-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 30px;
+    border-top: 1px solid var(--clr-border);
+    padding-top: 20px;
+  }
   @media (max-width: 768px) {
     .colab-grid-2 {
       grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .colab-card-wrapper {
+      padding: 14px 12px !important;
+    }
+    .colab-tabs-container {
+      flex-wrap: wrap !important;
+      gap: 6px !important;
+      margin-bottom: 18px !important;
+      border-bottom: none !important;
+    }
+    .colab-tab-btn {
+      padding: 6px 10px !important;
+      font-size: 0.76rem !important;
+      border-radius: 4px !important;
+      border: 1px solid var(--clr-border) !important;
+      background: rgba(255,255,255,0.03) !important;
+    }
+    .colab-tab-btn.active {
+      background: rgba(16, 185, 129, 0.1) !important;
+      border-color: var(--clr-primary-light) !important;
+    }
+    .colab-form-actions {
+      justify-content: space-between !important;
+      gap: 8px !important;
+      margin-top: 20px !important;
+      padding-top: 15px !important;
+    }
+    .colab-form-actions button {
+      flex: 1 !important;
+      padding: 8px 10px !important;
+      font-size: 0.78rem !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
+    }
+    
+    /* Responsive table to block cards */
+    .colab-data-table, .colab-data-table thead, .colab-data-table tbody, .colab-data-table th, .colab-data-table td, .colab-data-table tr {
+      display: block !important;
+      width: 100% !important;
+      min-width: 100% !important;
+    }
+    .colab-data-table thead {
+      display: none !important;
+    }
+    .colab-data-table tr {
+      border: 1px solid var(--clr-border) !important;
+      border-radius: var(--r-md, 8px) !important;
+      margin-bottom: 14px !important;
+      background: var(--clr-surface-3) !important;
+      padding: 10px 14px !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .colab-data-table td {
+      border: none !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+      position: relative !important;
+      padding: 12px 10px 12px 45% !important;
+      text-align: right !important;
+      white-space: normal !important;
+      min-height: 44px;
+      display: flex !important;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .colab-data-table td:last-child {
+      border-bottom: 0 !important;
+      justify-content: center !important;
+      padding-left: 10px !important;
+    }
+    .colab-data-table td::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 12px;
+      width: 40%;
+      text-align: left;
+      font-weight: 600;
+      color: var(--clr-text-muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
   }
 </style>
 `;
 
 async function renderCollaboratorsPage(container) {
-  // Asegurar que los estilos estén cargados
-  if (!document.getElementById('colab-custom-styles')) {
-    document.head.insertAdjacentHTML('beforeend', colabStyles);
+  // Asegurar que los estilos estén cargados y actualizados
+  const existingStyles = document.getElementById('colab-custom-styles');
+  if (existingStyles) {
+    existingStyles.remove();
   }
+  document.head.insertAdjacentHTML('beforeend', colabStyles);
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   const familyId = session.familyId;
@@ -179,14 +270,14 @@ function showColabsList() {
                placeholder="${isEn ? 'Search by name, ID or code...' : 'Buscar por nombre, cédula o código...'}" 
                value="${currentSearchQuery}"
                oninput="handleSearchCollaborators(this.value)" 
-               style="width:100%; padding-left:36px; background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:6px; font-size:0.85rem; height:38px;" />
+               style="width:100%; padding-left:36px !important; background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:6px; font-size:0.85rem; height:38px;" />
       </div>
     </div>
 
     <!-- Tabla -->
     <div class="card card--elevated" style="padding:0; overflow:hidden;">
       <div style="overflow-x: auto;">
-        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+        <table class="colab-data-table" style="width:100%; min-width:650px; border-collapse:collapse; font-size:0.85rem; white-space:nowrap;">
           <thead>
             <tr style="background:var(--clr-surface-2); border-bottom:1px solid var(--clr-border);">
               <th style="text-align:left; padding:12px 16px;">${isEn ? 'Code' : 'Código'}</th>
@@ -263,16 +354,16 @@ function renderCollaboratorsTable() {
     
     html += `
       <tr style="border-bottom:1px solid var(--clr-border);">
-        <td style="padding:14px 16px; font-weight:600; font-family:monospace; color:var(--clr-text-secondary);">${c.code || 'EMPL-00000'}</td>
-        <td style="padding:14px 16px; color:var(--clr-text);">${c.cedula || '000-0000000-0'}</td>
-        <td style="padding:14px 16px; font-weight:600; color:var(--clr-text); text-transform: capitalize;">${c.name || 'Sin nombre'}</td>
-        <td style="padding:14px 16px; color:var(--clr-text-secondary);">${c.role || 'Operario'}</td>
-        <td style="padding:14px 16px;">
+        <td data-label="${isEn ? 'Code' : 'Código'}" style="padding:14px 16px; font-weight:600; font-family:monospace; color:var(--clr-text-secondary);">${c.code || 'EMPL-00000'}</td>
+        <td data-label="${isEn ? 'National ID' : 'Cédula'}" style="padding:14px 16px; color:var(--clr-text);">${c.cedula || '000-0000000-0'}</td>
+        <td data-label="${isEn ? 'Full Name' : 'Nombre Completo'}" style="padding:14px 16px; font-weight:600; color:var(--clr-text); text-transform: capitalize;">${c.name || 'Sin nombre'}</td>
+        <td data-label="${isEn ? 'Position' : 'Cargo'}" style="padding:14px 16px; color:var(--clr-text-secondary);">${c.role || 'Operario'}</td>
+        <td data-label="${isEn ? 'Status & Situation' : 'Estado y Situación'}" style="padding:14px 16px;">
           <span class="badge" style="background-color:rgba(${hexToRgb(badgeColor)}, 0.15); color:${badgeColor}; font-size:0.75rem; padding:4px 8px; border-radius:4px; font-weight:700;">
             ${statusText}
           </span>
         </td>
-        <td style="padding:14px 16px; text-align:center; display:flex; justify-content:center; gap:8px;">
+        <td data-label="${isEn ? 'Actions' : 'Acciones'}" style="padding:14px 16px; text-align:center; display:flex; justify-content:center; gap:8px;">
           ${hasEditPermissions ? `
           <button class="btn-icon" onclick="showColabForm(${originalIndex})" style="background:transparent; border:none; cursor:pointer; color:var(--clr-primary-light); font-size:1.1rem; padding:4px;" title="Editar">
             ✏️
@@ -380,7 +471,7 @@ async function showColabForm(colabIndex = null) {
     </div>
 
     <!-- Contenedor del Formulario con Pestañas -->
-    <div class="card card--elevated" style="padding:24px;">
+    <div class="card card--elevated colab-card-wrapper" style="padding:24px;">
       
       <!-- Pestañas -->
       <div class="colab-tabs-container">
@@ -551,11 +642,11 @@ async function showColabForm(colabIndex = null) {
         </div>
 
         <!-- Botones de Acción Formulario -->
-        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:40px; border-top:1px solid var(--clr-border); padding-top:20px;">
-          <button type="button" class="btn-secondary" onclick="showColabsList()" style="gap:6px; padding:10px 20px; font-weight:600; font-size:0.9rem;">
+        <div class="colab-form-actions">
+          <button type="button" class="btn-secondary" onclick="showColabsList()" style="gap:6px; font-weight:600;">
             ❌ ${isEn ? 'Cancel' : 'Cancelar'}
           </button>
-          <button type="button" class="btn-primary" onclick="saveCollaborator()" style="background-color:var(--clr-primary-light); color:#0a0f1d; gap:6px; padding:10px 24px; font-weight:700; font-size:0.9rem;">
+          <button type="button" class="btn-primary" onclick="saveCollaborator()" style="background-color:var(--clr-primary-light); color:#0a0f1d; gap:6px; font-weight:700;">
             💾 ${isEn ? 'Save' : 'Guardar'}
           </button>
         </div>
