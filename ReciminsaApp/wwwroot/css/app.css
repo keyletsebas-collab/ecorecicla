@@ -1117,16 +1117,51 @@
         zoom: 1.176 !important;
     }
 
-    /* Scoped compact layout configuration for Ajustes, Ingresos and Egresos */
+    /* Scoped block layout configuration for Ajustes, Ingresos and Egresos */
     .settings-grid,
     .finance-grid {
-        gap: 12px !important;
+        display: block !important;
+        width: 100% !important;
+    }
+    
+    .settings-grid > *,
+    .finance-grid > * {
+        display: block !important;
+        width: 100% !important;
+        margin-bottom: var(--sp-lg) !important;
     }
     
     .settings-grid .card,
     .finance-grid .card {
         padding: 12px !important;
         border-radius: var(--r-md) !important;
+        display: block !important;
+        width: 100% !important;
+    }
+    
+    /* Ensure form rows inside settings and finance display as clean blocks on mobile */
+    .settings-grid .form-row,
+    .finance-grid .form-row,
+    .settings-grid div[style*="grid-template-columns"],
+    .finance-grid div[style*="grid-template-columns"] {
+        display: block !important;
+        width: 100% !important;
+    }
+    
+    .settings-grid .form-row > *,
+    .finance-grid .form-row > *,
+    .settings-grid div[style*="grid-template-columns"] > *,
+    .finance-grid div[style*="grid-template-columns"] > * {
+        display: block !important;
+        width: 100% !important;
+        margin-bottom: 12px !important;
+    }
+    
+    .settings-grid .form-row > *:last-child,
+    .finance-grid .form-row > *:last-child,
+    .settings-grid div[style*="grid-template-columns"] > *:last-child,
+    .finance-grid div[style*="grid-template-columns"] > *:last-child {
+        margin-bottom: 0 !important;
     }
     
     .settings-section-title,
