@@ -60,9 +60,9 @@ async function syncSubscriptionToSupabase(state) {
         const session = JSON.parse(sessionStr);
         if (!session.accountId) return;
 
-        // The landing page expects the name column to have "Name | SUB:plan_id | EXP:timestamp"
+        // Save username alongside Device ID: "Name | DEV:Device-UUID"
         const cleanName = (session.name || 'Usuario').split(' | ')[0].trim();
-        const newFormattedName = `${cleanName} | SUB:${state.plan || 'none'} | EXP:${state.expiresAt || 0}`;
+        const newFormattedName = `${cleanName} | DEV:${getDeviceUUID()}`;
 
         const { error } = await supabaseClient
             .from('profiles')

@@ -234,10 +234,9 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
-      <!-- ===== SUSCRIPCIÓN Y LICENCIA (ANTI-CLONACIÓN) ===== -->
-      <!-- Oculto temporalmente porque el sistema de cobro está archivado -->
-      <div class="card card--elevated settings-section" style="display: none;">
-        <h3 class="settings-section-title">💳 Suscripción y Licencia</h3>
+      <!-- ===== FIRMA DE SEGURIDAD DEL DISPOSITIVO ===== -->
+      <div class="card card--elevated settings-section">
+        <h3 class="settings-section-title">📱 Firma de Dispositivo</h3>
         <div id="settings-subscription-container">
           <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
         </div>
@@ -1714,111 +1713,23 @@ function renderSubscriptionSettings() {
   const container = document.getElementById('settings-subscription-container');
   if (!container) return;
 
-  if (typeof getSubscriptionState !== 'function' || typeof getDeviceUUID !== 'function') {
+  if (typeof getDeviceUUID !== 'function') {
     container.innerHTML = `<p style="font-size:0.8rem; color:var(--clr-text-muted);">Módulo de seguridad no cargado.</p>`;
     return;
   }
 
-  const state = getSubscriptionState();
   const deviceUuid = getDeviceUUID();
-
-  const planNames = {
-    mensual: 'Plan Mensual (30 Días)',
-    anual: 'Plan Anual (1 Año)',
-    lifetime: 'Plan De Por Vida (Lifetime)'
-  };
-
-  const planName = state.plan ? (planNames[state.plan] || state.plan) : 'Sin Suscripción Activa';
-  
-  let expiresLabel = 'Expirado';
-  let daysRemainingLabel = '';
-  
-  if (state.expiresAt === 'lifetime') {
-    expiresLabel = 'De por vida (Acceso Ilimitado)';
-  } else if (state.expiresAt > 0) {
-    const date = new Date(state.expiresAt);
-    expiresLabel = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    const diff = state.expiresAt - Date.now();
-    const days = Math.ceil(diff / (24 * 3600 * 1000));
-    if (days > 0) {
-      daysRemainingLabel = `<span class="badge badge--green" style="font-size:0.7rem; padding: 2px 6px;">${days} días restantes</span>`;
-    } else {
-      daysRemainingLabel = `<span class="badge badge--red" style="font-size:0.7rem; padding: 2px 6px;">Expirado</span>`;
-    }
-  }
 
   container.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:12px; font-size:0.8rem;">
-      <div class="settings-item" style="padding:4px 0;">
-        <span class="settings-item-label">Plan Activo</span>
-        <span class="settings-item-value" style="font-weight:700; color:#22c55e;">
-          ${planName}
-        </span>
-      </div>
-      
-      <div class="settings-item" style="padding:4px 0;">
-        <span class="settings-item-label">Fecha de Vencimiento</span>
-        <span class="settings-item-value" style="font-weight:600; display:flex; align-items:center; gap:8px;">
-          <span>${expiresLabel}</span>
-          ${daysRemainingLabel}
-        </span>
-      </div>
-
-      <div class="settings-item" style="padding:4px 0;">
-        <span class="settings-item-label">Centro de Costos</span>
-        <span class="settings-item-value" style="font-family:monospace; font-weight:700;">
-          ${state.costCenter || 'No Configurado'}
-        </span>
-      </div>
-
-      <div class="settings-item" style="padding:4px 0;">
-        <span class="settings-item-label">Código Aplicado</span>
-        <span class="settings-item-value" style="font-family:monospace; font-weight:700; color:#fbbf24;">
-          ${state.promoCode || 'Ninguno'}
-        </span>
-      </div>
-
-      <div class="settings-item" style="padding:4px 0; border-top:1px solid var(--clr-border); padding-top:8px; flex-direction:column; align-items:flex-start; gap:4px;">
-        <span class="settings-item-label" style="font-size:0.7rem; color:var(--clr-text-muted);">ID de Dispositivo (Firma de Seguridad)</span>
-        <span class="settings-item-value" style="font-family:monospace; font-size:0.7rem; overflow-wrap:break-word; width:100%; color:#cbd5e1;">
+      <div class="settings-item" style="padding:4px 0; flex-direction:column; align-items:flex-start; gap:4px;">
+        <span class="settings-item-label" style="font-size:0.75rem; font-weight:600; color:var(--clr-text-secondary);">ID de Dispositivo (Firma de Seguridad)</span>
+        <span class="settings-item-value" style="font-family:monospace; font-size:0.85rem; overflow-wrap:break-word; width:100%; color:var(--clr-text);">
           ${deviceUuid}
         </span>
       </div>
-
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button class="btn-primary" onclick="triggerSubscriptionRenewal()" style="flex:1; justify-content:center; padding:8px; font-size:0.75rem; font-weight:700; margin:0;">
-          🔄 Renovar / Cambiar
-        </button>
-        <button class="btn-secondary" onclick="triggerDeviceUnlink()" style="flex:1; justify-content:center; padding:8px; font-size:0.75rem; font-weight:700; border-color:#ef4444; color:#ef4444; background:rgba(239,68,68,0.05); margin:0;">
-          🔓 Desvincular Cuenta
-        </button>
-      </div>
     </div>
   `;
-}
-
-function triggerSubscriptionRenewal() {
-  const confirmation = confirm("¿Deseas renovar o cambiar tu plan de suscripción?\n\nEsto te redirigirá a la pasarela de planes.");
-  if (!confirmation) return;
-
-  const state = getSubscriptionState();
-  state.plan = null; // Clear active plan to trigger paywall
-  state.expiresAt = 0;
-  saveSubscriptionState(state);
-
-  window.location.reload();
-}
-
-function triggerDeviceUnlink() {
-  const confirmation = confirm("¿Estás seguro de que deseas desvincular esta cuenta de este dispositivo?\n\nLa sesión se cerrará y deberás reactivar la licencia en otro dispositivo.");
-  if (!confirmation) return;
-
-  const state = getSubscriptionState();
-  state.registeredDeviceId = ''; // Clear registered device ID
-  saveSubscriptionState(state);
-
-  handleLogout(); // logs out the user
 }
 
 // =============================================
