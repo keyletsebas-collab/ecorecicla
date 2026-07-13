@@ -1111,6 +1111,63 @@
     body {
         zoom: 0.85 !important;
     }
+    
+    /* Counteract body zoom for sidebar to keep it at original size */
+    .sidebar {
+        zoom: 1.176 !important;
+    }
+
+    /* Scoped compact layout configuration for Ajustes, Ingresos and Egresos */
+    .settings-grid,
+    .finance-grid {
+        gap: 12px !important;
+    }
+    
+    .settings-grid .card,
+    .finance-grid .card {
+        padding: 12px !important;
+        border-radius: var(--r-md) !important;
+    }
+    
+    .settings-section-title,
+    .finance-grid .section-title {
+        font-size: 0.84rem !important;
+        margin-bottom: 12px !important;
+        padding-bottom: 8px !important;
+    }
+    
+    .settings-item {
+        gap: 6px;
+        padding: 8px 0;
+    }
+    
+    .settings-item-label, 
+    .settings-item-value,
+    .settings-grid .form-label,
+    .finance-grid .form-label {
+        font-size: 0.78rem !important;
+    }
+    
+    .settings-grid .form-input, 
+    .settings-grid .form-select,
+    .finance-grid .form-input,
+    .finance-grid .form-select {
+        font-size: 0.78rem !important;
+        padding: 8px 10px !important;
+        height: auto !important;
+    }
+    
+    .settings-grid .btn-primary, 
+    .settings-grid .btn-secondary, 
+    .settings-grid .btn-danger,
+    .finance-grid .btn-primary,
+    .finance-grid .btn-secondary,
+    .finance-grid .btn-danger {
+        padding: 8px 12px !important;
+        font-size: 0.78rem !important;
+        min-height: auto !important;
+    }
+    
     /* Make language and currency options fit perfectly in columns */
     .lang-options {
         display: grid !important;
