@@ -49,7 +49,7 @@ function updateMaterialCode(id, name, code) {
   if (dup) { showToast(t('err.dup_code'), 'error'); return; }
   codes[idx] = { ...codes[idx], name, code: code.toUpperCase() };
   saveCustomCodes(codes);
-  showToast(t('toast.code_updated'), 'success');
+  showToast('✅ Código actualizado', 'success');
 }
 
 // =============================================
@@ -102,7 +102,7 @@ function renderCodigosPage(container) {
 
 function renderCustomCodesList(codes) {
   if (codes.length === 0) {
-    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">${t('mat.no_codes')}</p>`;
+    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">No tienes códigos creados.</p>`;
   }
 
   return codes.map(c => `
@@ -138,7 +138,7 @@ function showEditRow(id, currentName, currentCode) {
            onkeydown="if(event.key==='Enter') saveEditRow('${id}')" />
     <div style="display:flex;gap:6px;margin-left:auto;">
       <button class="btn-primary" style="padding:6px 14px;font-size:0.82rem;"
-              onclick="saveEditRow('${id}')">✓ ${t('btn.save')}</button>
+              onclick="saveEditRow('${id}')">✓ Guardar</button>
       <button class="btn-secondary" style="padding:6px 10px;font-size:0.82rem;"
               onclick="cancelEditRow()">✕</button>
     </div>
@@ -186,7 +186,7 @@ function handleAddCode() {
 }
 
 function handleDeleteCode(id) {
-  if (!confirm(t('confirm.del_code'))) return;
+  if (!confirm('¿Eliminar este código?')) return;
   deleteMaterialCode(id);
   const listEl = document.getElementById('custom-codes-list');
   if (listEl) {

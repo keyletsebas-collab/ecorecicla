@@ -11,11 +11,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet" />
-  <link rel="stylesheet" href="css/main.css?v=35" />
-  <link rel="stylesheet" href="css/auth.css?v=35" />
-  <link rel="stylesheet" href="css/app.css?v=35" />
-  <link rel="stylesheet" href="css/index.css?v=35">
-  <link rel="stylesheet" href="css/chatbot.css?v=35">
+  <link rel="stylesheet" href="css/main.css?v=31" />
+  <link rel="stylesheet" href="css/auth.css?v=31" />
+  <link rel="stylesheet" href="css/app.css?v=31" />
+  <link rel="stylesheet" href="css/index.css?v=31">
+  <link rel="stylesheet" href="css/chatbot.css?v=31">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#22c55e">
   <link rel="icon" type="image/png" href="icon-192.png">
@@ -24,17 +24,35 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Reciminsaap">
   <script>
-    // Force clear all Cache Storage on load to prevent cached old JS/CSS files
-    if ('caches' in window) {
-      caches.keys().then(keys => {
-        keys.forEach(k => caches.delete(k));
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          // 1. Unregister ALL old service workers to wipe broken cached versions
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const reg of registrations) {
+            const swUrl = reg.active?.scriptURL || '';
+            // Only force-kill if it's an old cache version
+            if (!swUrl.includes('service-worker.js') || await isOldSW(reg)) {
+              await reg.unregister();
+              console.log('🧹 Old SW removed:', swUrl);
+            }
+          }
+        } catch(e) { /* ignore */ }
+
+        // 2. Register the fresh service worker
+        navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
+          .then(reg => {
+            console.log('✅ SW Registered (v23)', reg);
+            reg.update();
+          })
+          .catch(err => console.warn('SW Error', err));
       });
     }
-    // Force unregister all service workers
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => r.unregister());
-      });
+    async function isOldSW(reg) {
+      try {
+        const keys = await caches.keys();
+        return keys.some(k => k.startsWith('reciminsa-') && !k.startsWith('reciminsaap-v23'));
+      } catch { return false; }
     }
   </script>
 </head>
@@ -277,13 +295,7 @@
           <span></span><span></span><span></span>
         </button>
         <h2 class="topbar-title" id="topbar-title">Historial</h2>
-        <div class="topbar-date-wrapper" style="display:flex; align-items:center; gap:12px;">
-          <button id="quick-lang-toggle" onclick="toggleLanguageQuickly()" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; display:flex; align-items:center; gap:6px; background:var(--clr-surface-2); border-color:var(--clr-border); cursor:pointer; height:32px; border-radius:6px; border:1px solid var(--clr-border);">
-            <span id="quick-lang-flag">🇪🇸</span>
-            <span id="quick-lang-label" style="font-weight:600; color:var(--clr-text-secondary);">ES</span>
-          </button>
-          <div class="topbar-date" id="topbar-date"></div>
-        </div>
+        <div class="topbar-date" id="topbar-date"></div>
       </header>
 
       <!-- Pages -->
@@ -329,34 +341,34 @@
   <!-- Scripts (External Libraries) -->
   <script src="js/html2pdf.bundle.min.js"></script>
   <script src="js/jspdf.umd.min.js"></script>
-  <script src="js/xlsx.bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
   <!-- Scripts (Supabase SDK & App Logic) -->
-  <script src="js/supabase.js"></script>
-  <script src="js/supabase-config.js?v=35"></script>
-  <script src="js/default-logo.js?v=35"></script>
-  <script src="js/pdf-utils.js?v=35"></script>
-  <script src="js/i18n.js?v=35"></script>
-  <script src="js/auth.js?v=35"></script>
-  <script src="js/security.js?v=35"></script>
-  <script src="js/materials.js?v=35"></script>
-  <script src="js/clients.js?v=35"></script>
-  <script src="js/collaborators.js?v=35"></script>
-  <script src="js/bitacoras.js?v=35"></script>
-  <script src="js/dgii-api.js?v=35"></script>
-  <script src="js/invoices.js?v=35"></script>
-  <script src="js/history.js?v=35"></script>
-  <script src="js/finance.js?v=35"></script>
-  <script src="js/settings.js?v=35"></script>
-  <script src="js/superadmin.js?v=35"></script>
-  <script src="js/ecology.js?v=35"></script>
-  <script src="js/sidebar.js?v=35"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js?v=31"></script>
+  <script src="js/default-logo.js?v=31"></script>
+  <script src="js/pdf-utils.js?v=31"></script>
+  <script src="js/i18n.js?v=31"></script>
+  <script src="js/auth.js?v=31"></script>
+  <script src="js/security.js?v=31"></script>
+  <script src="js/materials.js?v=31"></script>
+  <script src="js/clients.js?v=31"></script>
+  <script src="js/collaborators.js?v=31"></script>
+  <script src="js/bitacoras.js?v=31"></script>
+  <script src="js/dgii-api.js?v=31"></script>
+  <script src="js/invoices.js?v=31"></script>
+  <script src="js/history.js?v=31"></script>
+  <script src="js/finance.js?v=31"></script>
+  <script src="js/settings.js?v=31"></script>
+  <script src="js/superadmin.js?v=31"></script>
+  <script src="js/ecology.js?v=31"></script>
+  <script src="js/sidebar.js?v=31"></script>
 
 
-  <script src="js/excel-utils.js?v=35"></script>
-  <script src="js/app.js?v=35"></script>
-  <script src="js/sync.js?v=35"></script>
-  <script src="js/chatbot.js?v=35"></script>
+  <script src="js/excel-utils.js?v=31"></script>
+  <script src="js/app.js?v=31"></script>
+  <script src="js/sync.js?v=31"></script>
+  <script src="js/chatbot.js?v=31"></script>
 </body>
 
 </html>

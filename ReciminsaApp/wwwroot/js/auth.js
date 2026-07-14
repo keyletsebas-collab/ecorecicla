@@ -479,10 +479,9 @@ async function handleVerifySignup(evt) {
   try {
     const accountId = `ACC-${Date.now()}`;
     const securePassword = await hashPasswordSHA256(pending.password);
-    const deviceIdSuffix = typeof getDeviceUUID === 'function' ? ` | DEV:${getDeviceUUID()}` : '';
     const newProfile = {
       id: accountId,
-      name: pending.name + deviceIdSuffix,
+      name: pending.name,
       email: pending.email,
       password: securePassword,
       avatar: pending.name[0].toUpperCase(),
@@ -498,7 +497,7 @@ async function handleVerifySignup(evt) {
     if (insertError) throw insertError;
 
     const session = {
-      name: pending.name + deviceIdSuffix,
+      name: pending.name,
       email: pending.email,
       avatar: pending.name[0].toUpperCase(),
       provider: 'email',

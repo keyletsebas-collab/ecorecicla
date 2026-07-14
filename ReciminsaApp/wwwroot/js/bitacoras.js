@@ -46,25 +46,25 @@ function renderCountTab() {
   return `
     <div class="stats-grid" style="margin-bottom:24px;">
       <div class="stat-card">
-        <div class="stat-label">${t('bit.total_records')}</div>
+        <div class="stat-label">Total Registros</div>
         <div class="stat-value stat-value--green">${basicInvoices.length}</div>
-        <div class="stat-sub">${t('bit.logs_created')}</div>
+        <div class="stat-sub">Bitácoras creadas</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">${t('bit.total_invested')}</div>
+        <div class="stat-label">Total Invertido</div>
         <div class="stat-value stat-value--blue">${formatMoney(basicInvoices.reduce((s,i) => s + (i.totalCompra||0), 0))}</div>
-        <div class="stat-sub">${t('bit.purchase_cost')}</div>
+        <div class="stat-sub">Costo de compra</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">${t('bit.projected_sales')}</div>
+        <div class="stat-label">Total Proyectado (Venta)</div>
         <div class="stat-value stat-value--green">${formatMoney(grandTotal)}</div>
-        <div class="stat-sub">${t('bit.gross_sales')}</div>
+        <div class="stat-sub">Venta bruta estimada</div>
       </div>
     </div>
 
     <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
       <button class="btn-secondary" onclick="exportBitacorasListToExcel(getAllInvoices().filter(i => i.type === 'basica'))">
-        ${t('bit.export_excel')}
+        📊 Exportar Bitácora a Excel
       </button>
     </div>
 
@@ -76,9 +76,9 @@ function renderCountTab() {
           <thead>
             <tr>
               <th>${t('inv.col_mat')}</th>
-              <th>${t('bit.accum_qty')}</th>
+              <th>Cant. Acumulada</th>
               <th>${t('inv.col_weight')}</th>
-              <th>${t('bit.purchase_cost_inv')}</th>
+              <th>Costo Compra (Inversión)</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -87,7 +87,7 @@ function renderCountTab() {
     </div>` : `
     <div class="empty-state">
       <div class="empty-state-icon">📊</div>
-      <p class="empty-state-text">${t('bit.no_logs_msg')}</p>
+      <p class="empty-state-text">No hay bitácoras registradas.<br>Crea un nuevo registro en <b>Crear Bitácora</b>.</p>
     </div>`}
   `;
 }
@@ -107,7 +107,7 @@ function renderBasicForm() {
         <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label">${t('inv.select_client')}</label>
           <select id="basic-client-select" class="form-select" onchange="autofillBasicClient(this.value)">
-            <option value="">${t('inv.manual_entry')}</option>
+            <option value="">-- Escribir datos manualmente --</option>
           </select>
         </div>
       </div>
@@ -115,7 +115,7 @@ function renderBasicForm() {
       <div class="form-row" style="grid-template-columns: 1fr 1fr;">
         <div class="form-group">
           <label class="form-label">${t('lbl.client')}</label>
-          <input id="basic-client" type="text" class="form-input" placeholder="${t('inv.full_name_ph')}" />
+          <input id="basic-client" type="text" class="form-input" placeholder="Nombre completo" />
         </div>
         <div class="form-group">
           <label class="form-label">${t('lbl.invoice_date')}</label>
@@ -132,7 +132,7 @@ function renderBasicForm() {
            ➕ ${t('lbl.add_material')}
          </button>
          <div id="basic-live-totals" style="text-align:right; font-weight:700; color:var(--clr-primary-light);">
-           ${t('bit.net_balance')}: ${formatMoney(0)}
+           Total Estimado: RD$0.00
          </div>
       </div>
 
@@ -213,34 +213,34 @@ function addBasicEntryRow() {
   
   html.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-      <h4 style="margin:0; font-size:14px; color:var(--clr-text-muted);">${t('bit.item_label')}</h4>
-      <button class="btn-icon" onclick="removeBasicEntryRow('${rowId}')" title="${t('bit.delete_label') || 'Delete'}" style="color:#ef4444;">✕</button>
+      <h4 style="margin:0; font-size:14px; color:var(--clr-text-muted);">Ítem</h4>
+      <button class="btn-icon" onclick="removeBasicEntryRow('${rowId}')" title="Eliminar" style="color:#ef4444;">✕</button>
     </div>
     <div class="form-row" style="grid-template-columns: ${isMobile ? '1fr' : '2fr 1fr'}; margin-bottom:10px;">
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">${t('bit.material_label')}</label>
+        <label class="form-label" style="font-size:12px;">Material</label>
         <select class="form-select row-mat" onchange="const m = getMaterialCodes().find(x=>x.id===this.value); this.closest('.bitacora-row').querySelector('.row-code').value = m?m.code:''; calculateBatchTotals()">
-          <option value="" disabled selected>${t('bit.select_ph')}</option>
+          <option value="" disabled selected>Seleccionar...</option>
           ${options}
         </select>
       </div>
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">${t('bit.code_label')}</label>
+        <label class="form-label" style="font-size:12px;">Código</label>
         <input type="text" class="form-input row-code" readonly style="background:var(--clr-surface); font-family:monospace; font-size:0.8rem;" />
       </div>
     </div>
     
     <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-bottom:10px;">
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">${t('bit.qty_weight')}</label>
+        <label class="form-label" style="font-size:12px;">Cantidad / Peso</label>
         <input type="number" class="form-input row-qty" placeholder="0" min="0" step="0.01" oninput="calculateBatchTotals()" />
       </div>
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">${t('bit.unit_label')}</label>
+        <label class="form-label" style="font-size:12px;">Unidad</label>
         <select class="form-select row-unit">
-          <option value="lb" selected>${t('inv.unit_lb')}</option>
+          <option value="lb" selected>libra</option>
           <option value="kg">kg</option>
-          <option value="unidad">${t('inv.unit_each')}</option>
+          <option value="unidad">unidad</option>
           <option value="litros">litros</option>
           <option value="kilos">kilos</option>
         </select>
@@ -249,11 +249,11 @@ function addBasicEntryRow() {
 
     <div class="form-row" style="grid-template-columns: 1fr 1fr;">
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">${t('bit.buy_cost')} (${getCurrency().symbol})</label>
+        <label class="form-label" style="font-size:12px;">Costo Compra (${getCurrency().symbol})</label>
         <input type="number" class="form-input row-pbuy" placeholder="0" min="0" step="0.1" oninput="calculateBatchTotals()" />
       </div>
       <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" style="font-size:12px;">${t('bit.sell_price')} (${getCurrency().symbol})</label>
+        <label class="form-label" style="font-size:12px;">Prec. Venta (${getCurrency().symbol})</label>
         <input type="number" class="form-input row-psell" placeholder="0" min="0" step="0.1" oninput="calculateBatchTotals()" />
       </div>
     </div>
@@ -389,10 +389,10 @@ function renderBitacorasPage(container) {
 
     <div class="invoice-tabs">
       <button class="invoice-tab bitacora-tab active" id="bit-tab-btn-crear" onclick="switchBitacoraTab('crear')">
-        ➕ ${t('bit.tab_create')}
+        ➕ Crear Bitácora
       </button>
       <button class="invoice-tab bitacora-tab" id="bit-tab-btn-conteo" onclick="switchBitacoraTab('conteo'); refreshBitacoraCountTab()">
-        📊 ${t('bit.tab_count')}
+        📊 Conteo
       </button>
     </div>
 

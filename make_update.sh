@@ -100,8 +100,8 @@ echo "🛠 3. Compilando y empaquetando plataformas..."
 echo "🤖 Compilando Android APK..."
 rm -rf "$ANDROID_DIR/bin" "$ANDROID_DIR/obj"
 cd "$ANDROID_DIR"
-/home/keylet/.dotnet/dotnet publish -f net9.0-android -c Release
-APK_SRC="$ANDROID_DIR/bin/Release/net9.0-android/publish/com.companyname.reciminsaapp-Signed.apk"
+/home/keylet/.dotnet/dotnet publish -f net10.0-android -c Release
+APK_SRC="$ANDROID_DIR/bin/Release/net10.0-android/publish/com.companyname.reciminsaapp-Signed.apk"
 if [ -f "$APK_SRC" ]; then
     cp "$APK_SRC" "$INSTALLER_DIR/com.companyname.reciminsaapp-Signed.apk"
     cp "$APK_SRC" "$INSTALLER_DIR/Instalar_Reciminsa_v${VERSION}_MAUI.apk"

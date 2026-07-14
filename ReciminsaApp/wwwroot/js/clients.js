@@ -15,7 +15,7 @@ function addClient(name, nit, address, contact, type = 'local', isRst = false) {
   const id = `cli-${Date.now()}`;
   clients.push({ id, name, nit, address, contact, type, isRst });
   saveClients(clients);
-  showToast(type === 'empresa' ? t('toast.biz_created') : t('toast.cli_add'), 'success');
+  showToast(type === 'empresa' ? '✅ Empresa creada' : (t('toast.cli_add') || '✅ Cliente creado'), 'success');
   return true;
 }
 
@@ -25,7 +25,7 @@ function deleteClient(id) {
   const isEmp = client && client.type === 'empresa';
   const filtered = clients.filter(c => c.id !== id);
   saveClients(filtered);
-  showToast(isEmp ? t('toast.biz_deleted') : t('toast.cli_del'), 'success');
+  showToast(isEmp ? '🗑 Empresa eliminada' : (t('toast.cli_del') || '🗑 Cliente eliminado'), 'success');
 }
 
 function updateClient(id, name, nit, address, contact, isRst = false) {
@@ -34,7 +34,7 @@ function updateClient(id, name, nit, address, contact, isRst = false) {
   if (idx === -1) return;
   clients[idx] = { ...clients[idx], name, nit, address, contact, isRst };
   saveClients(clients);
-  showToast(t('toast.cli_upd'), 'success');
+  showToast(t('toast.cli_upd') || '✅ Registro actualizado', 'success');
 }
 
 // =============================================
@@ -47,55 +47,55 @@ function renderClientesPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h2 class="section-title">${t('cli.title')}</h2>
-        <p class="section-subtitle">${t('cli.subtitle')}</p>
+        <h2 class="section-title">👥 Directorio de Clientes y Empresas</h2>
+        <p class="section-subtitle">Gestiona y organiza las personas y empresas registradas para facturación.</p>
       </div>
     </div>
 
     <div class="finance-grid">
       <!-- Form -->
       <div class="card card--elevated">
-        <h3 class="section-title" style="margin-bottom:16px;"><span>${t('cli.new_record')}</span></h3>
+        <h3 class="section-title" style="margin-bottom:16px;"><span>➕ Nuevo Registro</span></h3>
         <div style="display:flex;flex-direction:column;gap:14px;">
           
           <div class="form-group">
-            <label class="form-label">${t('cli.record_type')}</label>
+            <label class="form-label">Tipo de Registro</label>
             <select id="cli-type" class="form-input" onchange="handleClientTypeChange(this.value)" style="background-color: var(--clr-surface-3); font-weight: 500;">
-              <option value="local">${t('cli.type_person')}</option>
-              <option value="empresa">${t('cli.type_company')}</option>
+              <option value="local">👤 Persona (Local)</option>
+              <option value="empresa">🏢 Empresa (Crédito Fiscal)</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label" id="lbl-cli-name">${t('cli.name_lbl')}</label>
-            <input id="cli-name" type="text" class="form-input" placeholder="${t('cli.name_ph')}" />
+            <label class="form-label" id="lbl-cli-name">Nombre / Razón Social</label>
+            <input id="cli-name" type="text" class="form-input" placeholder="Nombre completo o Razón Social" />
           </div>
 
           <div class="form-group">
-            <label class="form-label" id="lbl-cli-nit">${t('cli.doc_lbl')}</label>
+            <label class="form-label" id="lbl-cli-nit">RNC o Cédula</label>
             <div style="display:flex; gap: 8px;">
-              <input id="cli-nit" type="text" class="form-input" placeholder="${t('cli.doc_ph')}" style="flex:1;" />
-              <button class="btn-secondary" onclick="autoFillClientDGII()" style="margin:0; padding: 0 15px;" title="${t('inv.rnc_search')}" type="button">🔍</button>
+              <input id="cli-nit" type="text" class="form-input" placeholder="Ej: RNC o Cédula" style="flex:1;" />
+              <button class="btn-secondary" onclick="autoFillClientDGII()" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button">🔍</button>
             </div>
           </div>
 
           <div class="form-group" id="cli-rst-container" style="display:none; flex-direction:column; align-items:center; gap:8px; margin: 4px 0;">
             <input id="cli-rst" type="checkbox" style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--clr-primary);" />
-            <label for="cli-rst" style="font-size: 0.85rem; color: var(--clr-text-secondary); cursor: pointer; text-align: center; font-weight: 500;">${t('cli.rst_lbl')}</label>
+            <label for="cli-rst" style="font-size: 0.85rem; color: var(--clr-text-secondary); cursor: pointer; text-align: center; font-weight: 500;">Acogido al RST (Régimen Simplificado)</label>
           </div>
 
           <div class="form-group">
             <label class="form-label">${t('hist.address')}</label>
-            <input id="cli-address" type="text" class="form-input" placeholder="${t('cli.address_ph')}" />
+            <input id="cli-address" type="text" class="form-input" placeholder="Dirección física o Email" />
           </div>
 
           <div class="form-group">
             <label class="form-label">${t('hist.contact')}</label>
-            <input id="cli-contact" type="text" class="form-input" placeholder="${t('cli.contact_ph')}" />
+            <input id="cli-contact" type="text" class="form-input" placeholder="Teléfono o persona de contacto" />
           </div>
 
           <button class="btn-primary" onclick="handleAddClient()">
-            ${t('cli.save_record')}
+            💾 Guardar Registro
           </button>
         </div>
       </div>
@@ -104,7 +104,7 @@ function renderClientesPage(container) {
       <div>
         <div class="card card--elevated" style="margin-bottom:16px;">
           <h3 class="section-title" style="margin-bottom:12px;font-size:1rem;">
-            ${t('cli.saved_records')}
+            Registros Guardados
             <span class="badge badge--green" style="margin-left:8px;">${allClients.length}</span>
           </h3>
           <div id="clients-list">
@@ -126,7 +126,7 @@ window.handleClientTypeChange = handleClientTypeChange;
 
 function renderClientsList(clients) {
   if (clients.length === 0) {
-    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">${t('cli.no_records')}</p>`;
+    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">Sin clientes ni empresas registradas aún.</p>`;
   }
 
   return clients.map(c => {
@@ -137,15 +137,15 @@ function renderClientsList(clients) {
         <div style="font-weight: 600; font-size: 1rem; color: var(--clr-text); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span>${c.name}</span>
           ${isEmp 
-            ? `<span class="badge badge--blue" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#3b82f6; color:#fff; text-transform:none;">${t('cli.badge_company')}</span>` 
-            : `<span class="badge" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#64748b; color:#fff; text-transform:none;">${t('cli.badge_person')}</span>`}
-          ${c.isRst ? `<span class="badge badge--green" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; text-transform:none;">${t('cli.rst_short_lbl')}</span>` : ''}
+            ? '<span class="badge badge--blue" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#3b82f6; color:#fff; text-transform:none;">🏢 Empresa</span>' 
+            : '<span class="badge" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#64748b; color:#fff; text-transform:none;">👤 Persona</span>'}
+          ${c.isRst ? '<span class="badge badge--green" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; text-transform:none;">RST</span>' : ''}
         </div>
         <div style="font-size: 0.8rem; color: var(--clr-text-muted); margin-top: 4px;">
-          ${c.nit ? `<span style="margin-right: 10px;"><b>${t('cli.id_label')}:</b> ${c.nit}</span>` : ''}
-          ${c.contact ? `<span><b>${t('cli.contact_label')}:</b> ${c.contact}</span>` : ''}
+          ${c.nit ? `<span style="margin-right: 10px;"><b>ID:</b> ${c.nit}</span>` : ''}
+          ${c.contact ? `<span><b>Contacto:</b> ${c.contact}</span>` : ''}
         </div>
-        ${c.address ? `<div style="font-size: 0.8rem; color: var(--clr-text-muted); margin-top: 2px;"><b>${t('cli.address_label')}:</b> ${c.address}</div>` : ''}
+        ${c.address ? `<div style="font-size: 0.8rem; color: var(--clr-text-muted); margin-top: 2px;"><b>Dir:</b> ${c.address}</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;">
         <button class="btn-secondary" style="padding:5px 10px;font-size:0.8rem;"
@@ -170,29 +170,29 @@ function showEditClientRow(id, currentName, currentNit, currentAddress, currentC
     <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
       <div class="form-group" style="margin-bottom:0;">
         <select id="edit-cli-type-${id}" class="form-input" onchange="document.getElementById('edit-cli-rst-container-${id}').style.display = (this.value === 'empresa' ? 'flex' : 'none')" style="background-color: var(--clr-surface-3); font-weight: 500;">
-          <option value="local" ${currentType === 'local' ? 'selected' : ''}>${t('cli.type_person')}</option>
-          <option value="empresa" ${currentType === 'empresa' ? 'selected' : ''}>${t('cli.type_company')}</option>
+          <option value="local" ${currentType === 'local' ? 'selected' : ''}>👤 Persona (Local)</option>
+          <option value="empresa" ${currentType === 'empresa' ? 'selected' : ''}>🏢 Empresa (Crédito Fiscal)</option>
         </select>
       </div>
 
-      <input id="edit-cli-name-${id}" type="text" class="form-input" value="${currentName}" placeholder="${t('cli.name_lbl')}" />
+      <input id="edit-cli-name-${id}" type="text" class="form-input" value="${currentName}" placeholder="Nombre / Razón Social" />
       
       <div style="display:flex; gap: 8px;">
-        <input id="edit-cli-nit-${id}" type="text" class="form-input" value="${currentNit}" placeholder="${t('cli.doc_lbl')}" style="flex:1;" />
-        <button class="btn-secondary" onclick="autoFillEditClientDGII('${id}')" style="margin:0; padding: 0 15px;" title="${t('inv.rnc_search')}" type="button">🔍</button>
+        <input id="edit-cli-nit-${id}" type="text" class="form-input" value="${currentNit}" placeholder="RNC / Cédula" style="flex:1;" />
+        <button class="btn-secondary" onclick="autoFillEditClientDGII('${id}')" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button">🔍</button>
       </div>
       
       <div id="edit-cli-rst-container-${id}" style="display:${currentType === 'empresa' ? 'flex' : 'none'}; align-items:center; gap:8px; margin: 4px 0;">
         <input id="edit-cli-rst-${id}" type="checkbox" ${isRst ? 'checked' : ''} style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--clr-primary);" />
-        <label for="edit-cli-rst-${id}" style="font-size: 0.85rem; color: var(--clr-text-secondary); cursor: pointer; font-weight: 500;">${t('cli.rst_short_lbl')}</label>
+        <label for="edit-cli-rst-${id}" style="font-size: 0.85rem; color: var(--clr-text-secondary); cursor: pointer; font-weight: 500;">Acogido al RST</label>
       </div>
       
-      <input id="edit-cli-address-${id}" type="text" class="form-input" value="${currentAddress}" placeholder="${t('cli.address_ph')}" />
-      <input id="edit-cli-contact-${id}" type="text" class="form-input" value="${currentContact}" placeholder="${t('cli.contact_ph')}" />
+      <input id="edit-cli-address-${id}" type="text" class="form-input" value="${currentAddress}" placeholder="Dirección / Email" />
+      <input id="edit-cli-contact-${id}" type="text" class="form-input" value="${currentContact}" placeholder="Contacto" />
       
       <div style="display:flex;gap:6px;margin-top:4px;">
         <button class="btn-primary" style="padding:6px 14px;font-size:0.82rem;"
-                onclick="saveEditClientRow('${id}')">✓ ${t('btn.save')}</button>
+                onclick="saveEditClientRow('${id}')">✓ Guardar</button>
         <button class="btn-secondary" style="padding:6px 10px;font-size:0.82rem;"
                 onclick="cancelEditClientRow()">✕</button>
       </div>
@@ -256,7 +256,7 @@ function handleAddClient() {
 }
 
 function handleDeleteClient(id) {
-  if (!confirm(t('confirm.del_cli'))) return;
+  if (!confirm('¿Eliminar este registro?')) return;
   deleteClient(id);
   refreshClientsList();
 }
@@ -277,7 +277,7 @@ async function autoFillClientDGII() {
   if (!nitEl) return;
   const val = nitEl.value.trim();
   if (!val) {
-    showToast(t('inv.rnc_enter_first'), 'warning');
+    showToast('Ingresa un RNC o Cédula primero', 'warning');
     return;
   }
   const data = await fetchDGIIData(val);
@@ -300,7 +300,7 @@ async function autoFillClientDGII() {
     if (localClient) {
       if (addrEl) addrEl.value = localClient.address || '';
       if (contactEl) contactEl.value = localClient.contact || localClient.phone || '';
-      showToast(t('toast.cli_local_data_loaded'), 'success');
+      showToast('✅ Datos de dirección y teléfono cargados de la base de datos local.', 'success');
     } else {
       if (addrEl) addrEl.value = data.address || '';
     }
@@ -312,7 +312,7 @@ async function autoFillEditClientDGII(id) {
   if (!nitEl) return;
   const val = nitEl.value.trim();
   if (!val) {
-    showToast(t('inv.rnc_enter_first'), 'warning');
+    showToast('Ingresa un RNC o Cédula primero', 'warning');
     return;
   }
   const data = await fetchDGIIData(val);
@@ -335,7 +335,7 @@ async function autoFillEditClientDGII(id) {
     if (localClient) {
       if (addrEl) addrEl.value = localClient.address || '';
       if (contactEl) contactEl.value = localClient.contact || localClient.phone || '';
-      showToast(t('toast.cli_local_data_loaded'), 'success');
+      showToast('✅ Datos de dirección y teléfono cargados de la base de datos local.', 'success');
     } else {
       if (addrEl) addrEl.value = data.address || '';
     }
