@@ -113,14 +113,20 @@ else
 fi
 
 # --- WINDOWS ---
-echo "🪟 Empaquetando Windows Port..."
-# Puesto que no podemos compilar WinUI en Linux de manera nativa,
-# empaquetamos la carpeta ya publicada con los nuevos recursos sincronizados.
-cd "$WINDOWS_PORT_DIR"
-ZIP_DEST="$INSTALLER_DIR/Reciminsa_Windows_v${VERSION}.zip"
-rm -f "$ZIP_DEST"
-zip -q -r "$ZIP_DEST" . -x "*.git*" "*/bin/*" "*/obj/*" "*Reciminsa app*"
-echo "✅ Windows Port comprimido a: $ZIP_DEST"
+echo "🪟 Compilando Instalador de Windows con Inno Setup..."
+cd "$APP_DIR"
+# Asegurar la versión correcta en el script de Inno Setup
+sed -i "s/AppVersion=[0-9\.]*/AppVersion=${VERSION}/g" InnoSetupScript_MAUI.iss
+# Ejecutar el compilador ISCC bajo Wine
+wine /home/keylet/.wine/drive_c/inno/ISCC.exe InnoSetupScript_MAUI.iss
+SETUP_EXE="$APP_DIR/reciminsaapp_pc_Setup.exe"
+if [ -f "$SETUP_EXE" ]; then
+    cp "$SETUP_EXE" "$INSTALLER_DIR/Instalar_Reciminsa_Windows_v${VERSION}.exe"
+    rm -f "$SETUP_EXE"
+    echo "✅ Instalador de Windows creado en: $INSTALLER_DIR/Instalar_Reciminsa_Windows_v${VERSION}.exe"
+else
+    echo "❌ Error: No se pudo generar el instalador de Windows."
+fi
 
 # --- LINUX ---
 if [ "$TYPE" == "version" ]; then
@@ -145,8 +151,31 @@ else
     echo "✅ Parche de Linux creado en: $ZIP_DEST"
 fi
 
+# --- DESKTOP SYNC ---
+DESKTOP_RCAPP="/home/keylet/Escritorio/rcapp"
+echo "📂 Sincronizando instaladores definitivos con el Escritorio..."
+mkdir -p "$DESKTOP_RCAPP"
+rm -rf "$DESKTOP_RCAPP"/*
+# Copiar APK
+if [ -f "$INSTALLER_DIR/Instalar_Reciminsa_v${VERSION}_MAUI.apk" ]; then
+    cp "$INSTALLER_DIR/Instalar_Reciminsa_v${VERSION}_MAUI.apk" "$DESKTOP_RCAPP/"
+fi
+# Copiar Windows Installer
+if [ -f "$INSTALLER_DIR/Instalar_Reciminsa_Windows_v${VERSION}.exe" ]; then
+    cp "$INSTALLER_DIR/Instalar_Reciminsa_Windows_v${VERSION}.exe" "$DESKTOP_RCAPP/"
+fi
+# Copiar Linux Patch o Deb
+if [ -f "$INSTALLER_DIR/Reciminsa_Linux_Patch_v${VERSION}.zip" ]; then
+    cp "$INSTALLER_DIR/Reciminsa_Linux_Patch_v${VERSION}.zip" "$DESKTOP_RCAPP/"
+fi
+if [ -f "$INSTALLER_DIR/reciminsaapp_${VERSION}_amd64.deb" ]; then
+    cp "$INSTALLER_DIR/reciminsaapp_${VERSION}_amd64.deb" "$DESKTOP_RCAPP/"
+fi
+touch "$DESKTOP_RCAPP"/* 2>/dev/null
+
 echo "===================================================================="
 echo "🎉 ¡PROCESO FINALIZADO CON ÉXITO!"
 echo "Los instaladores de la versión/parche $VERSION están listos en:"
 echo "👉 $INSTALLER_DIR"
+echo "👉 $DESKTOP_RCAPP (Escritorio)"
 echo "===================================================================="

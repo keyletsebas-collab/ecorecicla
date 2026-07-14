@@ -1,6 +1,6 @@
 [Setup]
 AppName=Reciminsa
-AppVersion=1.0.13
+AppVersion=1.15.2
 DefaultDirName={autopf}\Reciminsa
 DefaultGroupName=Reciminsa
 OutputDir=.
