@@ -112,7 +112,7 @@ function renderBasicForm() {
         </div>
       </div>
 
-      <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+      <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
         <div class="form-group">
           <label class="form-label">${t('lbl.client')}</label>
           <input id="basic-client" type="text" class="form-input" placeholder="Nombre completo" />
@@ -120,6 +120,19 @@ function renderBasicForm() {
         <div class="form-group">
           <label class="form-label">${t('lbl.invoice_date')}</label>
           <input id="basic-date" type="date" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">${t('inv.collaborator')}</label>
+          <select id="basic-colab" class="form-select">
+            ${(function() {
+              const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+              let options = `<option value="">${t('inv.no_collaborator')}</option>`;
+              colabs.forEach(c => {
+                options += `<option value="${c.name}">${c.name} (${c.role})</option>`;
+              });
+              return options;
+            })()}
+          </select>
         </div>
       </div>
 
@@ -332,6 +345,7 @@ async function saveBasicInvoiceBatch() {
   const client = document.getElementById('basic-client').value.trim() || 'Cliente General';
   const date = document.getElementById('basic-date').value || new Date().toISOString().split('T')[0];
   const notes = document.getElementById('basic-notes').value.trim();
+  const collaborator = document.getElementById('basic-colab')?.value || '';
 
   const totalC = items.reduce((s, i) => s + i.totalCompra, 0);
   const totalV = items.reduce((s, i) => s + i.totalVenta, 0);
@@ -345,6 +359,7 @@ async function saveBasicInvoiceBatch() {
     totalCompra: totalC,
     totalVenta: totalV,
     balance: balanceTotal,
+    collaborator,
     createdAt: new Date().toISOString()
   };
 

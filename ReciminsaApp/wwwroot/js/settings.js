@@ -2,7 +2,7 @@
    SETTINGS.JS – Página de Ajustes de la App
    ============================================= */
 
-const APP_VERSION = 'v1.15.2';
+const APP_VERSION = 'v1.16.0';
 
 function isElectron() {
   return typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.includes('Electron');

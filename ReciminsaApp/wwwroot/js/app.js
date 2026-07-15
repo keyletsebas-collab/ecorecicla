@@ -191,6 +191,49 @@ function initApp(user) {
 
 // ---- Restore session on load ----
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if redirecting from desktop app update check
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('dev') === 'true') {
+            const installedVersion = urlParams.get('installed');
+            if (installedVersion) {
+                fetch('https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json?t=' + Date.now())
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.Version) {
+                            const remote = data.Version.replace('v', '').trim();
+                            const local = installedVersion.replace('v', '').trim();
+                            
+                            function isNewer(rVer, lVer) {
+                                const rParts = rVer.split('.').map(x => parseInt(x) || 0);
+                                const lParts = lVer.split('.').map(x => parseInt(x) || 0);
+                                const maxLen = Math.max(rParts.length, lParts.length);
+                                for (let i = 0; i < maxLen; i++) {
+                                    const rv = rParts[i] || 0;
+                                    const lv = lParts[i] || 0;
+                                    if (rv > lv) return true;
+                                    if (rv < lv) return false;
+                                }
+                                return false;
+                            }
+                            
+                            if (isNewer(remote, local)) {
+                                const confirmDownload = confirm(`¡Actualización Detectada!\n\nHay una nueva versión o parche disponible (${data.Version}). ¿Deseas descargar el instalador ahora?`);
+                                if (confirmDownload) {
+                                    window.location.href = data.DownloadUrl || 'https://github.com/keyletsebas-collab/ecorecicla/raw/main/Instalar_Reciminsa.exe';
+                                }
+                            } else {
+                                alert(`Tu versión de la aplicación (${installedVersion}) está actualizada. No se requieren nuevos parches en este momento.`);
+                            }
+                        }
+                    })
+                    .catch(err => console.error('Error checking version from landing page:', err));
+            }
+        }
+    } catch (e) {
+        console.error('Error in URL search parameters parsing:', e);
+    }
+
     applySettings(); // apply color theme + dark mode before anything renders
     if (typeof updateQuickLangUI === 'function') {
         const lang = (typeof getSettings === 'function' ? getSettings().language : null) || 'es';

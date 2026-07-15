@@ -15,14 +15,18 @@ function isCurrentUserAdminOrFounder() {
 
   const adminEmails = [
     'keyletsebas@gmail.com',
-    'gerenciareciminsasrl@gmail.com',
     'noreplyreciminsasrl@gmail.com'
   ];
   if (adminEmails.includes(session.email)) {
     return true;
   }
 
-  // 1. ¿Es el creador / fundador original de la empresa?
+  // 1. Gerencia Reciminsa (CEO por defecto)
+  if (session.email === 'gerenciareciminsasrl@gmail.com') {
+    return true;
+  }
+
+  // 2. ¿Es el creador / fundador original de la empresa?
   let companyAdminId = localStorage.getItem(userKey('recim_company_admin'));
   if (companyAdminId && companyAdminId.startsWith('"') && companyAdminId.endsWith('"')) {
     try { companyAdminId = JSON.parse(companyAdminId); } catch (_) {}
@@ -42,7 +46,7 @@ function isCurrentUserAdminOrFounder() {
     return true;
   }
 
-  // 2. ¿Es un colaborador con rol de Administrador asignado o en la lista de admins de la empresa?
+  // 3. ¿Es un colaborador con rol de Administrador asignado o en la lista de admins de la empresa?
   try {
     const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
     const shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
@@ -245,7 +249,7 @@ function showColabsList() {
   if (!contentDiv) return;
 
   const isEn = (getSettings().language === 'en');
-  const hasEditPermissions = isCurrentUserAdminOrFounder();
+  const hasEditPermissions = canCurrentUserManageCollaborators();
   
   contentDiv.innerHTML = `
     <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -311,7 +315,7 @@ function renderCollaboratorsTable() {
 
   const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
   const isEn = (getSettings().language === 'en');
-  const hasEditPermissions = isCurrentUserAdminOrFounder();
+  const hasEditPermissions = canCurrentUserManageCollaborators();
 
   // Filtrado
   let filtered = colabs;
@@ -412,7 +416,7 @@ function handleSearchCollaborators(val) {
 
 // ---- MÓDULO FORMULARIO CON PESTAÑAS ----
 async function showColabForm(colabIndex = null) {
-  if (!isCurrentUserAdminOrFounder()) {
+  if (!canCurrentUserManageCollaborators()) {
     showToast('❌ No tienes permisos para realizar esta acción', 'error');
     return;
   }
@@ -622,11 +626,12 @@ async function showColabForm(colabIndex = null) {
               <option value="">${isEn ? '-- Select user to link --' : '-- Seleccionar cuenta para vincular --'}</option>
             </select>
             
-            <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px; background: rgba(59, 130, 246, 0.1); border: 1px dashed rgba(59, 130, 246, 0.3); padding: 12px; border-radius: 6px;">
-              <input type="checkbox" id="colab-is-admin-colab" style="width:18px; height:18px; cursor:pointer;" ${isAdminColab ? 'checked' : ''} />
-              <label for="colab-is-admin-colab" style="font-size:0.82rem; font-weight:600; cursor:pointer; color:var(--clr-text); margin: 0;">
-                🛡️ Asignar rol de Administrador de la Empresa (Permite crear y editar colaboradores)
-              </label>
+            <div class="form-group" style="margin-top: 15px; background: rgba(59, 130, 246, 0.05); border: 1px dashed rgba(59, 130, 246, 0.3); padding: 16px; border-radius: 8px;">
+              <label class="form-label" style="font-weight:700; margin-bottom: 8px;">👑 Rol de Permisos en la Empresa</label>
+              <select id="colab-is-admin-colab-select" class="form-select" style="background:var(--clr-surface-3); width:100%;">
+                <option value="false" ${!isAdminColab ? 'selected' : ''}>🤝 Empleado (Solo ver colaboradores, sin acceso de creación)</option>
+                <option value="true" ${isAdminColab ? 'selected' : ''}>👑 CEO / Administrador (Permiso completo para crear y editar colaboradores)</option>
+              </select>
             </div>
           </div>
 
@@ -745,7 +750,7 @@ function generateNextEmployeeCode(colabs) {
 
 // ---- MÓDULO GUARDAR Y VALIDAR ----
 function saveCollaborator() {
-  if (!isCurrentUserAdminOrFounder()) {
+  if (!canCurrentUserManageCollaborators()) {
     showToast('❌ No tienes permisos para realizar esta acción', 'error');
     return;
   }
@@ -808,8 +813,8 @@ function saveCollaborator() {
   const bankAccount = '';
   const salary = 0;
 
-  const linkedAccountId = document.getElementById('colab-linked-account').value;
-  const isAdminColab = document.getElementById('colab-is-admin-colab')?.checked === true;
+  const linkedAccountId = document.getElementById('colab-linked-account')?.value || '';
+  const isAdminColab = document.getElementById('colab-is-admin-colab-select')?.value === 'true';
 
   // Módulos
   const modules = {};
@@ -910,7 +915,7 @@ function saveCollaborator() {
 
 // ---- DAR DE BAJA ----
 function deleteCollaborator(index) {
-  if (!isCurrentUserAdminOrFounder()) {
+  if (!canCurrentUserManageCollaborators()) {
     showToast('❌ No tienes permisos para realizar esta acción', 'error');
     return;
   }
@@ -957,6 +962,10 @@ const COLLAB_TOGGLEABLE_MODULES = [
   { id: 'ecologia', label: '🌱 Impacto medioambiental' }
 ];
 
+function canCurrentUserManageCollaborators() {
+  return isCurrentUserAdminOrFounder();
+}
+
 // Exportación global de funciones
 window.renderCollaboratorsPage = renderCollaboratorsPage;
 window.showColabsList = showColabsList;
@@ -968,4 +977,4 @@ window.handleSearchCollaborators = handleSearchCollaborators;
 window.handleImportCollaborators = handleImportCollaborators;
 window.isCurrentUserAdminOrFounder = isCurrentUserAdminOrFounder;
 window.changeColabsPage = changeColabsPage;
-window.isCurrentUserAdminOrFounder = isCurrentUserAdminOrFounder;
+window.canCurrentUserManageCollaborators = canCurrentUserManageCollaborators;

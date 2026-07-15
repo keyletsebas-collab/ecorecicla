@@ -5,7 +5,7 @@ namespace ReciminsaApp;
 
 public partial class MainPage : ContentPage
 {
-    private const string CurrentVersion = "v1.15.2";
+    private const string CurrentVersion = "v1.16.0";
     // Nota: Reemplaza esta URL con la ruta final donde alojes tu version.json (puede ser un Bucket público en Supabase o Github)
     private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json"; 
 
@@ -135,7 +135,8 @@ public partial class MainPage : ContentPage
         try
         {
             using var client = new HttpClient();
-            var response = await client.GetStringAsync(UpdateCheckUrl);
+            // Cache bypass using ticks timestamp query parameter
+            var response = await client.GetStringAsync(UpdateCheckUrl + "?t=" + DateTime.UtcNow.Ticks);
             
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(response, options);
@@ -149,7 +150,8 @@ public partial class MainPage : ContentPage
                     
                 if (answer)
                 {
-                    await Launcher.OpenAsync(updateInfo.DownloadUrl);
+                    // Redirect to the landing page package download panel, passing the currently installed version
+                    await Launcher.OpenAsync($"https://landing-de-reciminsa.vercel.app/index.html?dev=true&installed={CurrentVersion}");
                 }
             }
         }
@@ -163,8 +165,16 @@ public partial class MainPage : ContentPage
     {
         if (string.IsNullOrEmpty(remoteVersion) || string.IsNullOrEmpty(localVersion)) return false;
         
-        remoteVersion = remoteVersion.Replace("v", "");
-        localVersion = localVersion.Replace("v", "");
+        remoteVersion = remoteVersion.Replace("v", "").Trim();
+        localVersion = localVersion.Replace("v", "").Trim();
+        
+        // Try parsing using built-in System.Version first
+        if (Version.TryParse(remoteVersion, out Version rVer) && Version.TryParse(localVersion, out Version lVer))
+        {
+            return rVer > lVer;
+        }
+        
+        // Fallback split logic
         var remoteParts = remoteVersion.Split('.');
         var localParts = localVersion.Split('.');
         
