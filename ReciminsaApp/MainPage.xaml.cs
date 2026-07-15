@@ -22,7 +22,7 @@ public partial class MainPage : ContentPage
         };
     }
 
-    private async void BlazorWebView_BlazorWebViewInitialized(object sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
+    private async void BlazorWebView_BlazorWebViewInitialized(object? sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
     {
 #if ANDROID
         e.WebView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(), "AndroidNative");
@@ -143,7 +143,7 @@ public partial class MainPage : ContentPage
             
             if (updateInfo != null && IsNewerVersion(updateInfo.Version, CurrentVersion))
             {
-                bool answer = await DisplayAlert(
+                bool answer = await DisplayAlertAsync(
                     "¡Actualización Disponible!", 
                     $"Hay una nueva versión de Reciminsa App ({updateInfo.Version}). ¿Deseas descargarla e instalarla ahora?", 
                     "Descargar e Instalar", "Más tarde");
@@ -169,7 +169,7 @@ public partial class MainPage : ContentPage
         localVersion = localVersion.Replace("v", "").Trim();
         
         // Try parsing using built-in System.Version first
-        if (Version.TryParse(remoteVersion, out Version rVer) && Version.TryParse(localVersion, out Version lVer))
+        if (Version.TryParse(remoteVersion, out Version? rVer) && Version.TryParse(localVersion, out Version? lVer))
         {
             return rVer > lVer;
         }
@@ -192,13 +192,13 @@ public partial class MainPage : ContentPage
 
 public class UpdateInfo
 {
-    public string Version { get; set; }
-    public string DownloadUrl { get; set; }
+    public string Version { get; set; } = string.Empty;
+    public string DownloadUrl { get; set; } = string.Empty;
 }
 
 public class WebMessage
 {
-    public string Action { get; set; }
-    public string Filename { get; set; }
-    public string Data { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string Filename { get; set; } = string.Empty;
+    public string Data { get; set; } = string.Empty;
 }

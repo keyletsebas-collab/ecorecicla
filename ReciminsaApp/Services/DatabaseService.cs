@@ -7,7 +7,7 @@ namespace ReciminsaApp.Services;
 
 public class DatabaseService
 {
-    private SQLiteAsyncConnection _database;
+    private SQLiteAsyncConnection? _database;
 
     public DatabaseService()
     {
@@ -25,21 +25,21 @@ public class DatabaseService
     public async Task<List<OfflineRecord>> GetUnsyncedRecordsAsync()
     {
         await Init();
-        return await _database.Table<OfflineRecord>().Where(t => !t.IsSynced).ToListAsync();
+        return await _database!.Table<OfflineRecord>().Where(t => !t.IsSynced).ToListAsync();
     }
 
     public async Task<int> SaveRecordAsync(OfflineRecord item)
     {
         await Init();
         if (item.Id != 0)
-            return await _database.UpdateAsync(item);
+            return await _database!.UpdateAsync(item);
         else
-            return await _database.InsertAsync(item);
+            return await _database!.InsertAsync(item);
     }
 
     public async Task<OfflineRecord> GetRecordAsync(int id)
     {
         await Init();
-        return await _database.Table<OfflineRecord>().Where(i => i.Id == id).FirstOrDefaultAsync();
+        return await _database!.Table<OfflineRecord>().Where(i => i.Id == id).FirstOrDefaultAsync();
     }
 }

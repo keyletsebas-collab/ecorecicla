@@ -35,8 +35,12 @@ namespace ReciminsaApp.Platforms.Android
                 
                 try
                 {
-                    // Intentar guardar en Descargas públicas
-                    string downloadsPath = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads).AbsolutePath;
+                    var downloadsDir = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads);
+                    if (downloadsDir == null)
+                    {
+                        throw new System.IO.DirectoryNotFoundException("Public downloads directory is not available.");
+                    }
+                    string downloadsPath = downloadsDir.AbsolutePath;
                     filePath = System.IO.Path.Combine(downloadsPath, filename);
                     
                     int count = 1;
