@@ -1,0 +1,23 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "gradle",
+			"id": "/home/keylet/Documentos/ecorecicla/node_modules/@capacitor/android/capacitoranalyzeDebugAndroidTestDependenciescapacitor",
+			"script": "analyzeDebugAndroidTestDependencies",
+			"description": "",
+			"group": "other",
+			"project": "capacitor",
+			"buildFile": "/home/keylet/Documentos/ecorecicla/node_modules/@capacitor/android/capacitor/build.gradle",
+			"rootProject": "capacitor",
+			"projectFolder": "/home/keylet/Documentos/ecorecicla/node_modules/@capacitor/android/capacitor",
+			"workspaceFolder": "/home/keylet/Documentos/ecorecicla",
+			"args": "",
+			"javaDebug": false,
+			"problemMatcher": [
+				"$gradle"
+			],
+			"label": "gradle: analyzeDebugAndroidTestDependencies"
+		}
+	]
+}
