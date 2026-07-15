@@ -67,7 +67,7 @@ function formatAndStyleWorksheet(ws) {
                     align = 'center';
                 }
 
-                let isCurrency = ['monto', 'precio', 'subtotal', 'total', 'ganancia', 'costo', 'balance', 'inversión', 'inversion'].some(w => headerText.includes(w));
+                let isCurrency = ['monto', 'precio', 'subtotal', 'total', 'ganancia', 'costo', 'balance', 'inversión', 'inversion', 'ingreso', 'egreso'].some(w => headerText.includes(w));
                 
                 if (C === 1) { 
                     const labelCell = ws[XLSX.utils.encode_cell({ r: R, c: 0 })];
@@ -79,14 +79,37 @@ function formatAndStyleWorksheet(ws) {
                     }
                 }
 
-                if (isCurrency && cell.t === 'n') cell.z = currencyFormat;
+                if (isCurrency && (cell.t === 'n' || cell.f)) cell.z = currencyFormat;
 
-                cell.s = {
-                    font: { name: 'Segoe UI', sz: 10, color: { rgb: '374151' } },
-                    fill: zebraFill,
-                    alignment: { horizontal: align, vertical: 'center' },
-                    border: borderStyle
-                };
+                // Check if this is a totals row
+                const labelCell = ws[XLSX.utils.encode_cell({ r: R, c: 0 })];
+                const isTotalRow = labelCell && typeof labelCell.v === 'string' && labelCell.v.toLowerCase().includes('total');
+
+                let fontColor = '374151';
+                if (headerText.includes('egreso') && (cell.t === 'n' ? cell.v > 0 : true)) {
+                    fontColor = 'FF0000';
+                }
+
+                if (isTotalRow) {
+                    cell.s = {
+                        font: { name: 'Segoe UI', sz: 10, bold: true, color: { rgb: fontColor } },
+                        fill: { fgColor: { rgb: 'E8F2ED' } },
+                        alignment: { horizontal: C === 0 ? 'left' : align, vertical: 'center' },
+                        border: {
+                            top: { style: 'thin', color: { rgb: '1B4A3E' } },
+                            bottom: { style: 'double', color: { rgb: '1B4A3E' } },
+                            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+                            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+                        }
+                    };
+                } else {
+                    cell.s = {
+                        font: { name: 'Segoe UI', sz: 10, color: { rgb: fontColor } },
+                        fill: zebraFill,
+                        alignment: { horizontal: align, vertical: 'center' },
+                        border: borderStyle
+                    };
+                }
             }
 
             let valStr = '';
@@ -157,6 +180,62 @@ function buildFinanceSheet(dataList, sheetName) {
     const headers = ['ID', 'Fecha', 'Concepto', 'Monto', 'Categoría', 'Notas'];
     const rows = dataList.map(item => [item.id, item.date, item.concept, item.amount, item.category || 'General', item.notes || '']);
     return { name: sheetName, data: [headers, ...rows] };
+}
+
+function buildCombinedFinanceSheet(incomes, expenses) {
+    const headers = ['Fecha', 'Origen', 'Descripción', 'Ingreso Money IN', 'Egreso Money OUT', 'Balance general', 'Notas'];
+    
+    const combined = [];
+    incomes.forEach(item => combined.push({ ...item, type: 'income' }));
+    expenses.forEach(item => combined.push({ ...item, type: 'expense' }));
+    
+    // Ordenar cronológicamente por fecha
+    combined.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    const rows = [];
+    let r = 2; // La fila de datos empieza en la 2 (cabecera en la 1)
+    
+    combined.forEach(item => {
+        const dateStr = fmtFecha(item.date);
+        const origin = item.category || 'General';
+        const desc = item.concept || '';
+        const notes = item.notes || '';
+        
+        let ing = 0;
+        let egr = 0;
+        if (item.type === 'income') {
+            ing = item.amount || 0;
+        } else {
+            egr = item.amount || 0;
+        }
+        
+        // Fórmula para el balance general:
+        // Fila 2 (primer dato): =D2-E2
+        // Filas siguientes: =F{r-1}+D{r}-E{r}
+        const balanceFormula = r === 2 
+            ? { f: `D${r}-E${r}` } 
+            : { f: `F${r-1}+D${r}-E${r}` };
+            
+        rows.push([dateStr, origin, desc, ing, egr, balanceFormula, notes]);
+        r++;
+    });
+    
+    if (rows.length > 0) {
+        // Fila vacía de separación
+        rows.push(['', '', '', '', '', '', '']);
+        r++;
+        
+        // Fórmulas para los totales
+        // r es la fila de Excel del TOTAL GENERAL (1-indexed)
+        // El rango de datos va desde la fila 2 hasta la fila r-2
+        const totalInFormula = { f: `SUM(D2:D${r-2})` };
+        const totalOutFormula = { f: `SUM(E2:E${r-2})` };
+        const netBalanceFormula = { f: `D${r}-E${r}` };
+        
+        rows.push(['TOTAL GENERAL', '', '', totalInFormula, totalOutFormula, netBalanceFormula, '']);
+    }
+    
+    return { name: 'Finanzas', data: [headers, ...rows] };
 }
 
 function buildMaterialsSheet() {
@@ -263,18 +342,11 @@ function exportSelectedDataToExcel(selection = {}) {
                 sheetsAdded++;
             }
         }
-        if (selection.income) {
-            const ings = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
-            if (ings.length) {
-                const s = buildFinanceSheet(ings, 'Ingresos');
-                XLSX.utils.book_append_sheet(wb, formatAndStyleWorksheet(XLSX.utils.aoa_to_sheet(s.data)), s.name);
-                sheetsAdded++;
-            }
-        }
-        if (selection.expenses) {
-            const egs = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
-            if (egs.length) {
-                const s = buildFinanceSheet(egs, 'Egresos');
+        if (selection.income || selection.expenses) {
+            const ings = selection.income ? JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]') : [];
+            const egs = selection.expenses ? JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]') : [];
+            if (ings.length || egs.length) {
+                const s = buildCombinedFinanceSheet(ings, egs);
                 XLSX.utils.book_append_sheet(wb, formatAndStyleWorksheet(XLSX.utils.aoa_to_sheet(s.data)), s.name);
                 sheetsAdded++;
             }
@@ -392,6 +464,37 @@ function _importExcelManual(workbook) {
                 });
             });
             parsed.invoices = Object.values(invMap);
+        } else if (sheetName.toLowerCase().includes('finanzas') || sheetName.toLowerCase().includes('ingresos_y_egresos') || sheetName.toLowerCase().includes('ingresos y egresos') || sheetName.toLowerCase().includes('balance')) {
+            rows.forEach(r => {
+                const dateVal = r.Fecha || r.fecha || '';
+                const originVal = r.Origen || r.origen || r.Categoría || r.categoria || 'Importado';
+                const descVal = r.Descripción || r.descripcion || r.Concepto || r.concepto || '';
+                const notesVal = r.Notas || r.notas || '';
+                
+                const ingVal = parseFloat(r['Ingreso Money IN'] || r['ingreso'] || r['Ingreso'] || r['Monto'] || 0);
+                const egrVal = parseFloat(r['Egreso Money OUT'] || r['egreso'] || r['Egreso'] || 0);
+                
+                if (ingVal > 0) {
+                    parsed.ingresos.push({
+                        id: r.ID || r.id ? String(r.ID||r.id) : null,
+                        date: dateVal,
+                        concept: descVal,
+                        amount: ingVal,
+                        category: originVal,
+                        notes: notesVal
+                    });
+                }
+                if (egrVal > 0) {
+                    parsed.egresos.push({
+                        id: r.ID || r.id ? String(r.ID||r.id) : null,
+                        date: dateVal,
+                        concept: descVal,
+                        amount: egrVal,
+                        category: originVal,
+                        notes: notesVal
+                    });
+                }
+            });
         } else if (sheetName.toLowerCase().includes('ingreso')) {
             parsed.ingresos = rows.map(r => ({ id: r.ID || r.id ? String(r.ID||r.id) : null, date: r.Fecha || r.fecha, concept: r.Concepto || r.concepto, amount: parseFloat(r.Monto || r.monto || 0), category: r.Categoría || r.categoria || 'Importado', notes: r.Notas || r.notas || '' }));
         } else if (sheetName.toLowerCase().includes('egreso')) {
