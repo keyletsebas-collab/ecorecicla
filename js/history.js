@@ -72,6 +72,7 @@ window.setHistoryDateFilter = setHistoryDateFilter;
 function renderHistoryPage(container) {
   const allItems = getAllHistoryItems();
   const items = applyDateFilter(allItems);
+  const isEn = (getSettings().language === 'en');
 
   const currentFilter = window.currentHistoryDateFilter || 'all';
 
@@ -120,18 +121,16 @@ function renderHistoryPage(container) {
       <!-- Trading Dashboard Button (Premium Styling) -->
       <div style="margin-bottom:14px;">
         <button class="btn-primary" onclick="showTradingDashboard()" style="width:100%; justify-content:center; font-weight:700; padding:12px 14px; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px; background:linear-gradient(135deg, #3b82f6, #8b5cf6); border:none; color:white; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">
-          📈 Gráficos Estadísticos (Trading Mode)
+          📈 Gráficos Estadísticos
         </button>
       </div>
 
       <div class="history-filters">
         <select id="history-filter-type" class="form-select" style="width:auto;" onchange="filterHistory()">
-          <option value="all">${t('hist.all_types')}</option>
-          <option value="basica">${t('hist.logs')}</option>
-          <option value="local">${t('hist.local_inv')}</option>
-          <option value="empresa">${t('hist.biz_inv')}</option>
-          <option value="ingreso">${t('hist.fin_income')}</option>
-          <option value="egreso">${t('hist.fin_expense')}</option>
+          <option value="all">${isEn ? 'Show All' : 'Ver Todo'}</option>
+          <option value="bitacoras">${isEn ? 'Bitacoras (Logs)' : 'Bitácoras'}</option>
+          <option value="facturas">${isEn ? 'Invoices' : 'Facturas'}</option>
+          <option value="finanzas">${isEn ? 'Finances' : 'Finanzas'}</option>
         </select>
         <input id="history-search" type="text" class="form-input" style="width:auto;min-width:200px;" placeholder="${t('hist.search')}" oninput="filterHistory()" />
         <button class="btn-secondary" onclick="exportFilteredHistoryToExcel()">${t('hist.export_excel')}</button>
@@ -395,7 +394,13 @@ function filterHistory() {
   const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
   let items = applyDateFilter(getAllHistoryItems());
 
-  if (typeFilter !== 'all') items = items.filter(i => i.type === typeFilter);
+  if (typeFilter === 'bitacoras') {
+    items = items.filter(i => i.type === 'basica');
+  } else if (typeFilter === 'facturas') {
+    items = items.filter(i => i.type === 'local' || i.type === 'empresa');
+  } else if (typeFilter === 'finanzas') {
+    items = items.filter(i => i.itemType === 'ingreso' || i.itemType === 'egreso');
+  }
   if (searchQuery) items = items.filter(i =>
     (i.id || '').toLowerCase().includes(searchQuery) ||
     (i.client || '').toLowerCase().includes(searchQuery) ||
@@ -454,7 +459,13 @@ function exportFilteredHistoryToExcel() {
     const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
     let items = getAllHistoryItems();
 
-    if (typeFilter !== 'all') items = items.filter(i => i.type === typeFilter);
+    if (typeFilter === 'bitacoras') {
+        items = items.filter(i => i.type === 'basica');
+    } else if (typeFilter === 'facturas') {
+        items = items.filter(i => i.type === 'local' || i.type === 'empresa');
+    } else if (typeFilter === 'finanzas') {
+        items = items.filter(i => i.itemType === 'ingreso' || i.itemType === 'egreso');
+    }
     if (searchQuery) items = items.filter(i =>
         (i.id || '').toLowerCase().includes(searchQuery) ||
         (i.client || '').toLowerCase().includes(searchQuery) ||
@@ -467,8 +478,8 @@ function exportFilteredHistoryToExcel() {
         return;
     }
 
-    if (typeFilter === 'basica') {
-        exportBitacorasListToExcel(items.filter(i => i.type === 'basica'));
+    if (typeFilter === 'bitacoras') {
+        exportBitacorasListToExcel(items);
     } else {
         exportSelectedDataToExcel({ invoices: true }); 
     }
@@ -537,7 +548,13 @@ function renderVisualDashboardCharts() {
   const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
   let items = applyDateFilter(getAllHistoryItems());
 
-  if (typeFilter !== 'all') items = items.filter(i => i.type === typeFilter);
+  if (typeFilter === 'bitacoras') {
+    items = items.filter(i => i.type === 'basica');
+  } else if (typeFilter === 'facturas') {
+    items = items.filter(i => i.type === 'local' || i.type === 'empresa');
+  } else if (typeFilter === 'finanzas') {
+    items = items.filter(i => i.itemType === 'ingreso' || i.itemType === 'egreso');
+  }
   if (searchQuery) items = items.filter(i =>
     (i.id || '').toLowerCase().includes(searchQuery) ||
     (i.client || '').toLowerCase().includes(searchQuery) ||
