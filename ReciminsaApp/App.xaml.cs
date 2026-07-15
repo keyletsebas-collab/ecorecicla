@@ -9,7 +9,10 @@ public partial class App : Application
 		System.Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", userDataFolder);
 
 		InitializeComponent();
+	}
 
-		MainPage = new MainPage();
+	protected override Window CreateWindow(IActivationState? activationState)
+	{
+		return new Window(new MainPage());
 	}
 }

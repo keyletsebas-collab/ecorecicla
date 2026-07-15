@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
+  <base href="/" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Reciminsaap – Gestión de Reciclaje</title>
   <meta name="description"
@@ -58,6 +59,7 @@
 </head>
 
 <body>
+  <div id="app" style="display: none;"></div>
 
   <!-- ===== AUTH SCREEN ===== -->
   <div id="auth-screen" class="auth-screen">
@@ -369,6 +371,7 @@
   <script src="js/app.js?v=31"></script>
   <script src="js/sync.js?v=31"></script>
   <script src="js/chatbot.js?v=31"></script>
+  <script src="_framework/blazor.webview.js"></script>
 </body>
 
 </html>
