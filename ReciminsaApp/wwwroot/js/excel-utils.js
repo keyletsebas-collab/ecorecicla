@@ -11,8 +11,7 @@ function formatAndStyleWorksheet(ws) {
 
     const range = XLSX.utils.decode_range(ws['!ref']);
     const cur = (typeof getCurrency === 'function') ? getCurrency() : { symbol: 'RD$', code: 'DOP' };
-    const curSymbol = cur.symbol.replace(/"/g, '""');
-    const currencyFormat = `"${curSymbol}"#,##0.00`;
+    const currencyFormat = `#,##0.00`;
     
     const headers = [];
     for (let C = range.s.c; C <= range.e.c; ++C) {
@@ -113,10 +112,10 @@ function formatAndStyleWorksheet(ws) {
             }
 
             let valStr = '';
-            if (cell.f) valStr = '   $999,999.00   '; 
+            if (cell.f) valStr = '   999,999.00   '; 
             else if (cell.v != null) {
                 valStr = String(cell.v);
-                if (cell.t === 'n' && cell.z === currencyFormat) valStr = cur.symbol + valStr + '.00';
+                if (cell.t === 'n' && cell.z === currencyFormat) valStr = valStr + '.00';
             }
             colWidths[C] = Math.max(colWidths[C], valStr.length + 3);
         }
