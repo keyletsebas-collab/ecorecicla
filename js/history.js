@@ -60,6 +60,89 @@ function applyDateFilter(items) {
   });
 }
 
+function applyMaterialFilter(items) {
+  const matFilter = window.currentHistoryMaterialFilter || 'all';
+  if (matFilter === 'all') return items;
+
+  const [filterKind, filterId] = matFilter.split('_');
+  let targetMaterials = [];
+  let selectedFamilyName = '';
+  let selectedMaterialName = '';
+  
+  const allMaterials = (typeof getMaterialCodes === 'function') ? getMaterialCodes() : [];
+  
+  if (filterKind === 'family') {
+    const allFamilies = (typeof getMaterialFamilies === 'function') ? getMaterialFamilies() : [];
+    const fam = allFamilies.find(f => f.id === filterId);
+    if (fam) {
+      selectedFamilyName = fam.name.toLowerCase().trim();
+      targetMaterials = allMaterials.filter(m => m.familyId === filterId);
+    }
+  } else if (filterKind === 'material') {
+    const mat = allMaterials.find(m => m.id === filterId);
+    if (mat) {
+      selectedMaterialName = mat.name.toLowerCase().trim();
+      targetMaterials = [mat];
+    }
+  }
+  
+  const matchableNames = targetMaterials.map(m => m.name.toLowerCase().trim());
+  const matchableCodes = targetMaterials.map(m => m.code.toLowerCase().trim());
+  
+  return items.filter(i => {
+    const isBasica = i.type === 'basica';
+    const isIngreso = i.type === 'ingreso';
+    const isEgreso = i.type === 'egreso';
+    const isInvoice = i.itemType === 'invoice' && !isBasica;
+    
+    if (isBasica || isInvoice) {
+      return (i.items || []).some(item => {
+        const itemMatName = (item.name || item.desc || '').toLowerCase().trim();
+        const itemMatCode = (item.matId || item.code || '').toLowerCase().trim();
+        
+        const matchesMaterial = matchableNames.some(name => itemMatName.includes(name) || name.includes(itemMatName)) ||
+                                matchableCodes.some(code => itemMatCode === code || itemMatName.includes(code));
+        if (matchesMaterial) return true;
+        
+        if (filterKind === 'family' && selectedFamilyName) {
+          const matConfig = allMaterials.find(m => 
+            m.name.toLowerCase().trim() === itemMatName || 
+            m.code.toLowerCase().trim() === itemMatCode
+          );
+          if (matConfig && matConfig.familyId === filterId) return true;
+          if (itemMatName.includes(selectedFamilyName)) return true;
+        }
+        return false;
+      });
+    } else if (isIngreso || isEgreso) {
+      const textToSearch = `${i.concept || ''} ${i.category || ''} ${i.notes || ''}`.toLowerCase();
+      
+      const matchesMaterial = matchableNames.some(name => textToSearch.includes(name)) ||
+                              matchableCodes.some(code => textToSearch.includes(code));
+      if (matchesMaterial) return true;
+      
+      if (filterKind === 'family' && selectedFamilyName) {
+        if (textToSearch.includes(selectedFamilyName)) return true;
+        if ((i.category || '').toLowerCase().trim() === selectedFamilyName) return true;
+      }
+      
+      if (filterKind === 'material' && selectedMaterialName) {
+        const mat = allMaterials.find(m => m.id === filterId);
+        if (mat && mat.familyId) {
+          const allFamilies = (typeof getMaterialFamilies === 'function') ? getMaterialFamilies() : [];
+          const fam = allFamilies.find(f => f.id === mat.familyId);
+          if (fam) {
+            const famName = fam.name.toLowerCase().trim();
+            if (textToSearch.includes(famName)) return true;
+          }
+        }
+      }
+      return false;
+    }
+    return false;
+  });
+}
+
 function setHistoryDateFilter(filterName) {
   window.currentHistoryDateFilter = filterName;
   const container = document.getElementById('page-historial');
@@ -71,10 +154,39 @@ window.setHistoryDateFilter = setHistoryDateFilter;
 
 function renderHistoryPage(container) {
   const allItems = getAllHistoryItems();
-  const items = applyDateFilter(allItems);
+  const filteredByDate = applyDateFilter(allItems);
+  const items = applyMaterialFilter(filteredByDate);
   const isEn = (getSettings().language === 'en');
 
   const currentFilter = window.currentHistoryDateFilter || 'all';
+  const currentMatFilter = window.currentHistoryMaterialFilter || 'all';
+
+  const families = (typeof getMaterialFamilies === 'function') ? getMaterialFamilies() : [];
+  const materials = (typeof getMaterialCodes === 'function') ? getMaterialCodes() : [];
+
+  let materialSelectHtml = `
+    <select id="history-filter-material" class="form-select" style="width:auto;max-width:200px;" onchange="window.currentHistoryMaterialFilter = this.value; filterHistory();">
+      <option value="all" ${currentMatFilter === 'all' ? 'selected' : ''}>${isEn ? 'Filter by Material/Family (All)' : 'Filtrar por Material/Familia (Todo)'}</option>
+  `;
+
+  if (families.length > 0) {
+    materialSelectHtml += `<optgroup label="${isEn ? 'Families' : 'Familias'}">`;
+    families.forEach(f => {
+      const val = `family_${f.id}`;
+      materialSelectHtml += `<option value="${val}" ${currentMatFilter === val ? 'selected' : ''}>${f.name}</option>`;
+    });
+    materialSelectHtml += `</optgroup>`;
+  }
+
+  if (materials.length > 0) {
+    materialSelectHtml += `<optgroup label="${isEn ? 'Materials' : 'Materiales'}">`;
+    materials.forEach(m => {
+      const val = `material_${m.id}`;
+      materialSelectHtml += `<option value="${val}" ${currentMatFilter === val ? 'selected' : ''}>${m.name} (${m.code})</option>`;
+    });
+    materialSelectHtml += `</optgroup>`;
+  }
+  materialSelectHtml += `</select>`;
 
   container.innerHTML = `
     <!-- MAIN VIEW -->
@@ -132,6 +244,7 @@ function renderHistoryPage(container) {
           <option value="facturas">${isEn ? 'Invoices' : 'Facturas'}</option>
           <option value="finanzas">${isEn ? 'Finances' : 'Finanzas'}</option>
         </select>
+        ${materialSelectHtml}
         <input id="history-search" type="text" class="form-input" style="width:auto;min-width:200px;" placeholder="${t('hist.search')}" oninput="filterHistory()" />
         <button class="btn-secondary" onclick="exportFilteredHistoryToExcel()">${t('hist.export_excel')}</button>
         <input type="file" id="history-import-excel-input" accept=".xlsx, .xls" style="display:none;" onchange="handleHistoryImportExcel(this)" />
@@ -288,7 +401,7 @@ function renderSingleInvoiceCard(inv) {
         <div class="invoice-summary-row total">
           <span class="invoice-summary-label">Monto</span>
           <span class="invoice-summary-value" style="color:${isIngreso ? 'var(--clr-primary-light)' : '#f87171'}; font-size:1.2rem; font-weight:700;">
-            ${isIngreso ? '+' : '-'}${formatMoney(inv.total, inv.currency || 'DOP')}
+            ${inv.total > 0 ? (isIngreso ? '+' : '-') : ''}${formatMoney(inv.total, inv.currency || 'DOP')}
           </span>
         </div>
       </div>
@@ -298,7 +411,7 @@ function renderSingleInvoiceCard(inv) {
       <div class="invoice-summary" style="margin-top:12px;">
         <div class="invoice-summary-row">
           <span class="invoice-summary-label">Total Compra (Egreso)</span>
-          <span class="invoice-summary-value" style="color:#f87171;">-${formatMoney(inv.totalCompra)}</span>
+          <span class="invoice-summary-value" style="color:#f87171;">${inv.totalCompra > 0 ? '-' : ''}${formatMoney(inv.totalCompra)}</span>
         </div>
         <div class="invoice-summary-row total">
           <span class="invoice-summary-label">Balance Neto</span>
@@ -328,8 +441,28 @@ function renderSingleInvoiceCard(inv) {
   if (inv.collaborator) {
     cardMeta += ` &bull; 👤 Colaborador: ${inv.collaborator}`;
   }
-  const displayTotal = isEgreso ? `-${formatMoney(inv.total, inv.currency || 'DOP')}` : (isIngreso ? `+${formatMoney(inv.total, inv.currency || 'DOP')}` : formatMoney(inv.total, inv.currency || 'DOP'));
+  const displayTotal = (isEgreso && inv.total > 0) ? `-${formatMoney(inv.total, inv.currency || 'DOP')}` : ((isIngreso && inv.total > 0) ? `+${formatMoney(inv.total, inv.currency || 'DOP')}` : formatMoney(inv.total, inv.currency || 'DOP'));
   const totalColor = isEgreso ? '#f87171' : (isIngreso ? 'var(--clr-primary-light)' : 'inherit');
+
+  const isEn = (getSettings().language === 'en');
+  let headersHtml = '';
+  if (isIngreso || isEgreso) {
+    headersHtml = `<th colspan="4">${isEn ? 'Transaction Details' : 'Detalles de Transacción'}</th>`;
+  } else if (isBasica) {
+    headersHtml = `
+      <th>${isEn ? 'Detail' : 'Detalle'}</th>
+      <th>${isEn ? 'Quantity / Info' : 'Cantidad / Info'}</th>
+      <th>${isEn ? 'Purchase Price' : 'Precio Compra'}</th>
+      <th>${isEn ? 'Total Compra' : 'Total Compra'}</th>
+    `;
+  } else {
+    headersHtml = `
+      <th>${isEn ? 'Detail' : 'Detalle'}</th>
+      <th>${isEn ? 'Quantity / Info' : 'Cantidad / Info'}</th>
+      <th>${isEn ? 'Unit Price' : 'Precio Unitario'}</th>
+      <th>${isEn ? 'Subtotal' : 'Subtotal'}</th>
+    `;
+  }
 
   return `
   <div class="history-card" id="hcard-${inv.id}">
@@ -364,7 +497,7 @@ function renderSingleInvoiceCard(inv) {
         <div style="overflow-x:auto; margin-top:10px;">
           <table class="data-table">
             <thead><tr>
-              <th>Detalle</th><th>Cantidad / Info</th><th></th><th></th>
+              ${headersHtml}
             </tr></thead>
             <tbody>${itemRows}</tbody>
           </table>
@@ -392,7 +525,9 @@ function toggleHistoryCard(id) {
 function filterHistory() {
   const typeFilter = document.getElementById('history-filter-type')?.value || 'all';
   const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
+  
   let items = applyDateFilter(getAllHistoryItems());
+  items = applyMaterialFilter(items);
 
   if (typeFilter === 'bitacoras') {
     items = items.filter(i => i.type === 'basica');

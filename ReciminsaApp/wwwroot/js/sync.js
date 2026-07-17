@@ -9,6 +9,7 @@
     const WATCHED_KEYS = [
         { pattern: 'recim_invoices', pages: ['historial'], label: '🧾 Facturas' },
         { pattern: 'recim_material_codes', pages: ['codigos'], label: '🏷️ Materiales' },
+        { pattern: 'recim_material_families', pages: ['codigos'], label: '📁 Familias' },
         { pattern: 'recim_clients', pages: ['clientes'], label: '👥 Clientes' },
         { pattern: 'recim_ingresos', pages: ['ingresos'], label: '💰 Ingresos' },
         { pattern: 'recim_egresos', pages: ['egresos'], label: '💸 Egresos' },
@@ -146,6 +147,8 @@
         } catch (_) { return null; }
     }
 
+    let lastPushTime = 0;
+
     /**
      * Push current localStorage data to Supabase.
      */
@@ -153,6 +156,8 @@
         if (!isSupabaseActive || !supabaseClient) return;
         const dbId = getSyncDbId();
         if (!dbId) return;
+
+        lastPushTime = Date.now();
 
         const dataToSync = {};
         let hasData = false;
@@ -866,7 +871,10 @@ async function sendGDriveWelcomeDoc() {
                     supabaseClient.channel('custom-all-channel')
                         .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `id=eq.${dbId}` }, payload => {
                             console.log('🔄 Cambio detectado en Realtime Database:', payload);
-                            // Avoid unnecessary push loop by just pulling new data
+                            if (Date.now() - lastPushTime < 3500) {
+                                console.log('⏭️ Ignorando cambio realtime porque fue originado por nosotros hace poco.');
+                                return;
+                            }
                             syncPullData(dbId);
                         })
                         .subscribe((status) => {

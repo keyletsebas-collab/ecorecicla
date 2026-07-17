@@ -665,6 +665,7 @@ async function handleGDriveSave() {
     const WATCHED_KEYS = [
       'recim_invoices',
       'recim_material_codes',
+      'recim_material_families',
       'recim_clients',
       'recim_ingresos',
       'recim_egresos'

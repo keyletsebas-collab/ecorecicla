@@ -232,7 +232,7 @@ function addBasicEntryRow() {
     <div class="form-row" style="grid-template-columns: ${isMobile ? '1fr' : '2fr 1fr'}; margin-bottom:10px;">
       <div class="form-group" style="margin-bottom:0;">
         <label class="form-label" style="font-size:12px;">Material</label>
-        <select class="form-select row-mat" onchange="const m = getMaterialCodes().find(x=>x.id===this.value); this.closest('.bitacora-row').querySelector('.row-code').value = m?m.code:''; calculateBatchTotals()">
+        <select class="form-select row-mat" onchange="const m = getMaterialCodes().find(x=>x.id===this.value); const row = this.closest('.bitacora-row'); row.querySelector('.row-code').value = m?m.code:''; const prices = (typeof getMarketPrices === 'function') ? getMarketPrices() : {}; const mPrice = m ? (prices[m.code] || { purchase: 0, sell: 0 }) : { purchase: 0, sell: 0 }; row.querySelector('.row-pbuy').value = mPrice.purchase; row.querySelector('.row-psell').value = mPrice.sell; calculateBatchTotals()">
           <option value="" disabled selected>Seleccionar...</option>
           ${options}
         </select>
