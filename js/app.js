@@ -416,3 +416,14 @@ function updateQuickLangUI(lang) {
 }
 window.updateQuickLangUI = updateQuickLangUI;
 
+// ---- Native/Capacitor/Web Sharing and Opening Utilities ----
+function openExternalLink(url) {
+    if (window.AndroidNative && typeof window.AndroidNative.OpenUrl === 'function') {
+        window.AndroidNative.OpenUrl(url);
+    } else if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+        window.open(url, '_system');
+    } else {
+        window.open(url, '_blank');
+    }
+}
+window.openExternalLink = openExternalLink;

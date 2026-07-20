@@ -105,6 +105,45 @@ namespace ReciminsaApp.Platforms.Android
                 Console.WriteLine("Error general en DownloadFile: " + ex.Message);
             }
         }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("ShareText")]
+        public void ShareText(string text, string title)
+        {
+            try
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await Share.Default.RequestAsync(new ShareTextRequest
+                    {
+                        Text = text,
+                        Title = title
+                    });
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in ShareText: " + ex.Message);
+            }
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("OpenUrl")]
+        public void OpenUrl(string url)
+        {
+            try
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await Launcher.Default.OpenAsync(new Uri(url));
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in OpenUrl: " + ex.Message);
+            }
+        }
     }
 }
 #endif
+

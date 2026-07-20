@@ -652,8 +652,22 @@ function shareInvoiceViaWhatsApp(invoiceId) {
 
   const text = `Hola *${clientName}*,\n\nGracias por reciclar con nosotros. Aquí tienes el detalle de tu recibo/factura *${inv.id}* por un monto de *${totalFmt}*.\n\n_Un respiro al planeta, un residuo a la vez._`;
 
-  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-  window.open(url, '_blank');
+  if (window.AndroidNative && typeof window.AndroidNative.ShareText === 'function') {
+    window.AndroidNative.ShareText(text, "Enviar Recibo");
+  } else if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.Share) {
+    Capacitor.Plugins.Share.share({
+      text: text,
+      title: 'Compartir Recibo',
+      dialogTitle: 'Compartir por WhatsApp / App'
+    }).catch(err => console.error(err));
+  } else {
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    if (typeof openExternalLink === 'function') {
+      openExternalLink(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }
 }
 window.shareInvoiceViaWhatsApp = shareInvoiceViaWhatsApp;
 
