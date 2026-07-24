@@ -3,7 +3,6 @@
 
 <head>
   <meta charset="UTF-8" />
-  <base href="/" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Reciminsaap – Gestión de Reciclaje</title>
   <meta name="description"
@@ -52,7 +51,6 @@
 </head>
 
 <body>
-  <div id="app" style="display: none;"></div>
 
   <!-- ===== AUTH SCREEN ===== -->
   <div id="auth-screen" class="auth-screen">
@@ -97,6 +95,15 @@
         <button type="submit" class="btn-primary" id="login-btn">
           <span>Iniciar Sesión</span>
           <div class="btn-spinner hidden"></div>
+        </button>
+
+        <div class="auth-divider" style="margin: 12px 0; text-align: center; color: var(--text-muted, #94a3b8); font-size: 13px;">
+          <span>— o —</span>
+        </div>
+
+        <button type="button" class="btn-biometric" id="biometric-login-btn" onclick="BiometricAuthManager.handleBiometricLoginButtonClick()">
+          <span class="biometric-icon" style="font-size: 1.25rem; margin-right: 8px;">👆</span>
+          <span>Iniciar con Huella / Biometría</span>
         </button>
       </form>
 
@@ -345,6 +352,7 @@
   <script src="js/pdf-utils.js?v=31"></script>
   <script src="js/i18n.js?v=31"></script>
   <script src="js/auth.js?v=31"></script>
+  <script src="js/biometric-auth.js?v=31"></script>
   <script src="js/security.js?v=31"></script>
   <script src="js/materials.js?v=31"></script>
   <script src="js/clients.js?v=31"></script>
@@ -364,7 +372,6 @@
   <script src="js/app.js?v=31"></script>
   <script src="js/sync.js?v=32"></script>
   <script src="js/chatbot.js?v=31"></script>
-  <script src="_framework/blazor.webview.js"></script>
 </body>
 
 </html>

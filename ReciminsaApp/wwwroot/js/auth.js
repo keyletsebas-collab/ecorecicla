@@ -251,8 +251,11 @@ async function handleLogin(evt) {
         session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
       }
 
-      // Guardar sesión
+      // Guardar sesión en localStorage y SQLite
       localStorage.setItem('recim_session', JSON.stringify(session));
+      if (typeof BiometricAuthManager !== 'undefined') {
+        BiometricAuthManager.saveSessionToSQLite(session);
+      }
       showToast(`✅ Bienvenido de nuevo, ${data.name}`, 'success');
       
       resetBtn();
@@ -509,8 +512,11 @@ async function handleVerifySignup(evt) {
       session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
     }
 
-    // Save session
+    // Save session in localStorage and SQLite
     localStorage.setItem('recim_session', JSON.stringify(session));
+    if (typeof BiometricAuthManager !== 'undefined') {
+      BiometricAuthManager.saveSessionToSQLite(session);
+    }
     localStorage.removeItem('recim_signup_pending');
 
     showToast('🎉 ¡Cuenta creada y verificada con éxito!', 'success');
@@ -549,8 +555,7 @@ function cancelSignupVerification(evt) {
 function handleLogout() {
   if (!confirm('¿Seguro que deseas cerrar sesión?')) return;
   
-  // Clear only global non-namespaced keys and session.
-  // The namespaced user keys remain safe and intact in localStorage!
+  // Mantener la sesión guardada en SQLite para permitir el inicio rápido con Huella / Biometría
   const keysToRemove = [
     'recim_session'
   ];

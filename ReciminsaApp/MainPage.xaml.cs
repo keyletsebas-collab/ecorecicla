@@ -25,7 +25,7 @@ public partial class MainPage : ContentPage
     private async void BlazorWebView_BlazorWebViewInitialized(object? sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
     {
 #if ANDROID
-        e.WebView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(), "AndroidNative");
+        e.WebView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(e.WebView), "AndroidNative");
         try
         {
             e.WebView.ClearCache(true);
@@ -44,7 +44,6 @@ public partial class MainPage : ContentPage
         
         try
         {
-            // Forzar limpieza de Service Workers y Cache que puedan estar causando que se vea la versión antigua
             await e.WebView.CoreWebView2.Profile.ClearBrowsingDataAsync(Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.ServiceWorkers | Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.CacheStorage);
             await e.WebView.CoreWebView2.ExecuteScriptAsync("if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); }");
         }
@@ -58,7 +57,6 @@ public partial class MainPage : ContentPage
 #if WINDOWS
     private void CoreWebView2_NavigationStarting(object sender, Microsoft.Web.WebView2.Core.CoreWebView2NavigationStartingEventArgs e)
     {
-        // Si intenta navegar a un blob: (por ejemplo al darle click a un PDF mal generado), lo bloqueamos para evitar la pantalla blanca
         if (e.Uri != null && e.Uri.StartsWith("blob:"))
         {
             e.Cancel = true;
@@ -73,53 +71,102 @@ public partial class MainPage : ContentPage
             if (!string.IsNullOrEmpty(json))
             {
                 var message = JsonSerializer.Deserialize<WebMessage>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (message != null && message.Action == "download")
+                if (message != null)
                 {
-                    string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-                    Directory.CreateDirectory(downloadsPath); // Asegurar que la carpeta Descargas exista
-                    
-                    string safeFileName = message.Filename.Replace("/", "_").Replace("\\", "_");
-                    string filePath = Path.Combine(downloadsPath, safeFileName);
-                    
-                    // Asegurar nombre único
-                    int count = 1;
-                    string fileNameOnly = Path.GetFileNameWithoutExtension(safeFileName);
-                    string extension = Path.GetExtension(safeFileName);
-                    while (File.Exists(filePath))
+                    if (message.Action == "download")
                     {
-                        filePath = Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
-                        count++;
-                    }
-
-                    byte[] fileBytes = Convert.FromBase64String(message.Data);
-                    await File.WriteAllBytesAsync(filePath, fileBytes);
-
-                    // Intentar abrir con el programa por defecto del sistema
-                    try
-                    {
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true });
-                    }
-                    catch (Exception)
-                    {
-                        // Fallback a Launcher.OpenAsync de MAUI
-                        await Launcher.OpenAsync(new OpenFileRequest
+                        string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                        Directory.CreateDirectory(downloadsPath);
+                        
+                        string safeFileName = message.Filename.Replace("/", "_").Replace("\\", "_");
+                        string filePath = Path.Combine(downloadsPath, safeFileName);
+                        
+                        int count = 1;
+                        string fileNameOnly = Path.GetFileNameWithoutExtension(safeFileName);
+                        string extension = Path.GetExtension(safeFileName);
+                        while (File.Exists(filePath))
                         {
-                            File = new ReadOnlyFile(filePath)
+                            filePath = Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
+                            count++;
+                        }
+
+                        byte[] fileBytes = Convert.FromBase64String(message.Data);
+                        await File.WriteAllBytesAsync(filePath, fileBytes);
+
+                        try
+                        {
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true });
+                        }
+                        catch (Exception)
+                        {
+                            await Launcher.OpenAsync(new OpenFileRequest
+                            {
+                                File = new ReadOnlyFile(filePath)
+                            });
+                        }
+
+                        string finalPath = filePath;
+                        MainThread.BeginInvokeOnMainThread(async () =>
+                        {
+                            await DisplayAlert("Factura Guardada", $"El archivo PDF se ha descargado y guardado en tu carpeta de Descargas:\n\n{finalPath}", "OK");
                         });
                     }
-
-                    // Mostrar confirmación visual en pantalla al usuario
-                    string finalPath = filePath;
-                    MainThread.BeginInvokeOnMainThread(async () =>
+                    else if (message.Action == "save_user_session")
                     {
-                        await DisplayAlert("Factura Guardada", $"El archivo PDF se ha descargado y guardado en tu carpeta de Descargas:\n\n{finalPath}", "OK");
-                    });
+                        var db = new Services.DatabaseService();
+                        await db.SaveUserSessionAsync(new Models.UserSessionRecord
+                        {
+                            AccountId = message.AccountId,
+                            Email = message.Email,
+                            Name = message.Name,
+                            SessionJson = message.Data,
+                            BiometricEnabled = true,
+                            LastLoginAt = DateTime.UtcNow
+                        });
+                    }
+                    else if (message.Action == "get_user_session")
+                    {
+                        var db = new Services.DatabaseService();
+                        var session = await db.GetLatestUserSessionAsync();
+                        string sessionJson = session?.SessionJson ?? "";
+                        string script = $"if (typeof window.onSQLiteSessionLoaded === 'function') {{ window.onSQLiteSessionLoaded({JsonSerializer.Serialize(sessionJson)}); }}";
+                        await blazorWebView.WebView.CoreWebView2.ExecuteScriptAsync(script);
+                    }
+                    else if (message.Action == "delete_user_session")
+                    {
+                        var db = new Services.DatabaseService();
+                        await db.DeleteUserSessionAsync(message.AccountId);
+                    }
+                    else if (message.Action == "authenticate_biometric")
+                    {
+                        bool success = false;
+                        string errorMsg = "";
+                        try
+                        {
+                            var ucvResult = await Windows.Security.Credentials.UI.UserConsentVerifier.RequestVerificationAsync("Confirmar Inicio de Sesión en Reciminsa App");
+                            if (ucvResult == Windows.Security.Credentials.UI.UserConsentVerificationResult.Verified)
+                            {
+                                success = true;
+                            }
+                            else
+                            {
+                                errorMsg = "Autenticación de Windows Hello cancelada o no verificada.";
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errorMsg = ex.Message;
+                        }
+
+                        string script = $"if (typeof window.onBiometricAuthResult === 'function') {{ window.onBiometricAuthResult({(success ? "true" : "false")}, '{errorMsg.Replace("'", "\\'")}'); }}";
+                        await blazorWebView.WebView.CoreWebView2.ExecuteScriptAsync(script);
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Error descargando archivo: " + ex.Message);
+            Console.WriteLine("Error en WebMessageReceived: " + ex.Message);
         }
     }
 #endif
@@ -201,4 +248,7 @@ public class WebMessage
     public string Action { get; set; } = string.Empty;
     public string Filename { get; set; } = string.Empty;
     public string Data { get; set; } = string.Empty;
+    public string AccountId { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 }

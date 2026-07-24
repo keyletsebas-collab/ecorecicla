@@ -96,6 +96,15 @@
           <span>Iniciar Sesión</span>
           <div class="btn-spinner hidden"></div>
         </button>
+
+        <div class="auth-divider" style="margin: 12px 0; text-align: center; color: var(--text-muted, #94a3b8); font-size: 13px;">
+          <span>— o —</span>
+        </div>
+
+        <button type="button" class="btn-biometric" id="biometric-login-btn" onclick="BiometricAuthManager.handleBiometricLoginButtonClick()">
+          <span class="biometric-icon" style="font-size: 1.25rem; margin-right: 8px;">👆</span>
+          <span>Iniciar con Huella / Biometría</span>
+        </button>
       </form>
 
       <!-- Signup Form -->
@@ -343,6 +352,7 @@
   <script src="js/pdf-utils.js?v=31"></script>
   <script src="js/i18n.js?v=31"></script>
   <script src="js/auth.js?v=31"></script>
+  <script src="js/biometric-auth.js?v=31"></script>
   <script src="js/security.js?v=31"></script>
   <script src="js/materials.js?v=31"></script>
   <script src="js/clients.js?v=31"></script>

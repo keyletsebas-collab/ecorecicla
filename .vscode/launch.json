@@ -6,7 +6,7 @@
     "configurations": [
         {
           "name": ".NET MAUI",
-            "type": "maui",
+            "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "maui: Build"
         }

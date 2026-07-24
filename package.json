@@ -28,6 +28,7 @@
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/local-notifications": "^8.2.0",
     "@capacitor/share": "^8.0.1",
+    "bluebird": "^3.7.2",
     "electron-squirrel-startup": "^1.0.1",
     "xlsx-js-style": "^1.2.0"
   },
