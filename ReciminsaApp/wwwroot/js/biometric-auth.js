@@ -8,6 +8,7 @@ const BiometricAuthManager = {
 
   saveSessionToSQLite: async function(session) {
     if (!session || !session.accountId) return;
+    session.quickLoginEnabled = localStorage.getItem('recim_quick_login_enabled') === 'true';
     const sessionJson = JSON.stringify(session);
     localStorage.setItem('recim_last_sqlite_session', sessionJson);
 
@@ -337,7 +338,42 @@ const BiometricAuthManager = {
         tx.onerror = () => resolve();
       });
     } catch (e) {}
-  // ---- 4. Visibilidad de Botón por Configuración ----
+  },
+
+  // ---- 4. Sincronización y Visibilidad de Botón por Configuración ----
+
+  syncQuickLoginStateFromSQLiteOrDB: async function() {
+    try {
+      const savedSession = await BiometricAuthManager.getLatestSessionFromSQLite();
+      if (savedSession && savedSession.accountId) {
+        if (savedSession.quickLoginEnabled === true || savedSession.quickLoginEnabled === 'true' || savedSession.BiometricEnabled === true) {
+          localStorage.setItem('recim_quick_login_enabled', 'true');
+        } else if (savedSession.quickLoginEnabled === false || savedSession.quickLoginEnabled === 'false') {
+          localStorage.setItem('recim_quick_login_enabled', 'false');
+        }
+      }
+
+      if (typeof supabaseClient !== 'undefined' && supabaseClient && savedSession && savedSession.accountId) {
+        try {
+          const { data } = await supabaseClient
+            .from('profiles')
+            .select('biometric_enabled')
+            .eq('id', savedSession.accountId)
+            .maybeSingle();
+
+          if (data && typeof data.biometric_enabled === 'boolean') {
+            localStorage.setItem('recim_quick_login_enabled', data.biometric_enabled ? 'true' : 'false');
+          }
+        } catch (dbErr) {
+          console.warn("⚠️ No se pudo consultar estado biométrico de Supabase:", dbErr);
+        }
+      }
+    } catch (e) {
+      console.warn("⚠️ Error sincronizando estado de inicio rápido:", e);
+    } finally {
+      BiometricAuthManager.updateBiometricButtonVisibility();
+    }
+  },
 
   updateBiometricButtonVisibility: function() {
     const bioBtn = document.getElementById('biometric-login-btn');
@@ -358,7 +394,7 @@ const BiometricAuthManager = {
 
 // Inicializar y vincular eventos al cargar el DOM
 document.addEventListener('DOMContentLoaded', () => {
-  BiometricAuthManager.updateBiometricButtonVisibility();
+  BiometricAuthManager.syncQuickLoginStateFromSQLiteOrDB();
   BiometricAuthManager.isBiometricAvailable().then((available) => {
     const bioBtn = document.getElementById('biometric-login-btn');
     if (bioBtn && !available) {

@@ -2007,21 +2007,36 @@ async function handleActivateQuickLoginSubmit(evt) {
       session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
     }
 
-    // 4. Guardar sesión en SQLite / almacenamiento local nativo
+    // 4. Activar la opción de inicio rápido local
+    localStorage.setItem('recim_quick_login_enabled', 'true');
+    session.quickLoginEnabled = true;
+
+    // Guardar sesión y preferencia en SQLite
     if (typeof BiometricAuthManager !== 'undefined') {
       await BiometricAuthManager.saveSessionToSQLite(session);
     } else {
       localStorage.setItem('recim_last_sqlite_session', JSON.stringify(session));
     }
 
-    // 5. Activar la opción de inicio rápido
-    localStorage.setItem('recim_quick_login_enabled', 'true');
+    // 5. Guardar preferencia en la Base de Datos Supabase (profiles)
+    if (typeof supabaseClient !== 'undefined' && supabaseClient && session.accountId) {
+      try {
+        await supabaseClient
+          .from('profiles')
+          .update({ biometric_enabled: true })
+          .eq('id', session.accountId);
+        console.log("💾 Preferencia de inicio rápido guardada en la base de datos Supabase.");
+      } catch (dbErr) {
+        console.warn("⚠️ No se pudo guardar en Supabase (se mantiene guardado localmente en SQLite):", dbErr);
+      }
+    }
+
     if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
       BiometricAuthManager.updateBiometricButtonVisibility();
     }
 
     if (typeof showToast === 'function') {
-      showToast('⚡ Inicio de sesión rápido activado y guardado en SQLite.', 'success');
+      showToast('⚡ Inicio de sesión rápido activado y guardado en SQLite y Base de Datos.', 'success');
     }
 
     closeAdvancedSettingsModal();
@@ -2044,6 +2059,27 @@ function handleDisableQuickLogin() {
   if (!confirm("¿Deseas desactivar el inicio de sesión rápido? Al hacerlo, deberás ingresar siempre con correo y contraseña.")) return;
 
   localStorage.setItem('recim_quick_login_enabled', 'false');
+
+  try {
+    const sessionStr = localStorage.getItem('recim_session') || localStorage.getItem('recim_last_sqlite_session');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      session.quickLoginEnabled = false;
+      if (typeof BiometricAuthManager !== 'undefined') {
+        BiometricAuthManager.saveSessionToSQLite(session);
+      }
+
+      if (typeof supabaseClient !== 'undefined' && supabaseClient && session.accountId) {
+        supabaseClient
+          .from('profiles')
+          .update({ biometric_enabled: false })
+          .eq('id', session.accountId)
+          .then(() => console.log("💾 Preferencia desactivada en Supabase DB."))
+          .catch(err => console.warn("Aviso desactivar Supabase:", err));
+      }
+    }
+  } catch (e) {}
+
   if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
     BiometricAuthManager.updateBiometricButtonVisibility();
   }
