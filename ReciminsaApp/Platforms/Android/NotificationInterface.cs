@@ -263,11 +263,9 @@ namespace ReciminsaApp.Platforms.Android
                         // TODOS los métodos: huella, rostro, iris, PIN, patrón, contraseña
                         if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.R)
                         {
-                            builder.SetAllowedAuthenticators(
-                                global::Android.Hardware.Biometrics.BiometricManager.Authenticators.BiometricWeak |
-                                global::Android.Hardware.Biometrics.BiometricManager.Authenticators.DeviceCredential
-                            );
-                            // NOTA: No se puede usar SetNegativeButton junto con DeviceCredential
+                            // BIOMETRIC_WEAK = 0x00FF (huella, rostro, iris)
+                            // DEVICE_CREDENTIAL = 0x8000 (PIN, patrón, contraseña)
+                            builder.SetAllowedAuthenticators(0x00FF | 0x8000);
                         }
                         else
                         {
