@@ -140,7 +140,7 @@ const BiometricAuthManager = {
             resolve(false);
           }
         };
-        window.AndroidNative.AuthenticateBiometric("Inicio de Sesión Biométrico", "Toca el sensor de huella dactilar o usa tu método de seguridad");
+        window.AndroidNative.AuthenticateBiometric("Confirmar Identidad", "Usa huella, rostro, PIN o patrón para continuar");
         return;
       }
 
@@ -151,7 +151,7 @@ const BiometricAuthManager = {
             resolve(true);
           } else {
             if (errorEl && errorMsg) {
-              errorEl.textContent = 'Biometría cancelada o fallida: ' + errorMsg;
+              errorEl.textContent = 'Verificación cancelada o fallida: ' + errorMsg;
               errorEl.classList.remove('hidden');
             }
             resolve(false);
@@ -185,7 +185,7 @@ const BiometricAuthManager = {
         } catch (webAuthErr) {
           console.log("WebAuthn aviso:", webAuthErr);
           // Si no hay credenciales registradas aún en WebAuthn, solicitamos confirmación local estándar
-          if (confirm("¿Confirmar inicio de sesión mediante biometría / seguridad de este dispositivo?")) {
+          if (confirm("¿Confirmar inicio de sesión mediante la seguridad de este dispositivo?")) {
             resolve(true);
             return;
           }
@@ -220,7 +220,7 @@ const BiometricAuthManager = {
 
       if (!targetSession || !targetSession.accountId) {
         if (errorEl) {
-          errorEl.textContent = 'No hay una sesión guardada en SQLite. Inicia sesión con correo y contraseña primero.';
+          errorEl.textContent = 'No hay una sesión guardada. Inicia sesión con correo y contraseña primero.';
           errorEl.classList.remove('hidden');
         }
         if (btn) {
@@ -234,7 +234,7 @@ const BiometricAuthManager = {
       const authenticated = await BiometricAuthManager.authenticateWithBiometrics();
 
       if (authenticated) {
-        showToast(`🖐️ Autenticación biométrica exitosa.`, 'success');
+        showToast(`🔐 Autenticación exitosa.`, 'success');
         
         // Guardar/refrescar en localStorage y SQLite
         localStorage.setItem('recim_session', JSON.stringify(targetSession));
@@ -249,7 +249,7 @@ const BiometricAuthManager = {
     } catch (err) {
       console.error("Error en inicio biométrico:", err);
       if (errorEl) {
-        errorEl.textContent = 'Error durante la autenticación biométrica.';
+        errorEl.textContent = 'Error durante la verificación de seguridad.';
         errorEl.classList.remove('hidden');
       }
     } finally {

@@ -240,6 +240,7 @@ namespace ReciminsaApp.Platforms.Android
                         return;
                     }
 
+                    // Android 9 (API 28) y superior: usar BiometricPrompt con todos los métodos
                     if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.P)
                     {
                         var executor = activity.MainExecutor;
@@ -254,21 +255,42 @@ namespace ReciminsaApp.Platforms.Android
                             SendBiometricResultToJS(success, err);
                         });
 
-                        var prompt = new global::Android.Hardware.Biometrics.BiometricPrompt.Builder(activity)
+                        var builder = new global::Android.Hardware.Biometrics.BiometricPrompt.Builder(activity)
                             .SetTitle(string.IsNullOrEmpty(title) ? "Confirmar Identidad" : title)
-                            .SetSubtitle(string.IsNullOrEmpty(subtitle) ? "Usa tu huella dactilar o método de seguridad del dispositivo para continuar" : subtitle)
-                            .SetNegativeButton("Cancelar", executor, callback)
-                            .Build();
+                            .SetSubtitle(string.IsNullOrEmpty(subtitle) ? "Usa huella, rostro, PIN o patrón para continuar" : subtitle);
 
+                        // API 30+ (Android 11): usar SetAllowedAuthenticators para habilitar
+                        // TODOS los métodos: huella, rostro, iris, PIN, patrón, contraseña
+                        if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.R)
+                        {
+                            builder.SetAllowedAuthenticators(
+                                global::Android.Hardware.Biometrics.BiometricManager.Authenticators.BiometricWeak |
+                                global::Android.Hardware.Biometrics.BiometricManager.Authenticators.DeviceCredential
+                            );
+                            // NOTA: No se puede usar SetNegativeButton junto con DeviceCredential
+                        }
+                        else
+                        {
+                            // API 28-29: usar SetDeviceCredentialAllowed (deprecated en API 30 pero funcional aquí)
+                            #pragma warning disable CA1422 // Validate platform compatibility
+                            builder.SetDeviceCredentialAllowed(true);
+                            #pragma warning restore CA1422
+                        }
+
+                        var prompt = builder.Build();
                         var cancellationSignal = new global::Android.OS.CancellationSignal();
                         prompt.Authenticate(cancellationSignal, executor, callback);
                     }
                     else
                     {
+                        // Android 8 y anterior: usar KeyguardManager que soporta PIN/patrón/contraseña
                         var keyguardManager = (global::Android.App.KeyguardManager?)activity.GetSystemService(global::Android.Content.Context.KeyguardService);
                         if (keyguardManager != null && keyguardManager.IsKeyguardSecure)
                         {
-                            var intent = keyguardManager.CreateConfirmDeviceCredentialIntent(title, subtitle);
+                            var intent = keyguardManager.CreateConfirmDeviceCredentialIntent(
+                                string.IsNullOrEmpty(title) ? "Confirmar Identidad" : title,
+                                string.IsNullOrEmpty(subtitle) ? "Usa tu método de seguridad para continuar" : subtitle
+                            );
                             if (intent != null)
                             {
                                 activity.StartActivity(intent);
@@ -276,18 +298,18 @@ namespace ReciminsaApp.Platforms.Android
                             }
                             else
                             {
-                                SendBiometricResultToJS(false, "No hay método de seguridad configurado.");
+                                SendBiometricResultToJS(false, "No hay método de seguridad configurado en el dispositivo.");
                             }
                         }
                         else
                         {
-                            SendBiometricResultToJS(false, "El dispositivo no tiene bloqueo de pantalla o biometría activa.");
+                            SendBiometricResultToJS(false, "El dispositivo no tiene bloqueo de pantalla configurado. Configura un PIN, patrón o huella en Ajustes.");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("❌ Error en autenticación biométrica de Android: " + ex.Message);
+                    Console.WriteLine("❌ Error en autenticación de seguridad de Android: " + ex.Message);
                     SendBiometricResultToJS(false, ex.Message);
                 }
             });
@@ -330,7 +352,8 @@ namespace ReciminsaApp.Platforms.Android
         public override void OnAuthenticationFailed()
         {
             base.OnAuthenticationFailed();
-            _onResult(false, "No se reconoció la huella dactilar. Intenta de nuevo.");
+            // No llamamos _onResult aquí porque Android permite reintentar automáticamente
+            // Solo se reporta en OnAuthenticationError cuando se agotan los intentos
         }
 
         public override void OnAuthenticationError(global::Android.Hardware.Biometrics.BiometricErrorCode errorCode, Java.Lang.ICharSequence? errString)
