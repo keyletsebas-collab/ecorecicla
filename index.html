@@ -97,11 +97,11 @@
           <div class="btn-spinner hidden"></div>
         </button>
 
-        <div class="auth-divider" style="margin: 12px 0; text-align: center; color: var(--text-muted, #94a3b8); font-size: 13px;">
+        <div class="auth-divider" style="margin: 12px 0; text-align: center; color: var(--text-muted, #94a3b8); font-size: 13px; display: none;">
           <span>— o —</span>
         </div>
 
-        <button type="button" class="btn-biometric" id="biometric-login-btn" onclick="BiometricAuthManager.handleBiometricLoginButtonClick()">
+        <button type="button" class="btn-biometric" id="biometric-login-btn" style="display: none;" onclick="BiometricAuthManager.handleBiometricLoginButtonClick()">
           <span class="biometric-icon" style="font-size: 1.25rem; margin-right: 8px;">🔐</span>
           <span>Iniciar con Huella / Rostro / PIN</span>
         </button>

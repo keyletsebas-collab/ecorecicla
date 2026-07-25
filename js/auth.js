@@ -579,6 +579,10 @@ function handleLogout() {
   }
 
   showToast('👋 Sesión cerrada', 'success');
+
+  if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
+    BiometricAuthManager.updateBiometricButtonVisibility();
+  }
 }
 
 // =============================================

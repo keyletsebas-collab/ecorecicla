@@ -197,7 +197,17 @@ const BiometricAuthManager = {
   },
 
   handleBiometricLoginButtonClick: async function() {
+    const isEnabled = localStorage.getItem('recim_quick_login_enabled') === 'true';
     const errorEl = document.getElementById('login-error');
+
+    if (!isEnabled) {
+      if (errorEl) {
+        errorEl.textContent = 'El inicio de sesión rápido está desactivado. Actívalo en Ajustes > Opciones Avanzadas.';
+        errorEl.classList.remove('hidden');
+      }
+      return;
+    }
+
     if (errorEl) errorEl.classList.add('hidden');
 
     const btn = document.getElementById('biometric-login-btn');
@@ -327,16 +337,33 @@ const BiometricAuthManager = {
         tx.onerror = () => resolve();
       });
     } catch (e) {}
+  // ---- 4. Visibilidad de Botón por Configuración ----
+
+  updateBiometricButtonVisibility: function() {
+    const bioBtn = document.getElementById('biometric-login-btn');
+    const divider = document.querySelector('.auth-divider');
+    const isEnabled = localStorage.getItem('recim_quick_login_enabled') === 'true';
+
+    if (bioBtn) {
+      if (isEnabled) {
+        bioBtn.style.display = 'flex';
+        if (divider) divider.style.display = 'block';
+      } else {
+        bioBtn.style.display = 'none';
+        if (divider) divider.style.display = 'none';
+      }
+    }
   }
 };
 
 // Inicializar y vincular eventos al cargar el DOM
 document.addEventListener('DOMContentLoaded', () => {
+  BiometricAuthManager.updateBiometricButtonVisibility();
   BiometricAuthManager.isBiometricAvailable().then((available) => {
     const bioBtn = document.getElementById('biometric-login-btn');
     if (bioBtn && !available) {
-      // Opcional: mostrar aviso si no hay biometría en el hardware
       console.log("ℹ️ Autenticación biométrica lista.");
     }
   });
 });
+

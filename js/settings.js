@@ -396,6 +396,15 @@ function renderSettingsPage(container) {
         </button>
       </div>
 
+      <!-- ===== OPCIONES AVANZADAS ===== -->
+      <div class="card card--elevated settings-section" style="grid-column: span 2;">
+        <h3 class="settings-section-title">⚙️ Opciones Avanzadas</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">Accede a configuraciones avanzadas de seguridad y autenticación rápida.</p>
+        <button class="btn-secondary" style="width:100%; justify-content:center; gap:8px; font-weight:600;" onclick="openAdvancedSettingsModal()">
+          <span>⚙️ Opciones Avanzadas</span>
+        </button>
+      </div>
+
       <!-- ===== INFORMACIÓN ===== -->
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
         <h3 class="settings-section-title">${t('set.info')}</h3>
@@ -1819,5 +1828,239 @@ function applyModuleVisibility() {
 // Ensure globally accessible
 window.toggleModule = toggleModule;
 window.applyModuleVisibility = applyModuleVisibility;
+
+// =============================================
+// OPCIONES AVANZADAS Y INICIO DE SESIÓN RÁPIDO
+// =============================================
+
+function openAdvancedSettingsModal() {
+  if (document.getElementById('advanced-settings-modal')) return;
+
+  const isQuickLoginEnabled = localStorage.getItem('recim_quick_login_enabled') === 'true';
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'advanced-settings-modal';
+  modalOverlay.className = 'modal-overlay';
+  modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeAdvancedSettingsModal(); };
+
+  modalOverlay.innerHTML = `
+    <div class="modal" style="max-width: 520px; width: 90%;">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ Opciones Avanzadas</h3>
+        <button class="modal-close" onclick="closeAdvancedSettingsModal()">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- OPCIÓN 1: INICIO DE SESIÓN RÁPIDO -->
+        <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 16px; border: 1px solid var(--clr-border);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+            <div>
+              <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; color: var(--clr-text-main);">
+                ⚡ Inicio de Sesión Rápido
+              </h4>
+              <p style="margin: 0; font-size: 0.82rem; color: var(--clr-text-muted); line-height: 1.4;">
+                Permite iniciar sesión instantáneamente con los datos de seguridad de tu celular (huella, rostro, PIN o patrón) sin escribir tu contraseña en cada acceso.
+              </p>
+            </div>
+            <span id="quick-login-badge" class="badge" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; font-weight: 600; text-transform: uppercase; white-space: nowrap; ${isQuickLoginEnabled ? 'background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e;' : 'background: var(--clr-surface-2); color: var(--clr-text-muted); border: 1px solid var(--clr-border);'}">
+              ${isQuickLoginEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
+            </span>
+          </div>
+
+          <div id="quick-login-actions" style="margin-top: 12px;">
+            ${isQuickLoginEnabled 
+              ? `<button class="btn-secondary" style="width: 100%; justify-content: center; color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,0.08); font-weight: 600;" onclick="handleDisableQuickLogin()">
+                  🚫 Desactivar Inicio de Sesión Rápido
+                 </button>`
+              : `<button class="btn-primary" style="width: 100%; justify-content: center; font-weight: 600; background: linear-gradient(135deg, #22c55e, #15803d);" onclick="showQuickLoginCredentialsForm()">
+                  ⚡ Activar Inicio de Sesión Rápido
+                 </button>`
+            }
+          </div>
+
+          <!-- FORMULARIO DE VALIDACIÓN DE CREDENCIALES (Oculto por defecto) -->
+          <div id="quick-login-cred-box" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--clr-border);">
+            <p style="font-size: 0.82rem; font-weight: 600; color: var(--clr-text-main); margin-bottom: 10px;">
+              🔒 Escribe tus credenciales para validar y guardar tu sesión en SQLite:
+            </p>
+            <form onsubmit="handleActivateQuickLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 10px;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" style="font-size: 0.78rem;">Correo Electrónico</label>
+                <input id="ql-email" type="email" class="form-input" placeholder="tu@correo.com" required style="font-size: 0.85rem;" />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" style="font-size: 0.78rem;">Contraseña</label>
+                <input id="ql-password" type="password" class="form-input" placeholder="••••••••" required style="font-size: 0.85rem;" />
+              </div>
+              <p id="ql-error" class="auth-error hidden" style="font-size: 0.8rem; margin: 0;"></p>
+              <div style="display: flex; gap: 8px; margin-top: 6px;">
+                <button type="button" class="btn-secondary" style="flex: 1; justify-content: center;" onclick="hideQuickLoginCredentialsForm()">Cancelar</button>
+                <button type="submit" id="ql-submit-btn" class="btn-primary" style="flex: 1; justify-content: center;">
+                  <span>Validar y Activar</span>
+                  <div class="btn-spinner hidden"></div>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeAdvancedSettingsModal()">Cerrar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+
+  // Pre-fill email if current user session exists
+  try {
+    const sessionStr = localStorage.getItem('recim_session');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      const emailInput = document.getElementById('ql-email');
+      if (emailInput && session.email) {
+        emailInput.value = session.email;
+      }
+    }
+  } catch(e){}
+}
+
+function closeAdvancedSettingsModal() {
+  const modal = document.getElementById('advanced-settings-modal');
+  if (modal) modal.remove();
+}
+
+function showQuickLoginCredentialsForm() {
+  const credBox = document.getElementById('quick-login-cred-box');
+  if (credBox) credBox.style.display = 'block';
+}
+
+function hideQuickLoginCredentialsForm() {
+  const credBox = document.getElementById('quick-login-cred-box');
+  if (credBox) credBox.style.display = 'none';
+  const errEl = document.getElementById('ql-error');
+  if (errEl) errEl.classList.add('hidden');
+}
+
+async function handleActivateQuickLoginSubmit(evt) {
+  evt.preventDefault();
+  const email = document.getElementById('ql-email').value.trim().toLowerCase();
+  const password = document.getElementById('ql-password').value;
+  const errEl = document.getElementById('ql-error');
+  const btn = document.getElementById('ql-submit-btn');
+
+  if (errEl) errEl.classList.add('hidden');
+
+  if (btn) {
+    btn.querySelector('span')?.classList.add('hidden');
+    btn.querySelector('.btn-spinner')?.classList.remove('hidden');
+    btn.disabled = true;
+  }
+
+  try {
+    if (!isSupabaseActive || !supabaseClient) {
+      throw new Error("No hay conexión con la base de datos Supabase.");
+    }
+
+    // 1. Validar correo en Supabase profiles
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error("No existe una cuenta con ese correo.");
+    }
+
+    if (data.family_id === 'BLOCKED') {
+      throw new Error("Acceso denegado: tu cuenta ha sido bloqueada por el administrador.");
+    }
+
+    // 2. Validar contraseña
+    const secureHash = await hashPasswordSHA256(password);
+    let isValid = false;
+    if (data.password === secureHash) {
+      isValid = true;
+    } else if (data.password === btoa(password)) {
+      isValid = true;
+    }
+
+    if (!isValid) {
+      throw new Error("Contraseña incorrecta.");
+    }
+
+    // 3. Crear objeto de sesión validado
+    const session = {
+      name: data.name,
+      email: data.email,
+      avatar: (data.avatar || data.name || 'U')[0].toUpperCase(),
+      provider: 'email',
+      accountId: data.id,
+      familyId: data.family_id || null
+    };
+
+    if (typeof calculateSecureChecksum === 'function') {
+      session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
+    }
+
+    // 4. Guardar sesión en SQLite / almacenamiento local nativo
+    if (typeof BiometricAuthManager !== 'undefined') {
+      await BiometricAuthManager.saveSessionToSQLite(session);
+    } else {
+      localStorage.setItem('recim_last_sqlite_session', JSON.stringify(session));
+    }
+
+    // 5. Activar la opción de inicio rápido
+    localStorage.setItem('recim_quick_login_enabled', 'true');
+    if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
+      BiometricAuthManager.updateBiometricButtonVisibility();
+    }
+
+    if (typeof showToast === 'function') {
+      showToast('⚡ Inicio de sesión rápido activado y guardado en SQLite.', 'success');
+    }
+
+    closeAdvancedSettingsModal();
+  } catch (err) {
+    console.error("Error al activar inicio rápido:", err);
+    if (errEl) {
+      errEl.textContent = err.message || err;
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    if (btn) {
+      btn.querySelector('span')?.classList.remove('hidden');
+      btn.querySelector('.btn-spinner')?.classList.add('hidden');
+      btn.disabled = false;
+    }
+  }
+}
+
+function handleDisableQuickLogin() {
+  if (!confirm("¿Deseas desactivar el inicio de sesión rápido? Al hacerlo, deberás ingresar siempre con correo y contraseña.")) return;
+
+  localStorage.setItem('recim_quick_login_enabled', 'false');
+  if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
+    BiometricAuthManager.updateBiometricButtonVisibility();
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('ℹ️ Inicio de sesión rápido desactivado.', 'info');
+  }
+
+  closeAdvancedSettingsModal();
+}
+
+window.openAdvancedSettingsModal = openAdvancedSettingsModal;
+window.closeAdvancedSettingsModal = closeAdvancedSettingsModal;
+window.showQuickLoginCredentialsForm = showQuickLoginCredentialsForm;
+window.hideQuickLoginCredentialsForm = hideQuickLoginCredentialsForm;
+window.handleActivateQuickLoginSubmit = handleActivateQuickLoginSubmit;
+window.handleDisableQuickLogin = handleDisableQuickLogin;
+
 
 
