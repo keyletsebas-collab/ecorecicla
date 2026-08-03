@@ -552,8 +552,10 @@ function cancelSignupVerification(evt) {
 }
 
 // ---- Logout ----
-function handleLogout() {
-  if (!confirm('¿Seguro que deseas cerrar sesión?')) return;
+async function handleLogout() {
+  const confirmed = await window.AppDialog.confirm('¿Seguro que deseas cerrar sesión?', 'Cerrar Sesión');
+  if (!confirmed) return;
+
   
   // Mantener la sesión guardada en SQLite para permitir el inicio rápido con Huella / Biometría
   const keysToRemove = [

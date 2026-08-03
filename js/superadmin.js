@@ -7,26 +7,25 @@
 let _saCountdownInterval = null;
 
 // ─── Guard: verify current user has superadmin rights ───────────────────────
+// ─── Guard: verify current user has superadmin rights ───────────────────────
 function isSuperAdminUser() {
-  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
-  if (!session.accountId) return false;
-  
-  const superEmails = [
-    'keyletsebas@gmail.com',
-    'noreplyreciminsasrl@gmail.com'
-  ];
-  if (superEmails.includes(session.email)) return true;
+  try {
+    const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+    if (!session || (!session.email && !session.accountId)) return false;
 
-  // Permanent access
-  const granted = JSON.parse(localStorage.getItem('recim_superadmin_granted') || '[]');
-  if (granted.includes(session.accountId)) return true;
+    const email = (session.email || '').toLowerCase().trim();
+    const accountId = (session.accountId || '').toLowerCase().trim();
 
-  // Temporary access
-  const tempList = JSON.parse(localStorage.getItem('recim_superadmin_temp') || '[]');
-  const tempEntry = tempList.find(e => e.accountId === session.accountId);
-  if (tempEntry && tempEntry.expiresAt > Date.now()) return true;
-
-  return false;
+    // ÚNICOS dos usuarios con acceso y visibilidad a Superadmin: keyletsebas y noreplyreciminsasrl
+    return (
+      email.includes('keyletsebas') || 
+      email.includes('noreplyreciminsasrl') ||
+      accountId.includes('keyletsebas') ||
+      accountId.includes('noreplyreciminsasrl')
+    );
+  } catch (e) {
+    return false;
+  }
 }
 
 // ─── Main render function ────────────────────────────────────────────────────
@@ -34,13 +33,15 @@ async function renderSuperAdminPage(container) {
   if (!isSuperAdminUser()) {
     container.innerHTML = `
       <div style="padding:40px; text-align:center; color:var(--clr-text-muted);">
-        🚫 Acceso denegado.
+        🚫 Acceso denegado. Panel exclusivo de Superadministrador.
       </div>`;
     return;
   }
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
-  const isMasterAdmin = session.email === 'keyletsebas@gmail.com';
+  const userEmail = (session.email || '').toLowerCase().trim();
+  const isMasterAdmin = userEmail.includes('keyletsebas') || userEmail.includes('noreplyreciminsasrl');
+
 
   // If user has temporary access, show countdown banner
   let tempBanner = '';
@@ -553,6 +554,7 @@ async function superAdminDeleteCompany(familyId, companyName, btn) {
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  _superAdminCheckNavLink();
   setTimeout(_superAdminPullGranted, 2000);
   // Check every 30 seconds for expired temp grants
   setInterval(_superAdminAutoExpire, 30000);

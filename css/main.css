@@ -51,8 +51,9 @@
   --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.25);
 
   /* Transitions */
-  --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition: 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow: 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-bounce: 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Safe Areas */
   --safe-area-top: env(safe-area-inset-top, 0px);
@@ -514,55 +515,100 @@ body {
   color: var(--clr-text-muted);
 }
 
-/* Toast notifications */
+/* Native Toast & System Notifications */
 #toast-container {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   right: 24px;
-  z-index: 9999;
+  z-index: 100000;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-sm);
+  gap: 10px;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  #toast-container {
+    top: 16px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 400px;
+  }
 }
 
 .toast {
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: var(--sp-sm);
-  padding: 12px 18px;
-  background: var(--clr-surface-2);
-  border: 1px solid var(--clr-border);
-  border-radius: var(--r-md);
-  font-size: 0.88rem;
-  font-weight: 500;
-  box-shadow: var(--shadow-lg);
-  animation: slideInToast 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
-  max-width: 320px;
+  gap: 12px;
+  padding: 14px 18px;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #f8fafc;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 255, 204, 0.1);
+  animation: slideInToastNative 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 380px;
+}
+
+.toast::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: currentColor;
+  opacity: 0.6;
+  animation: toastProgress 3s linear forwards;
 }
 
 .toast--success {
-  border-color: rgba(34, 197, 94, 0.4);
+  border-left: 4px solid #22c55e;
+  color: #f8fafc;
 }
+.toast--success::after { background: #22c55e; }
 
 .toast--error {
-  border-color: rgba(239, 68, 68, 0.4);
+  border-left: 4px solid #ef4444;
+  color: #f8fafc;
 }
+.toast--error::after { background: #ef4444; }
+
+.toast--warning {
+  border-left: 4px solid #f59e0b;
+  color: #f8fafc;
+}
+.toast--warning::after { background: #f59e0b; }
 
 .toast--info {
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #93c5fd;
+  border-left: 4px solid #3b82f6;
+  color: #f8fafc;
 }
+.toast--info::after { background: #3b82f6; }
 
-@keyframes slideInToast {
+@keyframes slideInToastNative {
   from {
-    transform: translateX(40px);
+    transform: translateY(-24px) scale(0.94);
     opacity: 0;
   }
-
   to {
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
+}
+
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
 }
 
 @keyframes fadeOut {
@@ -707,3 +753,131 @@ body {
     padding: 12px 8px !important;
   }
 }
+
+/* =============================================
+   DESKTOP NATIVE APP UX & BEHAVIOR
+   ============================================= */
+
+/* Disable web-style text selection across UI */
+body, button, a, img, .topbar, .sidebar, .card, .table-row {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Allow text selection ONLY in editable elements or log viewer */
+input, textarea, [contenteditable="true"], .log-entry-row, .log-row-message, .log-row-data {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Remove standard web blue focus outline and replace with desktop focus ring */
+*:focus {
+  outline: none !important;
+}
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  box-shadow: 0 0 0 2px var(--clr-primary), 0 0 12px var(--clr-primary-glow) !important;
+  border-color: var(--clr-primary) !important;
+}
+
+/* Native Context Menu */
+.native-context-menu {
+  position: fixed;
+  z-index: 10000;
+  width: 220px;
+  background: rgba(18, 26, 18, 0.95);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--r-md);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(34, 197, 94, 0.1);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: contextMenuPop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes contextMenuPop {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.native-context-menu .menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--clr-text);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.native-context-menu .menu-item:hover {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--clr-primary-light);
+}
+
+.native-context-menu .menu-shortcut {
+  font-size: 0.72rem;
+  color: var(--clr-text-muted);
+  background: var(--clr-surface-3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.native-context-menu .menu-divider {
+  height: 1px;
+  background: var(--clr-border);
+  margin: 4px 0;
+}
+
+/* =============================================
+   ULTRA-FLUID PERFORMANCE & TRANSITIONS
+   ============================================= */
+
+/* Hardware GPU acceleration for smooth rendering */
+.sidebar, .topbar, .page, .card, .btn-primary, .btn-secondary, 
+.native-dialog-card, .native-logviewer-card, .native-context-menu {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Smooth page fade & slide transition when switching views */
+.page:not(.hidden) {
+  animation: pageFluidEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pageFluidEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Interactive fluid hover & click feedback for controls */
+button, .btn-primary, .btn-secondary, .sidebar-link, .card {
+  transition: transform var(--transition), background var(--transition), box-shadow var(--transition), border-color var(--transition);
+}
+
+button:active, .btn-primary:active, .btn-secondary:active, .sidebar-link:active {
+  transform: scale(0.97) !important;
+}
+
+/* Smooth scrolling on touch and desktop containers */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+

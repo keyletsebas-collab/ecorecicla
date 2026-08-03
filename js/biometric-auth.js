@@ -378,6 +378,26 @@ const BiometricAuthManager = {
   updateBiometricButtonVisibility: function() {
     const bioBtn = document.getElementById('biometric-login-btn');
     const divider = document.querySelector('.auth-divider');
+
+    // Desactivar completamente inicio con Huella/Rostro/PIN en PC de escritorio
+    const isMobilePlatform = (function() {
+      try {
+        if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+          return true;
+        }
+        const ua = (navigator.userAgent || '').toLowerCase();
+        return /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+      } catch (e) {
+        return false;
+      }
+    })();
+
+    if (!isMobilePlatform) {
+      if (bioBtn) bioBtn.style.display = 'none';
+      if (divider) divider.style.display = 'none';
+      return;
+    }
+
     const isEnabled = localStorage.getItem('recim_quick_login_enabled') === 'true';
 
     if (bioBtn) {

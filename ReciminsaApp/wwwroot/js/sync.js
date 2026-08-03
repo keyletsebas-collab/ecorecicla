@@ -184,7 +184,7 @@
                 });
 
             if (error) throw error;
-            console.log(`☁️ Supabase Push: ${hasData ? 'Datos actualizados' : 'Nube limpiada (vacío)'} para DB: ${dbId}`);
+            console.log(`☁️ Cloud Sync Push: ${hasData ? 'Datos actualizados' : 'Nube limpiada (vacío)'} para DB: ${dbId}`);
             
             // Sincronizar también con Google Drive (respaldo dual automático)
             syncPushGDrive(finalData, force).then(ok => {
@@ -529,7 +529,7 @@ async function sendGDriveWelcomeDoc() {
             if (error) throw error;
 
             if (!data || !data.data || Object.keys(data.data).length === 0) {
-                console.log(`☁️ Supabase Pull: Sin datos en la nube para ${dbId}. Inicializando con datos locales...`);
+                console.log(`☁️ Cloud Sync Pull: Sin datos en la nube para ${dbId}. Inicializando con datos locales...`);
                 await syncPushData(true);
                 return;
             }
@@ -546,12 +546,12 @@ async function sendGDriveWelcomeDoc() {
                     // Missing in cloud: do NOT delete local data if it contains items!
                     // This prevents wiping local data before it has been pushed.
                     if (localVal !== null && localVal !== '[]' && localVal !== '{}') {
-                        console.log(`☁️ Supabase Pull: ${k.label} no existe en la nube pero tiene datos locales. Conservando y programando push.`);
+                        console.log(`☁️ Cloud Sync Pull: ${k.label} no existe en la nube pero tiene datos locales. Conservando y programando push.`);
                         setTimeout(() => syncPushData(), 1000);
                     } else if (localVal !== null) {
                         localStorage.removeItem(userKey(k.pattern));
                         changed = true;
-                        console.log(`☁️ Supabase Pull: Eliminando ${k.label} localmente (Sincronizado)`);
+                        console.log(`☁️ Cloud Sync Pull: Eliminando ${k.label} localmente (Sincronizado)`);
                     }
                 } else {
                     // Exists in cloud = update local if different
@@ -574,22 +574,22 @@ async function sendGDriveWelcomeDoc() {
                         } catch(e){}
                         
                         if (remoteIsEmpty && !localIsEmpty) {
-                            console.log(`☁️ Supabase Pull: ${k.label} está vacío en la nube pero local tiene datos. Conservando local y programando push.`);
+                            console.log(`☁️ Cloud Sync Pull: ${k.label} está vacío en la nube pero local tiene datos. Conservando local y programando push.`);
                             setTimeout(() => syncPushData(), 1000);
                         } else {
                             localStorage.setItem(userKey(k.pattern), remoteStr);
                             changed = true;
-                            console.log(`☁️ Supabase Pull: Actualizando ${k.label} (Datos remotos)`);
+                            console.log(`☁️ Cloud Sync Pull: Actualizando ${k.label} (Datos remotos)`);
                         }
                     }
                 }
             });
 
             if (changed) {
-                console.log('☁️ Supabase Pull: Cambios aplicados, renderizando...');
+                console.log('☁️ Cloud Sync Pull: Cambios aplicados, renderizando...');
                 try { rerenderCurrentPage(); } catch (_) { }
             } else {
-                console.log('☁️ Supabase Pull: Local sincronizado con nube (sin cambios)');
+                console.log('☁️ Cloud Sync Pull: Local sincronizado con nube (sin cambios)');
             }
         } catch (err) {
             console.error('Supabase Pull Error:', err);

@@ -10,8 +10,10 @@ function getCustomCodes() {
 }
 
 function saveCustomCodes(codes) {
-  // localStorage override in sync.js automatically pushes to Firebase
   localStorage.setItem(userKey('recim_material_codes'), JSON.stringify(codes));
+  if (window.syncPushData) {
+    window.syncPushData(true);
+  }
 }
 
 // NOTE: Firebase sync is handled centrally by sync.js (syncPushData / syncPullData).

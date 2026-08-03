@@ -22,7 +22,18 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Reciminsaap">
+  <script>
+    // Silenciar mensajes de consola (console.log / console.info) para mantener la consola limpia
+    (function() {
+      const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true' || localStorage.getItem('recim_debug') === 'true';
+      if (!isDebug) {
+        window._originalConsoleLog = console.log;
+        window._originalConsoleInfo = console.info;
+        console.log = function() {};
+        console.info = function() {};
+      }
+    })();
+  </script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
@@ -347,6 +358,7 @@
 
   <!-- Scripts (Supabase SDK & App Logic) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/logger-messages.js?v=33"></script>
   <script src="js/supabase-config.js?v=31"></script>
   <script src="js/default-logo.js?v=31"></script>
   <script src="js/pdf-utils.js?v=31"></script>
@@ -362,7 +374,7 @@
   <script src="js/invoices.js?v=31"></script>
   <script src="js/history.js?v=32"></script>
   <script src="js/finance.js?v=31"></script>
-  <script src="js/settings.js?v=32"></script>
+  <script src="js/settings.js?v=34"></script>
   <script src="js/superadmin.js?v=31"></script>
   <script src="js/ecology.js?v=31"></script>
   <script src="js/sidebar.js?v=31"></script>
@@ -375,3 +387,4 @@
 </body>
 
 </html>
+

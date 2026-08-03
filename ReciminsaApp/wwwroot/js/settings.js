@@ -884,27 +884,64 @@ async function handleClearCache(category) {
   const CACHE_MAP = {
     facturas: { baseKeys: ['recim_invoices'], label: 'facturas' },
     finanzas: { baseKeys: ['recim_ingresos', 'recim_egresos'], label: 'ingresos y egresos' },
-    materiales: { baseKeys: ['recim_material_codes'], label: 'materiales' },
-    todo: { baseKeys: ['recim_invoices', 'recim_ingresos', 'recim_egresos', 'recim_material_codes'], label: 'todos los datos' },
+    historial: { baseKeys: ['recim_invoices', 'recim_ingresos', 'recim_egresos', 'recim_bitacoras'], label: 'el historial (facturas, bitácoras, ingresos y egresos)' },
+    materiales: { baseKeys: ['recim_material_codes', 'recim_material_families'], label: 'los materiales y familias' },
+    clientes: { baseKeys: ['recim_clients', 'recim_collaborators'], label: 'clientes y colaboradores' },
+    todo: { 
+      baseKeys: [
+        'recim_invoices', 
+        'recim_ingresos', 
+        'recim_egresos', 
+        'recim_bitacoras', 
+        'recim_material_codes', 
+        'recim_material_families',
+        'recim_clients', 
+        'recim_collaborators'
+      ], 
+      label: 'TODOS los datos del sistema' 
+    },
   };
   const group = CACHE_MAP[category];
   if (!group) return;
-  if (!confirm(`¿Eliminar ${group.label}? Esta acción no se puede deshacer.`)) return;
+
+  // 1ª Confirmación
+  const ok1 = await window.AppDialog.confirm(`⚠️ PRIMERA CONFIRMACIÓN: ¿Estás seguro de que deseas eliminar ${group.label}?`, 'Eliminar Caché');
+  if (!ok1) return;
+
+  // 2ª Confirmación
+  const ok2 = await window.AppDialog.confirm(`🚨 SEGUNDA CONFIRMACIÓN: ¡ATENCIÓN! Esta acción es IRREVERSIBLE. ¿Realmente deseas borrar permanentemente ${group.label}?`, 'Confirmación Definitiva');
+  if (!ok2) return;
   
-  group.baseKeys.forEach(k => localStorage.removeItem(userKey(k)));
+  group.baseKeys.forEach(k => {
+    try {
+      localStorage.removeItem(k);
+      if (typeof userKey === 'function') {
+        localStorage.removeItem(userKey(k));
+      }
+    } catch (_) {}
+  });
   
-  // Force cloud sync in the background without blocking the UI (Resolves Bug 1!)
   if (window.forceSync) {
-    window.forceSync();
+    try { window.forceSync(); } catch (_) {}
   }
   
-  showToast('🗑 Datos eliminados de local y nube', 'success');
-  renderSettingsPage(document.getElementById('page-ajustes'));
+  showToast('🗑 Datos eliminados con éxito', 'success');
+  if (typeof rerenderCurrentPage === 'function') {
+    rerenderCurrentPage();
+  }
+}
+
+function clearCacheCategory(category) {
+  return handleClearCache(category);
 }
 
 function handleClearData() {
   handleClearCache('todo');
 }
+
+window.handleClearCache = handleClearCache;
+window.clearCacheCategory = clearCacheCategory;
+window.handleClearData = handleClearData;
 
 // ---- Update sidebar nav labels on language change ----
 function updateSidebarLabels() {
