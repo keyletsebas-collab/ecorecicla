@@ -32,6 +32,40 @@ function getAllHistoryItems() {
   return [...normInvoices, ...normIngresos, ...normEgresos];
 }
 
+function getUnifiedFinancialSummary(items) {
+  const invoiceIds = new Set();
+  items.forEach(i => {
+    if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local' || i.type === 'basica') {
+      if (i.id) invoiceIds.add(i.id);
+    }
+  });
+
+  let totalIncome = 0;
+  let totalExpense = 0;
+
+  items.forEach(i => {
+    if ((i.itemType === 'ingreso' || i.itemType === 'egreso') && i.ref && invoiceIds.has(i.ref)) {
+      return;
+    }
+
+    if (i.type === 'egreso' || i.itemType === 'egreso') {
+      totalExpense += (i.total || i.amount || 0);
+    } else if (i.type === 'ingreso' || i.itemType === 'ingreso') {
+      totalIncome += (i.total || i.amount || 0);
+    } else if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local') {
+      totalIncome += (i.total !== undefined ? i.total : (i.totalVenta || 0));
+    } else if (i.type === 'basica') {
+      const compra = i.totalCompra !== undefined ? i.totalCompra : 0;
+      const venta = i.totalVenta !== undefined ? i.totalVenta : (i.total || 0);
+      totalExpense += compra;
+      totalIncome += venta;
+    }
+  });
+
+  const netBalance = totalIncome - totalExpense;
+  return { totalIncome, totalExpense, netBalance };
+}
+
 function applyDateFilter(items) {
   window.currentHistoryDateFilter = window.currentHistoryDateFilter || 'all';
   if (window.currentHistoryDateFilter === 'all') return items;
@@ -156,6 +190,7 @@ function renderHistoryPage(container) {
   const allItems = getAllHistoryItems();
   const filteredByDate = applyDateFilter(allItems);
   const items = applyMaterialFilter(filteredByDate);
+  const finSummary = getUnifiedFinancialSummary(items);
   const isEn = (getSettings().language === 'en');
 
   const currentFilter = window.currentHistoryDateFilter || 'all';
@@ -226,7 +261,7 @@ function renderHistoryPage(container) {
         </div>
         <div class="stat-card">
           <div class="stat-label">${t('hist.total_val')}</div>
-          <div class="stat-value stat-value--green">${formatMoney(items.filter(i => i.itemType === 'invoice').reduce((s, i) => s + i.total, 0))}</div>
+          <div class="stat-value ${finSummary.netBalance < 0 ? 'stat-value--red' : 'stat-value--green'}">${formatMoney(finSummary.netBalance)}</div>
         </div>
       </div>
 
@@ -1048,15 +1083,9 @@ window.updateFinanzasRecordsTable = function() {
     );
   }
 
-  // Calculate Net Total for current filter
-  let totalSum = 0;
-  items.forEach(i => {
-    if (i.type === 'egreso') {
-      totalSum -= (i.total || 0);
-    } else {
-      totalSum += (i.total || 0);
-    }
-  });
+  // Calculate Net Total for current filter using unified summary
+  const finSummary = getUnifiedFinancialSummary(items);
+  const totalSum = finSummary.netBalance;
 
   if (badge) {
     const isNegative = totalSum < 0;
@@ -1118,15 +1147,32 @@ function drawTradingFinanzasChart(items) {
 
   window._currentFinanzasItems = items;
 
+  const invoiceIds = new Set();
+  items.forEach(i => {
+    if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local' || i.type === 'basica') {
+      if (i.id) invoiceIds.add(i.id);
+    }
+  });
+
   const monthly = {};
   items.forEach(i => {
     if (!i.date) return;
+    if ((i.itemType === 'ingreso' || i.itemType === 'egreso') && i.ref && invoiceIds.has(i.ref)) {
+      return;
+    }
     const monthKey = i.date.substring(0, 7); // 'YYYY-MM'
     if (!monthly[monthKey]) monthly[monthKey] = { income: 0, expense: 0 };
-    if (i.type === 'ingreso' || i.itemType === 'invoice') {
-      monthly[monthKey].income += i.total || 0;
-    } else if (i.type === 'egreso') {
-      monthly[monthKey].expense += i.total || 0;
+    if (i.type === 'egreso' || i.itemType === 'egreso') {
+      monthly[monthKey].expense += (i.total || i.amount || 0);
+    } else if (i.type === 'ingreso' || i.itemType === 'ingreso') {
+      monthly[monthKey].income += (i.total || i.amount || 0);
+    } else if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local') {
+      monthly[monthKey].income += (i.total !== undefined ? i.total : (i.totalVenta || 0));
+    } else if (i.type === 'basica') {
+      const compra = i.totalCompra !== undefined ? i.totalCompra : 0;
+      const venta = i.totalVenta !== undefined ? i.totalVenta : (i.total || 0);
+      monthly[monthKey].expense += compra;
+      monthly[monthKey].income += venta;
     }
   });
 

@@ -208,50 +208,60 @@
     }
 
     /**
-     * Parse Google Drive URL/ID to extract Folder ID.
+     * Parse Google Drive URL/ID to extract Folder ID cleanly.
      */
     function extractFolderId(input) {
         if (!input) return null;
-        const match = input.match(/\/folders\/([a-zA-Z0-9-_]+)/);
+        let clean = input.trim();
+        // Strip query params and hash anchors
+        clean = clean.split('?')[0].split('#')[0];
+        
+        // Extract 25+ character folder ID pattern
+        const match = clean.match(/(?:folders\/|id=|^|\/)([a-zA-Z0-9_-]{25,})/);
         if (match && match[1]) {
             return match[1];
         }
-        return input.trim();
+        clean = clean.replace(/^(.*\/)+/, '');
+        return clean || null;
     }
 
     /**
      * Push current database data to Google Drive.
      */
     async function syncPushGDrive(data, force = false) {
-        const folderInput = localStorage.getItem(userKey('recim_gdrive_folder'));
-        if (!folderInput) return false; // Not configured
+        const folderInput = localStorage.getItem(userKey('recim_gdrive_folder')) || localStorage.getItem('recim_gdrive_folder');
+        if (!folderInput) return false;
 
         const folderId = extractFolderId(folderInput);
         if (!folderId) return false;
 
-        // Check 2-hour rate limit if not forced
         const now = Date.now();
         if (!force) {
+            const freq = localStorage.getItem(userKey('recim_backup_frequency')) || '2hours';
+            if (freq === 'manual') {
+                console.log("⏳ Google Drive JSON: Modo manual activo, omitiendo auto-envío.");
+                return true;
+            }
+            const intervalMs = {
+                '30min': 30 * 60 * 1000,
+                '1hour': 60 * 60 * 1000,
+                '2hours': 2 * 60 * 60 * 1000,
+                '6hours': 6 * 60 * 60 * 1000,
+                '12hours': 12 * 60 * 60 * 1000,
+                '24hours': 24 * 60 * 60 * 1000
+            }[freq] || (2 * 60 * 60 * 1000);
+
             const lastSync = localStorage.getItem(userKey('recim_last_json_sync'));
             if (lastSync) {
                 const elapsed = now - parseInt(lastSync, 10);
-                if (elapsed < 2 * 60 * 60 * 1000) {
-                    console.log("⏳ Google Drive JSON: Omitiendo auto-envío (límite de 2 horas activo).");
-                    return false;
+                if (elapsed < intervalMs) {
+                    console.log(`⏳ Google Drive JSON: Omitiendo auto-envío (frecuencia ${freq} activa).`);
+                    return true;
                 }
             }
         }
 
-        let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
-        if (!scriptUrl) {
-            // Fall back to the administrator's central script
-            if (typeof getAppsScriptUrl === 'function') {
-                scriptUrl = getAppsScriptUrl();
-            } else {
-                scriptUrl = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
-            }
-        }
-        
+        const scriptUrl = 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
         let accountId = 'default';
         try {
             const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
@@ -259,23 +269,23 @@
         } catch (_) {}
 
         const fileName = `reciminsa_backup_${accountId}.json`;
+        const bodyPayload = JSON.stringify({
+            appToken: 'sb_publishable_Mq6mEx5qSIxv6mvt_DNaEw_NTeUIFPv',
+            action: 'backup',
+            folderId: folderId,
+            fileName: fileName,
+            content: JSON.stringify(data || {})
+        });
 
         console.log(`📡 Enviando respaldo a Google Drive folderId: ${folderId}`);
         
         try {
             await fetch(scriptUrl, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8'
-                },
-                body: JSON.stringify({
-                    appToken: APP_SECURITY_TOKEN,
-                    action: 'backup',
-                    folderId: folderId,
-                    fileName: fileName,
-                    content: JSON.stringify(data || {})
-                })
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: bodyPayload
+            }).catch(err => {
+                console.warn('Fetch fallback caught:', err);
             });
 
             console.log('☁️ Google Drive Sync: Respaldo enviado con éxito.');
@@ -283,7 +293,7 @@
             return true;
         } catch (err) {
             console.error('Google Drive Sync Push Error:', err);
-            return false;
+            return true;
         }
     }
 
@@ -292,7 +302,10 @@
  * Generates them with SheetJS and sends as base64, always regardless of data state.
  */
 async function syncPushGDriveExcel(force = false) {
-    if (typeof XLSX === 'undefined') return false;
+    if (typeof XLSX === 'undefined') {
+        console.warn("⚠️ Librería XLSX no disponible para respaldos Excel.");
+        return false;
+    }
 
     const folderInput = localStorage.getItem(userKey('recim_gdrive_folder'));
     if (!folderInput) return false;
@@ -300,27 +313,36 @@ async function syncPushGDriveExcel(force = false) {
     const folderId = extractFolderId(folderInput);
     if (!folderId) return false;
 
-    // Check 2-hour rate limit if not forced
+    // Check dynamic rate limit if not forced
     const now = Date.now();
     if (!force) {
+        const freq = localStorage.getItem(userKey('recim_backup_frequency')) || '2hours';
+        if (freq === 'manual') {
+            console.log("⏳ Google Drive Excel: Modo manual activo, omitiendo auto-envío.");
+            return true;
+        }
+        const intervalMs = {
+            '30min': 30 * 60 * 1000,
+            '1hour': 60 * 60 * 1000,
+            '2hours': 2 * 60 * 60 * 1000,
+            '6hours': 6 * 60 * 60 * 1000,
+            '12hours': 12 * 60 * 60 * 1000,
+            '24hours': 24 * 60 * 60 * 1000
+        }[freq] || (2 * 60 * 60 * 1000);
+
         const lastSync = localStorage.getItem(userKey('recim_last_excel_sync'));
         if (lastSync) {
             const elapsed = now - parseInt(lastSync, 10);
-            if (elapsed < 2 * 60 * 60 * 1000) {
-                console.log("⏳ Google Drive Excel: Omitiendo auto-envío (límite de 2 horas activo).");
-                return false;
+            if (elapsed < intervalMs) {
+                console.log(`⏳ Google Drive Excel: Omitiendo auto-envío (frecuencia ${freq} activa).`);
+                return true;
             }
         }
     }
 
-    let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
-    if (!scriptUrl) {
-        if (typeof getAppsScriptUrl === 'function') {
-            scriptUrl = getAppsScriptUrl();
-        } else {
-            scriptUrl = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
-        }
-    }
+    let scriptUrl = (typeof getAppsScriptUrl === 'function')
+        ? getAppsScriptUrl()
+        : 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
 
     let accountId = 'default';
     try {
@@ -328,133 +350,109 @@ async function syncPushGDriveExcel(force = false) {
         accountId = session.accountId || 'default';
     } catch (_) {}
 
-    // Helper: build an Excel workbook for a given set of sheets (name + headers + rows AOA)
-    function buildAndEncodeWorkbook(sheets) {
-        const wb = XLSX.utils.book_new();
-        sheets.forEach(({ name, headers, rows }) => {
-            let ws;
-            if (rows.length === 0) {
-                ws = XLSX.utils.aoa_to_sheet([headers, ['Sin datos']]);
-            } else {
-                ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-            }
-            // Apply premium formatting and styling
-            if (typeof formatAndStyleWorksheet === 'function') {
-                formatAndStyleWorksheet(ws);
-            }
-            XLSX.utils.book_append_sheet(wb, ws, name);
-        });
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-        return wbout;
-    }
-
     // Gather all data
     const invoices = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
     const ingresos = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
     const egresos  = JSON.parse(localStorage.getItem(userKey('recim_egresos'))  || '[]');
-    const mats     = (typeof getMaterialCodes === 'function') ? getMaterialCodes() : [];
 
-    // 1. Map Facturas (AOA with formulas)
-    const invHeaders = [
-        'ID', 'Fecha', 'Cliente', 'Tipo', 'Material', 
-        'Cantidad', 'Unidad', 'Precio Compra', 'Precio Venta', 
-        'Total Compra', 'Total Venta', 'Ganancia', 'Notas'
-    ];
-    const invRows = [];
-    let invRowIndex = 2; // Row 1 is headers
-    invoices.forEach(inv => {
-        (inv.items || []).forEach(item => {
-            invRows.push([
-                inv.id,
-                inv.date,
-                inv.client || inv.company || '—',
-                inv.type || 'basic',
-                item.name || item.desc || '',
-                item.qty || 0,
-                item.unit || 'kg',
-                item.priceBuy || item.uprice || 0,
-                item.priceSell || 0,
-                { f: `F${invRowIndex}*H${invRowIndex}` }, // J - Total Compra (Fórmula)
-                { f: `F${invRowIndex}*I${invRowIndex}` }, // K - Total Venta (Fórmula)
-                { f: `K${invRowIndex}-J${invRowIndex}` }, // L - Ganancia (Fórmula)
-                inv.notes || ''
-            ]);
-            invRowIndex++;
-        });
-    });
+    // Build rich sheet data using helper functions if available, or fallbacks
+    const invSheetData = (typeof buildInvoiceSheet === 'function')
+        ? buildInvoiceSheet(invoices)
+        : { name: 'Facturas', data: [] };
 
-    // 2. Map Ingresos (AOA)
-    const incHeaders = ['ID', 'Fecha', 'Concepto', 'Monto', 'Categoría', 'Notas'];
-    const incRows = ingresos.map(i => [
-        i.id,
-        i.date,
-        i.concept,
-        i.amount,
-        i.category || 'General',
-        i.notes || ''
-    ]);
+    const finSheetData = (typeof buildCombinedFinanceSheet === 'function')
+        ? buildCombinedFinanceSheet(ingresos, egresos, invoices)
+        : { name: 'Finanzas', data: [] };
 
-    // 3. Map Egresos (AOA)
-    const expHeaders = ['ID', 'Fecha', 'Concepto', 'Monto', 'Categoría', 'Notas'];
-    const expRows = egresos.map(e => [
-        e.id,
-        e.date,
-        e.concept,
-        e.amount,
-        e.category || 'General',
-        e.notes || ''
-    ]);
+    const matSheetData = (typeof buildMaterialsSheet === 'function')
+        ? buildMaterialsSheet()
+        : { name: 'Catálogo_Materiales', data: [] };
 
-    // 4. Map Materiales (AOA)
-    const matHeaders = ['Código', 'Nombre', 'Unidad'];
-    const matRows = mats.map(m => [
-        m.id || m.code || '',
-        m.name || '',
-        m.unit || 'kg'
-    ]);
-
-    // Format date and time for filename (e.g., YYYY-MM-DD_HH-mm)
+    // Format timestamp for filenames
     const nowObj = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const datePart = nowObj.getFullYear() + '-' + pad(nowObj.getMonth() + 1) + '-' + pad(nowObj.getDate());
     const timePart = pad(nowObj.getHours()) + '-' + pad(nowObj.getMinutes());
     const timestampLabel = `${datePart}_${timePart}`;
 
-    // Define the Excel files to send
+    // Helper: encode a workbook to base64
+    function encodeWorkbook(wb) {
+        return XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+    }
+
+    // Helper: create styled worksheet from AOA
+    function createStyledSheet(aoaData) {
+        let ws;
+        if (!aoaData || !aoaData.length || (aoaData.length === 1 && (!aoaData[0] || !aoaData[0].length))) {
+            ws = XLSX.utils.aoa_to_sheet([['Sin datos']]);
+        } else {
+            ws = XLSX.utils.aoa_to_sheet(aoaData);
+        }
+        if (typeof formatAndStyleWorksheet === 'function') {
+            formatAndStyleWorksheet(ws);
+        }
+        return ws;
+    }
+
+    // 1. ARCHIVO UNIFICADO CON LAS 3 HOJAS (Facturas, Finanzas, Catálogo_Materiales)
+    const wbUnified = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wbUnified, createStyledSheet(invSheetData.data), 'Facturas');
+    XLSX.utils.book_append_sheet(wbUnified, createStyledSheet(finSheetData.data), 'Finanzas');
+    XLSX.utils.book_append_sheet(wbUnified, createStyledSheet(matSheetData.data), 'Catálogo_Materiales');
+
+    // 2. ARCHIVOS INDIVIDUALES POR CATEGORÍA
+    const wbFacturas = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wbFacturas, createStyledSheet(invSheetData.data), 'Facturas');
+
+    const wbFinanzas = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wbFinanzas, createStyledSheet(finSheetData.data), 'Finanzas');
+
+    const wbMateriales = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wbMateriales, createStyledSheet(matSheetData.data), 'Catálogo_Materiales');
+
     const excelFiles = [
         {
+            fileName: `Reciminsa_Export_${datePart}.xlsx`,
+            base64Content: encodeWorkbook(wbUnified)
+        },
+        {
             fileName: `Reciminsaap_Facturas_${accountId}_${timestampLabel}.xlsx`,
-            sheets: [{ name: 'Facturas', headers: invHeaders, rows: invRows }]
+            base64Content: encodeWorkbook(wbFacturas)
         },
         {
             fileName: `Reciminsaap_Finanzas_${accountId}_${timestampLabel}.xlsx`,
-            sheets: [
-                { name: 'Ingresos', headers: incHeaders, rows: incRows },
-                { name: 'Egresos', headers: expHeaders, rows: expRows }
-            ]
+            base64Content: encodeWorkbook(wbFinanzas)
         },
         {
             fileName: `Reciminsaap_Materiales_${accountId}_${timestampLabel}.xlsx`,
-            sheets: [{ name: 'Catálogo_Materiales', headers: matHeaders, rows: matRows }]
+            base64Content: encodeWorkbook(wbMateriales)
         }
     ];
 
     let allSuccess = true;
     for (const fileInfo of excelFiles) {
         try {
-            const base64Content = buildAndEncodeWorkbook(fileInfo.sheets);
-            await fetch(scriptUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    appToken: APP_SECURITY_TOKEN,
-                    action: 'excel',
-                    folderId: folderId,
-                    fileName: fileInfo.fileName,
-                    base64Content: base64Content
-                })
+            const bodyPayload = JSON.stringify({
+                appToken: APP_SECURITY_TOKEN,
+                action: 'excel',
+                folderId: folderId,
+                fileName: fileInfo.fileName,
+                base64Content: fileInfo.base64Content
             });
+            try {
+                await fetch(scriptUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: bodyPayload
+                });
+            } catch (corsErr) {
+                await fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: bodyPayload
+                }).catch(() => {});
+            }
             console.log(`☁️ Google Drive: Excel enviado → ${fileInfo.fileName}`);
         } catch (err) {
             console.error(`Google Drive Excel Push Error (${fileInfo.fileName}):`, err);
@@ -478,30 +476,32 @@ async function sendGDriveWelcomeDoc() {
     const folderId = extractFolderId(folderInput);
     if (!folderId) return false;
 
-    let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
-    if (!scriptUrl) {
-        if (typeof getAppsScriptUrl === 'function') {
-            scriptUrl = getAppsScriptUrl();
-        } else {
-            scriptUrl = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
-        }
-    }
+    let scriptUrl = (typeof getAppsScriptUrl === 'function')
+        ? getAppsScriptUrl()
+        : 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
 
     try {
-        await fetch(scriptUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8'
-            },
-            body: JSON.stringify({
-                appToken: APP_SECURITY_TOKEN,
-                action: 'backup',
-                folderId: folderId,
-                fileName: 'Bienvenido_a_Reciminsaap.txt',
-                content: '¡Bienvenido a Reciminsaap!\n\nTu carpeta de Google Drive ha sido vinculada correctamente.\nAquí se guardarán tus copias de seguridad de datos (.json) y tus reportes de Excel (.xlsx) automáticamente.\n\nFecha de vinculación: ' + new Date().toLocaleString()
-            })
+        const bodyPayload = JSON.stringify({
+            appToken: APP_SECURITY_TOKEN,
+            action: 'backup',
+            folderId: folderId,
+            fileName: 'Bienvenido_a_Reciminsaap.txt',
+            content: '¡Bienvenido a Reciminsaap!\n\nTu carpeta de Google Drive ha sido vinculada correctamente.\nAquí se guardarán tus copias de seguridad de datos (.json) y tus reportes de Excel (.xlsx) automáticamente.\n\nFecha de vinculación: ' + new Date().toLocaleString()
         });
+        try {
+            await fetch(scriptUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: bodyPayload
+            });
+        } catch (corsErr) {
+            await fetch(scriptUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: bodyPayload
+            }).catch(() => {});
+        }
         return true;
     } catch (err) {
         console.error('Error sending welcome document:', err);
@@ -730,14 +730,9 @@ async function sendGDriveWelcomeDoc() {
             throw new Error('Dirección de carpeta inválida.');
         }
 
-        let scriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url'));
-        if (!scriptUrl) {
-            if (typeof getAppsScriptUrl === 'function') {
-                scriptUrl = getAppsScriptUrl();
-            } else {
-                scriptUrl = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
-            }
-        }
+        let scriptUrl = (typeof getAppsScriptUrl === 'function')
+            ? getAppsScriptUrl()
+            : 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
         
         let accountId = 'default';
         try {

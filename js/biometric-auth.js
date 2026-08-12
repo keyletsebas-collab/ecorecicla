@@ -377,12 +377,15 @@ const BiometricAuthManager = {
 
   updateBiometricButtonVisibility: function() {
     const bioBtn = document.getElementById('biometric-login-btn');
+    const quickCodeBtn = document.getElementById('quick-code-login-btn');
     const divider = document.querySelector('.auth-divider');
 
-    // Desactivar completamente inicio con Huella/Rostro/PIN en PC de escritorio
     const isMobilePlatform = (function() {
       try {
         if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+          return true;
+        }
+        if (window.AndroidNative && typeof window.AndroidNative.AuthenticateBiometric === 'function') {
           return true;
         }
         const ua = (navigator.userAgent || '').toLowerCase();
@@ -392,25 +395,228 @@ const BiometricAuthManager = {
       }
     })();
 
-    if (!isMobilePlatform) {
+    if (isMobilePlatform) {
+      if (quickCodeBtn) quickCodeBtn.style.display = 'none';
+      const isEnabled = localStorage.getItem('recim_quick_login_enabled') === 'true';
+      if (bioBtn) {
+        if (isEnabled) {
+          bioBtn.style.display = 'flex';
+          if (divider) divider.style.display = 'block';
+        } else {
+          bioBtn.style.display = 'none';
+          if (divider) divider.style.display = 'none';
+        }
+      }
+    } else {
+      // Web y Windows: Ocultar biometría móvil y mostrar Inicio de Sesión Rápido por Código
       if (bioBtn) bioBtn.style.display = 'none';
-      if (divider) divider.style.display = 'none';
-      return;
-    }
-
-    const isEnabled = localStorage.getItem('recim_quick_login_enabled') === 'true';
-
-    if (bioBtn) {
-      if (isEnabled) {
-        bioBtn.style.display = 'flex';
+      if (quickCodeBtn) {
+        quickCodeBtn.style.display = 'flex';
         if (divider) divider.style.display = 'block';
-      } else {
-        bioBtn.style.display = 'none';
-        if (divider) divider.style.display = 'none';
       }
     }
   }
 };
+
+// --- Funciones para Código de Acceso Rápido (6 dígitos) ---
+function calculate6DigitQuickCode(identifier, timeBlock) {
+  if (!identifier) return '000000';
+  const str = `${identifier.toString().toLowerCase().trim()}_${timeBlock}_recim_secret_2026`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const positiveHash = Math.abs(hash);
+  return (positiveHash % 1000000).toString().padStart(6, '0');
+}
+
+function openQuickCodeLoginModal() {
+  let modalOverlay = document.getElementById('quick-code-login-modal');
+  if (!modalOverlay) {
+    modalOverlay = document.createElement('div');
+    modalOverlay.id = 'quick-code-login-modal';
+    modalOverlay.className = 'modal-overlay';
+    modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeQuickCodeLoginModal(); };
+
+    modalOverlay.innerHTML = `
+      <div class="modal" style="max-width: 440px; width: 90%; border-radius: var(--r-lg, 16px);">
+        <div class="modal-header">
+          <h3 class="modal-title">⚡ Inicio de Sesión Rápido</h3>
+          <button class="modal-close" onclick="closeQuickCodeLoginModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+          <p style="font-size: 0.88rem; color: var(--clr-text-muted, #94a3b8); margin-bottom: 16px; line-height: 1.4;">
+            Ingresa el código temporal de 6 dígitos generado en Opciones Avanzadas.
+          </p>
+
+          <form onsubmit="handleQuickCodeLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="form-group" style="margin: 0; text-align: center;">
+              <label class="form-label" style="font-size: 0.82rem; margin-bottom: 8px; display: block;">Código de 6 dígitos</label>
+              <input id="quick-code-input" type="text" class="form-input" placeholder="000000" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" required style="font-size: 2rem; font-weight: 800; letter-spacing: 8px; text-align: center; font-family: monospace; padding: 12px; border-radius: 12px; border: 2px solid #10b981;" autofocus />
+            </div>
+
+            <p id="quick-code-error" class="auth-error hidden" style="font-size: 0.82rem; margin: 0; text-align: center; color: #ef4444;"></p>
+
+            <div style="display: flex; gap: 10px; margin-top: 6px;">
+              <button type="button" class="btn-secondary" style="flex: 1; justify-content: center;" onclick="closeQuickCodeLoginModal()">Cancelar</button>
+              <button type="submit" id="quick-code-submit-btn" class="btn-primary" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #10b981, #059669); font-weight: 600;">
+                <span>Iniciar Sesión</span>
+                <div class="btn-spinner hidden"></div>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modalOverlay);
+  } else {
+    modalOverlay.style.display = 'flex';
+  }
+
+  const inputEl = document.getElementById('quick-code-input');
+  if (inputEl) {
+    inputEl.value = '';
+    setTimeout(() => inputEl.focus(), 100);
+  }
+  const errEl = document.getElementById('quick-code-error');
+  if (errEl) errEl.classList.add('hidden');
+}
+
+function closeQuickCodeLoginModal() {
+  const modal = document.getElementById('quick-code-login-modal');
+  if (modal) modal.remove();
+}
+
+async function handleQuickCodeLoginSubmit(evt) {
+  evt.preventDefault();
+  const inputEl = document.getElementById('quick-code-input');
+  const code = inputEl ? inputEl.value.trim() : '';
+  const errEl = document.getElementById('quick-code-error');
+  const btn = document.getElementById('quick-code-submit-btn');
+
+  if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+    if (errEl) {
+      errEl.textContent = "El código debe contener exactamente 6 números.";
+      errEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (errEl) errEl.classList.add('hidden');
+  if (btn) {
+    btn.disabled = true;
+    btn.querySelector('span')?.classList.add('hidden');
+    btn.querySelector('.btn-spinner')?.classList.remove('hidden');
+  }
+
+  try {
+    const currentBlock = Math.floor(Date.now() / 60000);
+    const prevBlock = currentBlock - 1;
+    let matchedProfile = null;
+
+    // 1. Validar en Supabase si está disponible
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      try {
+        const { data: dbMatch } = await supabaseClient
+          .from('profiles')
+          .select('*')
+          .eq('quick_code', code)
+          .maybeSingle();
+
+        if (dbMatch && dbMatch.family_id !== 'BLOCKED') {
+          matchedProfile = dbMatch;
+        }
+      } catch (dbErr) {
+        console.warn("Aviso búsqueda rápida Supabase:", dbErr);
+      }
+
+      if (!matchedProfile) {
+        const { data: allProfiles } = await supabaseClient
+          .from('profiles')
+          .select('*');
+
+        if (allProfiles && allProfiles.length > 0) {
+          for (const prof of allProfiles) {
+            if (prof.family_id === 'BLOCKED') continue;
+            const code1 = calculate6DigitQuickCode(prof.email || prof.id, currentBlock);
+            const code2 = calculate6DigitQuickCode(prof.email || prof.id, prevBlock);
+            if (code === code1 || code === code2) {
+              matchedProfile = prof;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Fallback Local para sesión guardada en SQLite / IndexedDB
+    if (!matchedProfile && typeof BiometricAuthManager !== 'undefined') {
+      const savedSession = await BiometricAuthManager.getLatestSessionFromSQLite();
+      if (savedSession && (savedSession.email || savedSession.accountId)) {
+        const id = savedSession.email || savedSession.accountId;
+        const code1 = calculate6DigitQuickCode(id, currentBlock);
+        const code2 = calculate6DigitQuickCode(id, prevBlock);
+        if (code === code1 || code === code2) {
+          matchedProfile = {
+            id: savedSession.accountId,
+            email: savedSession.email,
+            name: savedSession.name,
+            family_id: savedSession.familyId,
+            avatar: savedSession.avatar
+          };
+        }
+      }
+    }
+
+    if (!matchedProfile) {
+      throw new Error("Código de 6 dígitos inválido o expirado. Genera uno nuevo en Opciones Avanzadas.");
+    }
+
+    // Iniciar sesión exitosamente con la cuenta identificada por el código
+    const session = {
+      name: matchedProfile.name || matchedProfile.email,
+      email: matchedProfile.email,
+      avatar: (matchedProfile.avatar || matchedProfile.name || 'U')[0].toUpperCase(),
+      provider: 'quick_code',
+      accountId: matchedProfile.id,
+      familyId: matchedProfile.family_id || null
+    };
+
+    if (typeof calculateSecureChecksum === 'function') {
+      session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
+    }
+
+    localStorage.setItem('recim_session', JSON.stringify(session));
+    if (typeof BiometricAuthManager !== 'undefined') {
+      await BiometricAuthManager.saveSessionToSQLite(session);
+    }
+
+    closeQuickCodeLoginModal();
+
+    if (typeof initApp === 'function') {
+      initApp(session);
+    } else {
+      window.location.reload();
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = err.message || "Error al verificar código.";
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.querySelector('span')?.classList.remove('hidden');
+      btn.querySelector('.btn-spinner')?.classList.add('hidden');
+    }
+  }
+}
+
+window.calculate6DigitQuickCode = calculate6DigitQuickCode;
+window.openQuickCodeLoginModal = openQuickCodeLoginModal;
+window.closeQuickCodeLoginModal = closeQuickCodeLoginModal;
+window.handleQuickCodeLoginSubmit = handleQuickCodeLoginSubmit;
 
 // Inicializar y vincular eventos al cargar el DOM
 document.addEventListener('DOMContentLoaded', () => {

@@ -595,11 +595,11 @@ async function handleLogout() {
 const GMAIL_SENDER = 'Noreplyreciminsasrl@gmail.com';
 
 // Global Google Apps Script Web App URL for Noreplyreciminsasrl@gmail.com
-const GLOBAL_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
+const GLOBAL_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
 
 // Local storage key for storing Google Apps Script Web App URL
 function getAppsScriptUrl() {
-  return localStorage.getItem('recim_gmail_script_url') || GLOBAL_SCRIPT_URL;
+  return GLOBAL_SCRIPT_URL;
 }
 
 // 1. Show Recovery Form
