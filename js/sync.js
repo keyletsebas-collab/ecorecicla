@@ -17,6 +17,9 @@
         { pattern: 'recim_collaborators', pages: ['colaboradores', 'ingresos', 'egresos', 'bitacoras'], label: '🤝 Colaboradores' },
         { pattern: 'recim_company_shared_settings', pages: ['ajustes'], label: '⚙️ Ajustes de Empresa' },
         { pattern: 'recim_company_id', pages: ['ajustes'], label: '🏢 ID de Empresa' },
+        { pattern: 'recim_backup_frequency', pages: ['ajustes'], label: '⏱️ Frecuencia de Respaldo' },
+        { pattern: 'recim_gdrive_folder', pages: ['ajustes'], label: '📁 Carpeta Google Drive' },
+        { pattern: 'recim_gdrive_status', pages: ['ajustes'], label: 'STATUS Google Drive' },
     ];
 
     // Special keys handled separately
@@ -555,7 +558,7 @@ async function sendGDriveWelcomeDoc() {
                     }
                 } else {
                     // Exists in cloud = update local if different
-                    const remoteStr = JSON.stringify(remoteVal);
+                    const remoteStr = (typeof remoteVal === 'string') ? remoteVal : JSON.stringify(remoteVal);
                     if (localVal !== remoteStr) {
                         // Check if remote is empty but local has items
                         let remoteIsEmpty = false;

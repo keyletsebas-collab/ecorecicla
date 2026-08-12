@@ -606,6 +606,9 @@ function handleGDriveFrequencyChange(selectEl) {
   const val = selectEl.value;
   localStorage.setItem(userKey('recim_backup_frequency'), val);
   showToast('⏱️ Frecuencia de respaldo actualizada', 'success');
+  if (typeof window.syncPushData === 'function') {
+    window.syncPushData();
+  }
 }
 window.handleGDriveFrequencyChange = handleGDriveFrequencyChange;
 
@@ -738,6 +741,9 @@ function saveGDriveAdvancedSettings() {
     const val = selectEl.value;
     localStorage.setItem(userKey('recim_backup_frequency'), val);
     showToast('⏱️ Frecuencia de respaldo guardada correctamente', 'success');
+    if (typeof window.syncPushData === 'function') {
+      window.syncPushData();
+    }
   }
   closeGDriveAdvancedModal();
 }

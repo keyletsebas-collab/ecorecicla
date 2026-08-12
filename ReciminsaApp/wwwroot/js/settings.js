@@ -108,7 +108,6 @@ function renderSettingsPage(container) {
       <!-- ===== CUENTA ===== -->
       <div class="card card--elevated settings-section">
         <h3 class="settings-section-title">${t('set.account')}</h3>
-
         <div class="settings-profile-card">
           <div class="settings-avatar" id="settings-avatar-el">${(session.avatar || (session.name || 'U')[0]).toUpperCase()}</div>
           <div class="settings-profile-info">
@@ -607,6 +606,9 @@ function handleGDriveFrequencyChange(selectEl) {
   const val = selectEl.value;
   localStorage.setItem(userKey('recim_backup_frequency'), val);
   showToast('⏱️ Frecuencia de respaldo actualizada', 'success');
+  if (typeof window.syncPushData === 'function') {
+    window.syncPushData();
+  }
 }
 window.handleGDriveFrequencyChange = handleGDriveFrequencyChange;
 
@@ -739,6 +741,9 @@ function saveGDriveAdvancedSettings() {
     const val = selectEl.value;
     localStorage.setItem(userKey('recim_backup_frequency'), val);
     showToast('⏱️ Frecuencia de respaldo guardada correctamente', 'success');
+    if (typeof window.syncPushData === 'function') {
+      window.syncPushData();
+    }
   }
   closeGDriveAdvancedModal();
 }
@@ -2091,7 +2096,7 @@ function openAdvancedSettingsModal() {
           </div>
         </div>
 
-        <!-- OPCIÓN 2: CÓDIGO TEMPORAL DE ACCESO (6 DÍGITOS) -->
+        <!-- OPCIÓN 2: CÓDIGO TEMPORAL DE ACCESO (6 DÍDIGOS) -->
         <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 16px; border: 1px solid var(--clr-border);">
           <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; color: var(--clr-text-main);">
             🔑 Generar Código de Acceso Rápido

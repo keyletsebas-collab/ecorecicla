@@ -19,6 +19,8 @@ landing 2/
 **/bin/
 **/obj/
 **/AppPackages/
+*.deb
+rcapp/
 *.apk
 *.aab
 *.apks

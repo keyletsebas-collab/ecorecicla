@@ -2,6 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": ".NET MAUI (Meteor)",
+            "type": "dotnet-meteor.debugger",
+            "request": "launch",
+            "preLaunchTask": "build"
+        },
+        {
             "name": "Electron Main",
             "type": "node",
             "request": "launch",
@@ -16,3 +22,4 @@
         }
     ]
 }
+

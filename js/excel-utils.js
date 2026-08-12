@@ -4,7 +4,7 @@
    ============================================= */
 
 /**
- * Aplica estilos premium, alineación, formato de moneda y auto-ajuste de columnas a una hoja de cálculo.
+ * Aplica estilos premium, alineación, formato de moneda y auto-ajuste de columnas a una hoja de cálculo
  */
 function formatAndStyleWorksheet(ws) {
     if (!ws || !ws['!ref']) return ws;
