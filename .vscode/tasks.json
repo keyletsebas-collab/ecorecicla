@@ -1,12 +1,17 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"type": "dotnet-meteor.task",
-			"problemMatcher": [
-				"$dotnet-meteor.problemMatcher"
-			],
-			"label": "dotnet-meteor: Build"
-		}
-	]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/ReciminsaApp/ReciminsaApp.csproj",
+                "-c",
+                "Debug"
+            ],
+            "problemMatcher": "$msCompile"
+        }
+    ]
 }
