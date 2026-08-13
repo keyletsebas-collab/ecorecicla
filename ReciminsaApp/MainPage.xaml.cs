@@ -15,7 +15,7 @@ public partial class MainPage : ContentPage
         blazorWebView.BlazorWebViewInitialized += BlazorWebView_BlazorWebViewInitialized;
         blazorWebView.UrlLoading += (sender, e) =>
         {
-            if (e.Url.Host != "0.0.0.0" && e.Url.Host != "localhost")
+            if (e.Url.Host != "0.0.0.0" && e.Url.Host != "0.0.0.1" && e.Url.Host != "localhost")
             {
                 e.UrlLoadingStrategy = Microsoft.AspNetCore.Components.WebView.UrlLoadingStrategy.OpenExternally;
             }
