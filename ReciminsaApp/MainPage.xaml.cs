@@ -7,7 +7,8 @@ public partial class MainPage : ContentPage
 {
     private const string CurrentVersion = "v1.16.0";
     // Nota: Reemplaza esta URL con la ruta final donde alojes tu version.json (puede ser un Bucket público en Supabase o Github)
-    private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json"; 
+    private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json";
+    private static readonly JsonSerializerOptions CachedJsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public MainPage()
     {
@@ -41,7 +42,7 @@ public partial class MainPage : ContentPage
         e.WebView.CoreWebView2.NavigationStarting += CoreWebView2_NavigationStarting;
         e.WebView.CoreWebView2.Settings.AreDevToolsEnabled = true;
         e.WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
-        
+
         try
         {
             // Forzar limpieza de Service Workers y Cache que puedan estar causando que se vea la versión antigua
@@ -59,7 +60,7 @@ public partial class MainPage : ContentPage
     private void CoreWebView2_NavigationStarting(object sender, Microsoft.Web.WebView2.Core.CoreWebView2NavigationStartingEventArgs e)
     {
         // Si intenta navegar a un blob: (por ejemplo al darle click a un PDF mal generado), lo bloqueamos para evitar la pantalla blanca
-        if (e.Uri != null && e.Uri.StartsWith("blob:"))
+        if (e.Uri?.StartsWith("blob:") is true)
         {
             e.Cancel = true;
         }
@@ -72,15 +73,15 @@ public partial class MainPage : ContentPage
             var json = e.TryGetWebMessageAsString();
             if (!string.IsNullOrEmpty(json))
             {
-                var message = JsonSerializer.Deserialize<WebMessage>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (message != null && message.Action == "download")
+                var message = JsonSerializer.Deserialize<WebMessage>(json, CachedJsonOptions);
+                if (message?.Action == "download")
                 {
                     string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
                     Directory.CreateDirectory(downloadsPath); // Asegurar que la carpeta Descargas exista
-                    
+
                     string safeFileName = message.Filename.Replace("/", "_").Replace("\\", "_");
                     string filePath = Path.Combine(downloadsPath, safeFileName);
-                    
+
                     // Asegurar nombre único
                     int count = 1;
                     string fileNameOnly = Path.GetFileNameWithoutExtension(safeFileName);
@@ -111,9 +112,7 @@ public partial class MainPage : ContentPage
                     // Mostrar confirmación visual en pantalla al usuario
                     string finalPath = filePath;
                     MainThread.BeginInvokeOnMainThread(async () =>
-                    {
-                        await DisplayAlert("Factura Guardada", $"El archivo PDF se ha descargado y guardado en tu carpeta de Descargas:\n\n{finalPath}", "OK");
-                    });
+                        await DisplayAlertAsync("Factura Guardada", $"El archivo PDF se ha descargado y guardado en tu carpeta de Descargas:\n\n{finalPath}", "OK"));
                 }
             }
         }
@@ -137,17 +136,16 @@ public partial class MainPage : ContentPage
             using var client = new HttpClient();
             // Cache bypass using ticks timestamp query parameter
             var response = await client.GetStringAsync(UpdateCheckUrl + "?t=" + DateTime.UtcNow.Ticks);
-            
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(response, options);
-            
+
+            var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(response, CachedJsonOptions);
+
             if (updateInfo != null && IsNewerVersion(updateInfo.Version, CurrentVersion))
             {
                 bool answer = await DisplayAlertAsync(
-                    "¡Actualización Disponible!", 
-                    $"Hay una nueva versión de Reciminsa App ({updateInfo.Version}). ¿Deseas descargarla e instalarla ahora?", 
+                    "¡Actualización Disponible!",
+                    $"Hay una nueva versión de Reciminsa App ({updateInfo.Version}). ¿Deseas descargarla e instalarla ahora?",
                     "Descargar e Instalar", "Más tarde");
-                    
+
                 if (answer)
                 {
                     // Redirect to the landing page package download panel, passing the currently installed version
@@ -155,29 +153,30 @@ public partial class MainPage : ContentPage
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Si no hay internet, simplemente fallará de forma silenciosa para que la app offline no se detenga.
+            System.Diagnostics.Debug.WriteLine($"CheckForUpdatesAsync failed: {ex.Message}");
         }
     }
 
-    private bool IsNewerVersion(string remoteVersion, string localVersion)
+    private static bool IsNewerVersion(string remoteVersion, string localVersion)
     {
         if (string.IsNullOrEmpty(remoteVersion) || string.IsNullOrEmpty(localVersion)) return false;
-        
+
         remoteVersion = remoteVersion.Replace("v", "").Trim();
         localVersion = localVersion.Replace("v", "").Trim();
-        
+
         // Try parsing using built-in System.Version first
         if (Version.TryParse(remoteVersion, out Version? rVer) && Version.TryParse(localVersion, out Version? lVer))
         {
             return rVer > lVer;
         }
-        
+
         // Fallback split logic
         var remoteParts = remoteVersion.Split('.');
         var localParts = localVersion.Split('.');
-        
+
         for (int i = 0; i < Math.Min(remoteParts.Length, localParts.Length); i++)
         {
             if (int.TryParse(remoteParts[i], out int rv) && int.TryParse(localParts[i], out int lv))
