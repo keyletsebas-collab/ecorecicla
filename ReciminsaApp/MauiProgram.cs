@@ -10,11 +10,10 @@ public static class MauiProgram
 		var builder = MauiApp.CreateBuilder();
 		builder
 			.UseMauiApp<App>()
+#if ANDROID || IOS || MACCATALYST
             .UseLocalNotification()
-			.ConfigureFonts(fonts =>
-			{
-				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-			});
+#endif
+			.ConfigureFonts(fonts => fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular"));
 
 		builder.Services.AddMauiBlazorWebView();
 		builder.Services.AddBlazorWebViewDeveloperTools();

@@ -55,6 +55,8 @@ $dotnetArgs = @(
     "--self-contained", "true",
     "-p:WindowsPackageType=None",
     "-p:WindowsAppSDKSelfContained=true",
+    "-p:AppxPackage=false",
+    "-p:GenerateAppxPackageOnBuild=false",
     "-p:PublishSingleFile=false"
 )
 

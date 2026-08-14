@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
-    <!-- ReciminsaApp .NET 10 MAUI -->
+    <!-- ReciminsaApp .NET 10 / 9 MAUI -->
 
     <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android36.0|AnyCPU'">
         <PublishTrimmed>false</PublishTrimmed>
@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net10.0-windows10.0.19041.0</TargetFrameworks>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net10.0-windows10.0.19041.0;net9.0-windows10.0.19041.0</TargetFrameworks>
         <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('windows'))">net10.0-android</TargetFrameworks>
         <!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
         <!-- <TargetFrameworks>$(TargetFrameworks);net8.0-tizen</TargetFrameworks> -->
@@ -55,6 +55,9 @@
     <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
         <WindowsPackageType>None</WindowsPackageType>
         <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+        <AppxPackage>false</AppxPackage>
+        <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
+        <PublishSelfContained>true</PublishSelfContained>
     </PropertyGroup>
 
     <ItemGroup>
