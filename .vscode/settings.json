@@ -1,5 +1,7 @@
 {
     "java.configuration.updateBuildConfiguration": "interactive",
     "dotnet.sdk.dotnetPath": "/usr/bin/dotnet",
-    "omnisharp.dotnetPath": "/usr/bin/dotnet"
+    "omnisharp.dotnetPath": "/usr/bin/dotnet",
+    "omnisharp.enableMsBuildLoadProjectsOnDemand": false,
+    "dotnet.defaultTargetFramework": "net10.0-android"
 }
