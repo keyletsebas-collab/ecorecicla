@@ -4,7 +4,7 @@
    ============================================= */
 
 /**
- * Aplica estilos premium, alineación, formato de moneda y auto-ajuste de columnas a una hoja de cálculo.
+ * Aplica estilos premium, alineación, formato de moneda y auto-ajuste de columnas a una hoja de cálculo
  */
 function formatAndStyleWorksheet(ws) {
     if (!ws || !ws['!ref']) return ws;
@@ -181,12 +181,60 @@ function buildFinanceSheet(dataList, sheetName) {
     return { name: sheetName, data: [headers, ...rows] };
 }
 
-function buildCombinedFinanceSheet(incomes, expenses) {
+function buildCombinedFinanceSheet(incomes, expenses, invoices = []) {
     const headers = ['Fecha', 'Origen', 'Descripción', 'Ingreso Money IN', 'Egreso Money OUT', 'Balance general', 'Notas'];
     
+    const invoiceIds = new Set(invoices.map(inv => inv.id).filter(Boolean));
     const combined = [];
-    incomes.forEach(item => combined.push({ ...item, type: 'income' }));
-    expenses.forEach(item => combined.push({ ...item, type: 'expense' }));
+
+    // Add direct incomes that do not reference an invoice ID
+    incomes.forEach(item => {
+        if (!item.ref || !invoiceIds.has(item.ref)) {
+            combined.push({ ...item, type: 'income' });
+        }
+    });
+
+    // Add direct expenses that do not reference an invoice ID
+    expenses.forEach(item => {
+        if (!item.ref || !invoiceIds.has(item.ref)) {
+            combined.push({ ...item, type: 'expense' });
+        }
+    });
+
+    // Add invoices (sales & purchases)
+    invoices.forEach(inv => {
+        if (inv.type === 'empresa' || inv.type === 'local' || !inv.type) {
+            combined.push({
+                date: inv.date,
+                category: 'Ventas (Factura)',
+                concept: `Factura ${inv.typeName || 'Venta'}: ${inv.id} – ${inv.company || inv.client || ''}`,
+                amount: inv.total !== undefined ? inv.total : (inv.totalVenta || 0),
+                notes: inv.notes || '',
+                type: 'income'
+            });
+        } else if (inv.type === 'basica') {
+            if (inv.totalCompra && inv.totalCompra > 0) {
+                combined.push({
+                    date: inv.date,
+                    category: 'Materiales (Compra)',
+                    concept: `Bitácora Compra: ${inv.id} – ${inv.client || ''}`,
+                    amount: inv.totalCompra,
+                    notes: inv.notes || '',
+                    type: 'expense'
+                });
+            }
+            if (inv.totalVenta && inv.totalVenta > 0) {
+                combined.push({
+                    date: inv.date,
+                    category: 'Materiales (Venta)',
+                    concept: `Bitácora Venta: ${inv.id} – ${inv.client || ''}`,
+                    amount: inv.totalVenta,
+                    notes: inv.notes || '',
+                    type: 'income'
+                });
+            }
+        }
+    });
     
     // Ordenar cronológicamente por fecha
     combined.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -209,8 +257,6 @@ function buildCombinedFinanceSheet(incomes, expenses) {
         }
         
         // Fórmula para el balance general:
-        // Fila 2 (primer dato): =D2-E2
-        // Filas siguientes: =F{r-1}+D{r}-E{r}
         const balanceFormula = r === 2 
             ? { f: `D${r}-E${r}` } 
             : { f: `F${r-1}+D${r}-E${r}` };
@@ -225,8 +271,6 @@ function buildCombinedFinanceSheet(incomes, expenses) {
         r++;
         
         // Fórmulas para los totales
-        // r es la fila de Excel del TOTAL GENERAL (1-indexed)
-        // El rango de datos va desde la fila 2 hasta la fila r-2
         const totalInFormula = { f: `SUM(D2:D${r-2})` };
         const totalOutFormula = { f: `SUM(E2:E${r-2})` };
         const netBalanceFormula = { f: `D${r}-E${r}` };
@@ -341,11 +385,12 @@ function exportSelectedDataToExcel(selection = {}) {
                 sheetsAdded++;
             }
         }
-        if (selection.income || selection.expenses) {
-            const ings = selection.income ? JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]') : [];
-            const egs = selection.expenses ? JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]') : [];
-            if (ings.length || egs.length) {
-                const s = buildCombinedFinanceSheet(ings, egs);
+        if (selection.income || selection.expenses || selection.invoices) {
+            const ings = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
+            const egs = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
+            const invs = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
+            if (ings.length || egs.length || invs.length) {
+                const s = buildCombinedFinanceSheet(ings, egs, invs);
                 XLSX.utils.book_append_sheet(wb, formatAndStyleWorksheet(XLSX.utils.aoa_to_sheet(s.data)), s.name);
                 sheetsAdded++;
             }
@@ -444,76 +489,301 @@ async function _importExcelWithAI(rawWorkbookData) {
     return JSON.parse(aiText.trim());
 }
 
+// ---------------------------------------------------------
+// FUZZY MATCHING & DATA SANITIZATION HELPERS FOR EXCEL
+// ---------------------------------------------------------
+
+function _cleanStringKey(key) {
+    if (!key) return '';
+    return String(key)
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Strip accents
+        .replace(/[^a-z0-9]/g, ''); // Keep alphanumeric only
+}
+
+function _getColVal(row, patterns, defaultVal = '') {
+    if (!row || typeof row !== 'object') return defaultVal;
+    const cleanedKeysMap = {};
+    Object.keys(row).forEach(k => {
+        cleanedKeysMap[_cleanStringKey(k)] = row[k];
+    });
+
+    for (const pattern of patterns) {
+        const cleanPattern = _cleanStringKey(pattern);
+        if (cleanedKeysMap[cleanPattern] !== undefined && cleanedKeysMap[cleanPattern] !== null && cleanedKeysMap[cleanPattern] !== '') {
+            return String(cleanedKeysMap[cleanPattern]).trim();
+        }
+    }
+    // Partial substring match search
+    for (const pattern of patterns) {
+        const cleanPattern = _cleanStringKey(pattern);
+        for (const k in cleanedKeysMap) {
+            if (k.includes(cleanPattern) || cleanPattern.includes(k)) {
+                if (cleanedKeysMap[k] !== undefined && cleanedKeysMap[k] !== null && cleanedKeysMap[k] !== '') {
+                    return String(cleanedKeysMap[k]).trim();
+                }
+            }
+        }
+    }
+    return defaultVal;
+}
+
+function _parseNumVal(val, defaultNum = 0) {
+    if (val === null || val === undefined || val === '') return defaultNum;
+    if (typeof val === 'number') return isNaN(val) ? defaultNum : val;
+    let str = String(val).trim();
+    // Strip currency symbols, formulas (=...), space formatting
+    str = str.replace(/^=/, '').replace(/[^\d.-]/g, '');
+    const num = parseFloat(str);
+    return isNaN(num) ? defaultNum : num;
+}
+
+function _excelSerialToDate(serial) {
+    const utcDays = Math.floor(serial - 25569);
+    const utcValue = utcDays * 86400;
+    const dateInfo = new Date(utcValue * 1000);
+    const fractionalDay = serial - Math.floor(serial) + 0.0000001;
+    let totalSeconds = Math.floor(86400 * fractionalDay);
+    const seconds = totalSeconds % 60;
+    totalSeconds = Math.floor(totalSeconds / 60);
+    const minutes = totalSeconds % 60;
+    const hours = Math.floor(totalSeconds / 60);
+    dateInfo.setUTCHours(hours, minutes, seconds);
+    return dateInfo;
+}
+
+function _parseDateTimeVal(row) {
+    let dateStr = _getColVal(row, ['fecha', 'date', 'createdat', 'timestamp', 'dia', 'día', 'emision', 'creacion', 'creación', 'f_emision']);
+    let timeStr = _getColVal(row, ['hora', 'time', 'clock', 'hh:mm', 'h_creacion', 'h.creacion', 'tiempo']);
+    let rawCreated = _getColVal(row, ['fechacreacion', 'fecha de creacion', 'createdat', 'timestamp', 'creadoen', 'fecha_creacion']);
+
+    let parsedDateObj = null;
+
+    if (rawCreated) {
+        const numSerial = parseFloat(rawCreated);
+        if (!isNaN(numSerial) && numSerial > 30000 && numSerial < 60000) {
+            parsedDateObj = _excelSerialToDate(numSerial);
+        } else {
+            const d = new Date(rawCreated);
+            if (!isNaN(d.getTime())) parsedDateObj = d;
+        }
+    }
+
+    if (!parsedDateObj && dateStr) {
+        const numSerial = parseFloat(dateStr);
+        if (!isNaN(numSerial) && numSerial > 30000 && numSerial < 60000) {
+            parsedDateObj = _excelSerialToDate(numSerial);
+        } else {
+            // Handle DD/MM/YYYY vs YYYY-MM-DD
+            let dStr = dateStr;
+            if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/.test(dStr)) {
+                const parts = dStr.split(/[\/-]/);
+                dStr = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+            }
+            const d = new Date(dStr);
+            if (!isNaN(d.getTime())) parsedDateObj = d;
+        }
+    }
+
+    if (!parsedDateObj) {
+        parsedDateObj = new Date();
+    }
+
+    const finalDate = parsedDateObj.toISOString().split('T')[0];
+    let finalTime = timeStr;
+
+    if (!finalTime) {
+        const h = String(parsedDateObj.getHours()).padStart(2, '0');
+        const m = String(parsedDateObj.getMinutes()).padStart(2, '0');
+        const s = String(parsedDateObj.getSeconds()).padStart(2, '0');
+        finalTime = `${h}:${m}:${s}`;
+    }
+
+    return {
+        date: finalDate,
+        time: finalTime,
+        createdAt: parsedDateObj.toISOString()
+    };
+}
+
 function _importExcelManual(workbook) {
-    const parsed = { invoices: [], ingresos: [], egresos: [] };
+    const parsed = {
+        invoices: [],
+        ingresos: [],
+        egresos: [],
+        material_codes: [],
+        clients: []
+    };
     
     for (const sheetName of workbook.SheetNames) {
         const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-        if (sheetName.toLowerCase().includes('factura') || sheetName.toLowerCase().includes('registro')) {
+        if (!rows || rows.length === 0) continue;
+
+        const sheetLower = sheetName.toLowerCase().trim();
+
+        // 1. FACTURAS Y BITÁCORAS
+        if (sheetLower.includes('factura') || sheetLower.includes('bitacora') || sheetLower.includes('bitácora') || sheetLower.includes('registro')) {
             const invMap = {};
             rows.forEach(r => {
-                const rawId = r.ID || r.id;
-                const groupKey = rawId || `group_${r.Fecha || 'nofecha'}_${r.Cliente || 'nocliente'}`;
+                const rawId = _getColVal(r, ['id', 'codigo', 'num', 'factura', 'folio']);
+                const dt = _parseDateTimeVal(r);
+                const clientVal = _getColVal(r, ['cliente', 'client', 'customer', 'comprador', 'vendedor', 'empresa', 'razon social', 'nombre'], 'Cliente General');
+                const typeVal = (_getColVal(r, ['tipo', 'type', 'clase', 'categoria', 'operacion']) || sheetLower).toLowerCase().includes('bit') ? 'bitacora' : 'normal';
+                const groupKey = rawId ? String(rawId) : `group_${dt.date}_${clientVal}_${typeVal}`;
+
                 if (!invMap[groupKey]) {
-                    invMap[groupKey] = { id: rawId ? String(rawId) : null, date: r.Fecha || r.fecha, client: r.Cliente || r.cliente, type: r.Tipo || r.tipo, notes: r.Notas || r.notas || '', items: [], createdAt: new Date().toISOString() };
+                    invMap[groupKey] = {
+                        id: rawId ? String(rawId) : null,
+                        date: dt.date,
+                        time: dt.time,
+                        createdAt: dt.createdAt,
+                        client: clientVal,
+                        rnc: _getColVal(r, ['rnc', 'taxid', 'cedula', 'identificacion']),
+                        phone: _getColVal(r, ['telefono', 'teléfono', 'phone', 'celular']),
+                        address: _getColVal(r, ['direccion', 'dirección', 'address']),
+                        type: typeVal,
+                        notes: _getColVal(r, ['notas', 'notes', 'observacion', 'comentario']),
+                        items: []
+                    };
                 }
-                invMap[groupKey].items.push({
-                    name: r.Material || r.material || '', qty: parseFloat(r.Cantidad || r.cantidad || 0), unit: r.Unidad || r.unidad || 'kg',
-                    priceBuy: parseFloat(r['Precio Compra'] || r.Precio_Compra || 0), priceSell: parseFloat(r['Precio Venta'] || r.Precio_Venta || 0)
-                });
+
+                const matName = _getColVal(r, ['material', 'producto', 'item', 'descripcion', 'descripción', 'articulo']);
+                if (matName) {
+                    invMap[groupKey].items.push({
+                        name: matName,
+                        qty: _parseNumVal(_getColVal(r, ['cantidad', 'cant', 'qty', 'quantity', 'unidades', 'peso', 'kilos']), 1),
+                        unit: _getColVal(r, ['unidad', 'unit', 'medida'], 'kg'),
+                        priceBuy: _parseNumVal(_getColVal(r, ['precio compra', 'preciocompra', 'costo', 'compra', 'pricebuy'])),
+                        priceSell: _parseNumVal(_getColVal(r, ['precio venta', 'precioventa', 'venta', 'pricesell', 'precio']))
+                    });
+                }
             });
             parsed.invoices = Object.values(invMap);
-        } else if (sheetName.toLowerCase().includes('finanzas') || sheetName.toLowerCase().includes('ingresos_y_egresos') || sheetName.toLowerCase().includes('ingresos y egresos') || sheetName.toLowerCase().includes('balance')) {
+
+        // 2. FINANZAS (INGRESOS, EGRESOS, BITÁCORA FINANCIERA)
+        } else if (sheetLower.includes('finanza') || sheetLower.includes('ingresos_y_egresos') || sheetLower.includes('balance')) {
             rows.forEach(r => {
-                const dateVal = r.Fecha || r.fecha || '';
-                const originVal = r.Origen || r.origen || r.Categoría || r.categoria || 'Importado';
-                const descVal = r.Descripción || r.descripcion || r.Concepto || r.concepto || '';
-                const notesVal = r.Notas || r.notas || '';
-                
-                const ingVal = parseFloat(r['Ingreso Money IN'] || r['ingreso'] || r['Ingreso'] || r['Monto'] || 0);
-                const egrVal = parseFloat(r['Egreso Money OUT'] || r['egreso'] || r['Egreso'] || 0);
-                
-                if (ingVal > 0) {
+                const dt = _parseDateTimeVal(r);
+                const originVal = _getColVal(r, ['origen', 'categoria', 'categoría', 'clasificacion', 'tipo'], 'Importado');
+                const descVal = _getColVal(r, ['descripcion', 'descripción', 'concepto', 'detalle', 'motivo']);
+                const notesVal = _getColVal(r, ['notas', 'notes', 'observacion']);
+                const itemType = _getColVal(r, ['tipo', 'type', 'clase', 'movimiento']).toLowerCase();
+
+                const ingVal = _parseNumVal(_getColVal(r, ['ingreso money in', 'ingreso', 'monto ingreso', 'entrada', 'inflow']));
+                const egrVal = _parseNumVal(_getColVal(r, ['egreso money out', 'egreso', 'monto egreso', 'salida', 'outflow', 'gasto']));
+
+                if (ingVal > 0 || itemType.includes('ingreso')) {
                     parsed.ingresos.push({
-                        id: r.ID || r.id ? String(r.ID||r.id) : null,
-                        date: dateVal,
+                        id: _getColVal(r, ['id', 'num', 'folio']) || null,
+                        date: dt.date,
+                        time: dt.time,
+                        createdAt: dt.createdAt,
                         concept: descVal,
-                        amount: ingVal,
+                        amount: ingVal > 0 ? ingVal : _parseNumVal(_getColVal(r, ['monto', 'amount', 'total', 'precio'])),
                         category: originVal,
                         notes: notesVal
                     });
                 }
-                if (egrVal > 0) {
+                if (egrVal > 0 || itemType.includes('egreso')) {
                     parsed.egresos.push({
-                        id: r.ID || r.id ? String(r.ID||r.id) : null,
-                        date: dateVal,
+                        id: _getColVal(r, ['id', 'num', 'folio']) || null,
+                        date: dt.date,
+                        time: dt.time,
+                        createdAt: dt.createdAt,
                         concept: descVal,
-                        amount: egrVal,
+                        amount: egrVal > 0 ? egrVal : _parseNumVal(_getColVal(r, ['monto', 'amount', 'total', 'precio'])),
                         category: originVal,
                         notes: notesVal
                     });
                 }
             });
-        } else if (sheetName.toLowerCase().includes('ingreso')) {
-            parsed.ingresos = rows.map(r => ({ id: r.ID || r.id ? String(r.ID||r.id) : null, date: r.Fecha || r.fecha, concept: r.Concepto || r.concepto, amount: parseFloat(r.Monto || r.monto || 0), category: r.Categoría || r.categoria || 'Importado', notes: r.Notas || r.notas || '' }));
-        } else if (sheetName.toLowerCase().includes('egreso')) {
-            parsed.egresos = rows.map(r => ({ id: r.ID || r.id ? String(r.ID||r.id) : null, date: r.Fecha || r.fecha, concept: r.Concepto || r.concepto, amount: parseFloat(r.Monto || r.monto || 0), category: r.Categoría || r.categoria || 'Importado', notes: r.Notas || r.notas || '' }));
+
+        // 3. PESTAÑA INGRESOS INDIVIDUAL
+        } else if (sheetLower.includes('ingreso')) {
+            parsed.ingresos = rows.map(r => {
+                const dt = _parseDateTimeVal(r);
+                return {
+                    id: _getColVal(r, ['id', 'num', 'folio']) || null,
+                    date: dt.date,
+                    time: dt.time,
+                    createdAt: dt.createdAt,
+                    concept: _getColVal(r, ['concepto', 'descripcion', 'descripción', 'detalle']),
+                    amount: _parseNumVal(_getColVal(r, ['monto', 'ingreso', 'monto ingreso', 'amount', 'total'])),
+                    category: _getColVal(r, ['categoria', 'categoría', 'origen', 'tipo'], 'Importado'),
+                    notes: _getColVal(r, ['notas', 'notes'])
+                };
+            });
+
+        // 4. PESTAÑA EGRESOS INDIVIDUAL
+        } else if (sheetLower.includes('egreso')) {
+            parsed.egresos = rows.map(r => {
+                const dt = _parseDateTimeVal(r);
+                return {
+                    id: _getColVal(r, ['id', 'num', 'folio']) || null,
+                    date: dt.date,
+                    time: dt.time,
+                    createdAt: dt.createdAt,
+                    concept: _getColVal(r, ['concepto', 'descripcion', 'descripción', 'detalle']),
+                    amount: _parseNumVal(_getColVal(r, ['monto', 'egreso', 'monto egreso', 'amount', 'total'])),
+                    category: _getColVal(r, ['categoria', 'categoría', 'origen', 'tipo'], 'Importado'),
+                    notes: _getColVal(r, ['notas', 'notes'])
+                };
+            });
+
+        // 5. CATÁLOGO DE MATERIALES
+        } else if (sheetLower.includes('material') || sheetLower.includes('catalogo') || sheetLower.includes('catálogo')) {
+            parsed.material_codes = rows.map(r => {
+                const dt = _parseDateTimeVal(r);
+                return {
+                    id: _getColVal(r, ['id', 'key']) || null,
+                    code: _getColVal(r, ['codigo', 'código', 'code', 'sku']),
+                    name: _getColVal(r, ['nombre', 'material', 'producto', 'descripcion', 'descripción']),
+                    familyId: _getColVal(r, ['familia', 'family', 'categoria', 'categoría'], 'General'),
+                    unit: _getColVal(r, ['unidad', 'unidad medida', 'unit'], 'kg'),
+                    priceBuy: _parseNumVal(_getColVal(r, ['precio compra', 'preciocompra', 'costo', 'pricebuy'])),
+                    priceSell: _parseNumVal(_getColVal(r, ['precio venta', 'precioventa', 'pricesell', 'precio'])),
+                    stockCurrent: _parseNumVal(_getColVal(r, ['stock actual', 'stock', 'cantidad'])),
+                    stockMin: _parseNumVal(_getColVal(r, ['stock minimo', 'stock mínimo', 'stock_min'])),
+                    date: dt.date,
+                    time: dt.time,
+                    createdAt: dt.createdAt
+                };
+            });
+
+        // 6. CLIENTES
+        } else if (sheetLower.includes('cliente')) {
+            parsed.clients = rows.map(r => {
+                const dt = _parseDateTimeVal(r);
+                return {
+                    id: _getColVal(r, ['id', 'num']) || null,
+                    name: _getColVal(r, ['nombre', 'cliente', 'customer', 'empresa', 'razon social']),
+                    rnc: _getColVal(r, ['rnc', 'taxid', 'cedula']),
+                    phone: _getColVal(r, ['telefono', 'teléfono', 'phone', 'celular']),
+                    address: _getColVal(r, ['direccion', 'dirección', 'address']),
+                    email: _getColVal(r, ['correo', 'email', 'mail']),
+                    notes: _getColVal(r, ['notas', 'notes']),
+                    date: dt.date,
+                    time: dt.time,
+                    createdAt: dt.createdAt
+                };
+            });
         }
     }
     return parsed;
 }
 
 async function _mergeAndSaveData(parsedData, rawWorkbookData) {
-    let importedCounts = { invoices: 0, ingresos: 0, egresos: 0 };
+    let importedCounts = { invoices: 0, ingresos: 0, egresos: 0, material_codes: 0, clients: 0 };
     
-    ['invoices', 'ingresos', 'egresos'].forEach(type => {
-        if (parsedData[type] && Array.isArray(parsedData[type])) {
+    ['invoices', 'ingresos', 'egresos', 'material_codes', 'clients'].forEach(type => {
+        if (parsedData[type] && Array.isArray(parsedData[type]) && parsedData[type].length > 0) {
             const localKey = userKey(`recim_${type}`);
             const localList = JSON.parse(localStorage.getItem(localKey) || '[]');
             
             parsedData[type].forEach(item => {
                 if (!item.id || !isIdInRawData(item.id, rawWorkbookData)) {
-                    item.id = generateUniqueId(type === 'invoices' ? (item.type==='normal'?'INV':'BIT') : type.substring(0,3).toUpperCase());
+                    const prefixMap = { invoices: 'INV', ingresos: 'ING', egresos: 'EGR', material_codes: 'MAT', clients: 'CLI' };
+                    item.id = generateUniqueId(prefixMap[type] || 'REC');
                 }
                 const idx = localList.findIndex(i => i.id === item.id);
                 if (idx !== -1) localList[idx] = item;
@@ -525,7 +795,16 @@ async function _mergeAndSaveData(parsedData, rawWorkbookData) {
     });
 
     if (window.forceSync) await window.forceSync();
-    showToast(`✅ Importación completada (${importedCounts.invoices} facturas, ${importedCounts.ingresos} ing, ${importedCounts.egresos} egr)`, 'success', 6000);
+    
+    const parts = [];
+    if (importedCounts.invoices) parts.push(`${importedCounts.invoices} facturas/bitácoras`);
+    if (importedCounts.ingresos) parts.push(`${importedCounts.ingresos} ingresos`);
+    if (importedCounts.egresos) parts.push(`${importedCounts.egresos} egresos`);
+    if (importedCounts.material_codes) parts.push(`${importedCounts.material_codes} materiales`);
+    if (importedCounts.clients) parts.push(`${importedCounts.clients} clientes`);
+
+    const summaryText = parts.length > 0 ? parts.join(', ') : '0 registros';
+    showToast(`✅ Importación completada: ${summaryText}`, 'success', 6000);
     if (typeof rerenderCurrentPage === 'function') rerenderCurrentPage();
 }
 

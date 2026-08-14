@@ -16,7 +16,9 @@
                 "build",
                 "${workspaceFolder}/ReciminsaApp/ReciminsaApp.csproj",
                 "-c",
-                "Debug"
+                "Debug",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
             ],
             "problemMatcher": "$msCompile"
         }

@@ -251,8 +251,11 @@ async function handleLogin(evt) {
         session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
       }
 
-      // Guardar sesión
+      // Guardar sesión en localStorage y SQLite
       localStorage.setItem('recim_session', JSON.stringify(session));
+      if (typeof BiometricAuthManager !== 'undefined') {
+        BiometricAuthManager.saveSessionToSQLite(session);
+      }
       showToast(`✅ Bienvenido de nuevo, ${data.name}`, 'success');
       
       resetBtn();
@@ -509,8 +512,11 @@ async function handleVerifySignup(evt) {
       session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
     }
 
-    // Save session
+    // Save session in localStorage and SQLite
     localStorage.setItem('recim_session', JSON.stringify(session));
+    if (typeof BiometricAuthManager !== 'undefined') {
+      BiometricAuthManager.saveSessionToSQLite(session);
+    }
     localStorage.removeItem('recim_signup_pending');
 
     showToast('🎉 ¡Cuenta creada y verificada con éxito!', 'success');
@@ -546,11 +552,12 @@ function cancelSignupVerification(evt) {
 }
 
 // ---- Logout ----
-function handleLogout() {
-  if (!confirm('¿Seguro que deseas cerrar sesión?')) return;
+async function handleLogout() {
+  const confirmed = await window.AppDialog.confirm('¿Seguro que deseas cerrar sesión?', 'Cerrar Sesión');
+  if (!confirmed) return;
+
   
-  // Clear only global non-namespaced keys and session.
-  // The namespaced user keys remain safe and intact in localStorage!
+  // Mantener la sesión guardada en SQLite para permitir el inicio rápido con Huella / Biometría
   const keysToRemove = [
     'recim_session'
   ];
@@ -574,6 +581,10 @@ function handleLogout() {
   }
 
   showToast('👋 Sesión cerrada', 'success');
+
+  if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
+    BiometricAuthManager.updateBiometricButtonVisibility();
+  }
 }
 
 // =============================================
@@ -584,11 +595,11 @@ function handleLogout() {
 const GMAIL_SENDER = 'Noreplyreciminsasrl@gmail.com';
 
 // Global Google Apps Script Web App URL for Noreplyreciminsasrl@gmail.com
-const GLOBAL_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
+const GLOBAL_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
 
 // Local storage key for storing Google Apps Script Web App URL
 function getAppsScriptUrl() {
-  return localStorage.getItem('recim_gmail_script_url') || GLOBAL_SCRIPT_URL;
+  return GLOBAL_SCRIPT_URL;
 }
 
 // 1. Show Recovery Form

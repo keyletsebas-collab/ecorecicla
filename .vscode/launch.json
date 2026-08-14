@@ -9,6 +9,25 @@
             "args": [],
             "cwd": "${workspaceFolder}/ReciminsaApp",
             "preLaunchTask": "build"
+        },
+        {
+            "name": ".NET MAUI (Meteor)",
+            "type": "dotnet-meteor.debugger",
+            "request": "launch",
+            "preLaunchTask": "build"
+        },
+        {
+            "name": "Electron Main",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+            "windows": {
+                "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+            },
+            "args": [
+                "."
+            ]
         }
     ]
 }

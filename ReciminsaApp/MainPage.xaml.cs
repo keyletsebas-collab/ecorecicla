@@ -8,7 +8,7 @@ public partial class MainPage : ContentPage
     private const string CurrentVersion = "v1.16.0";
     // Nota: Reemplaza esta URL con la ruta final donde alojes tu version.json (puede ser un Bucket público en Supabase o Github)
     private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json";
-    private static readonly JsonSerializerOptions CachedJsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions CachedJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
     public MainPage()
     {
@@ -60,7 +60,7 @@ public partial class MainPage : ContentPage
     private void CoreWebView2_NavigationStarting(object sender, Microsoft.Web.WebView2.Core.CoreWebView2NavigationStartingEventArgs e)
     {
         // Si intenta navegar a un blob: (por ejemplo al darle click a un PDF mal generado), lo bloqueamos para evitar la pantalla blanca
-        if (e.Uri?.StartsWith("blob:") is true)
+        if (e.Uri?.StartsWith("blob:") == true)
         {
             e.Cancel = true;
         }

@@ -20,6 +20,7 @@ public class DatabaseService
 
         _database = new SQLiteAsyncConnection(Constants.DatabasePath, Constants.Flags);
         await _database.CreateTableAsync<OfflineRecord>();
+        await _database.CreateTableAsync<UserSessionRecord>();
     }
 
     public async Task<List<OfflineRecord>> GetUnsyncedRecordsAsync()
@@ -41,5 +42,34 @@ public class DatabaseService
     {
         await Init();
         return await _database!.Table<OfflineRecord>().Where(i => i.Id == id).FirstOrDefaultAsync();
+    }
+
+    public async Task<int> SaveUserSessionAsync(UserSessionRecord session)
+    {
+        await Init();
+        var existing = await _database!.Table<UserSessionRecord>().Where(s => s.AccountId == session.AccountId).FirstOrDefaultAsync();
+        if (existing != null)
+        {
+            return await _database.UpdateAsync(session);
+        }
+        return await _database.InsertAsync(session);
+    }
+
+    public async Task<UserSessionRecord?> GetLatestUserSessionAsync()
+    {
+        await Init();
+        return await _database!.Table<UserSessionRecord>().OrderByDescending(s => s.LastLoginAt).FirstOrDefaultAsync();
+    }
+
+    public async Task<UserSessionRecord?> GetUserSessionAsync(string accountId)
+    {
+        await Init();
+        return await _database!.Table<UserSessionRecord>().Where(s => s.AccountId == accountId).FirstOrDefaultAsync();
+    }
+
+    public async Task<int> DeleteUserSessionAsync(string accountId)
+    {
+        await Init();
+        return await _database!.Table<UserSessionRecord>().DeleteAsync(s => s.AccountId == accountId);
     }
 }

@@ -93,6 +93,7 @@ function renderSettingsPage(container) {
   const darkMode = settings.darkMode !== false;
   const currentCur = settings.currency || 'usd';
   const gdriveFolderVal = localStorage.getItem(userKey('recim_gdrive_folder')) || '';
+  const gdriveScriptVal = localStorage.getItem(userKey('recim_gdrive_script_url')) || '';
 
   container.innerHTML = `
     <div class="page-header">
@@ -107,7 +108,6 @@ function renderSettingsPage(container) {
       <!-- ===== CUENTA ===== -->
       <div class="card card--elevated settings-section">
         <h3 class="settings-section-title">${t('set.account')}</h3>
-
         <div class="settings-profile-card">
           <div class="settings-avatar" id="settings-avatar-el">${(session.avatar || (session.name || 'U')[0]).toUpperCase()}</div>
           <div class="settings-profile-info">
@@ -276,6 +276,15 @@ function renderSettingsPage(container) {
             <span>${t('set.gdrive_btn')}</span>
             <div class="btn-spinner hidden" id="gdrive-spinner"></div>
           </button>
+
+          <button id="btn-force-gdrive" class="btn-secondary" style="width:100%; justify-content:center; gap:8px; margin-top: 6px; padding: 10px; font-weight:600; font-size: 0.88rem;" onclick="handleForceGDriveBackup()">
+            <span>🚀 Enviar Respaldo Ahora</span>
+            <div class="btn-spinner hidden" id="gdrive-force-spinner"></div>
+          </button>
+
+          <button id="btn-gdrive-advanced" class="btn-secondary" style="width:100%; justify-content:center; gap:8px; margin-top: 6px; padding: 9px; font-weight:600; font-size: 0.85rem;" onclick="openGDriveAdvancedModal()">
+            <span>⚙️ Opciones Avanzadas</span>
+          </button>
         </div>
       </div>
 
@@ -393,6 +402,15 @@ function renderSettingsPage(container) {
         <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">¿Tienes algún problema con la aplicación? Contáctanos para recibir ayuda.</p>
         <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #10b981, #059669);" onclick="window.location.href='soporte-it/index.html'">
           Acceder a Soporte IT
+        </button>
+      </div>
+
+      <!-- ===== OPCIONES AVANZADAS ===== -->
+      <div class="card card--elevated settings-section" style="grid-column: span 2;">
+        <h3 class="settings-section-title">⚙️ Opciones Avanzadas</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">Accede a configuraciones avanzadas de seguridad y autenticación rápida.</p>
+        <button class="btn-secondary" style="width:100%; justify-content:center; gap:8px; font-weight:600;" onclick="openAdvancedSettingsModal()">
+          <span>⚙️ Opciones Avanzadas</span>
         </button>
       </div>
 
@@ -576,11 +594,163 @@ function doPost(e) {
 
 function copyGDriveScriptCode() {
   navigator.clipboard.writeText(GDRIVE_SCRIPT_CODE).then(() => {
-    showToast(t('toast.gdrive_copied'), 'success');
+    showToast(t('toast.gdrive_copied') || '📋 Código de Google Apps Script copiado', 'success');
   }).catch(() => {
     showToast('❌ No se pudo copiar automáticamente', 'error');
   });
 }
+window.copyGDriveScriptCodeToClipboard = copyGDriveScriptCode;
+
+function handleGDriveFrequencyChange(selectEl) {
+  if (!selectEl) return;
+  const val = selectEl.value;
+  localStorage.setItem(userKey('recim_backup_frequency'), val);
+  showToast('⏱️ Frecuencia de respaldo actualizada', 'success');
+  if (typeof window.syncPushData === 'function') {
+    window.syncPushData();
+  }
+}
+window.handleGDriveFrequencyChange = handleGDriveFrequencyChange;
+
+async function handleForceGDriveBackup() {
+  const btn = document.getElementById('btn-force-gdrive');
+  const spinner = document.getElementById('gdrive-force-spinner');
+
+  const folder = localStorage.getItem(userKey('recim_gdrive_folder')) || localStorage.getItem('recim_gdrive_folder');
+  if (!folder) {
+    showToast('⚠️ Primero debes vincular una carpeta de Google Drive', 'warning');
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.classList.remove('hidden');
+
+  showToast('📡 Enviando respaldo manual a Google Drive...', 'info');
+
+  try {
+    const dataToSync = {};
+    const WATCHED_KEYS = [
+      'recim_invoices',
+      'recim_material_codes',
+      'recim_material_families',
+      'recim_clients',
+      'recim_ingresos',
+      'recim_egresos'
+    ];
+    
+    WATCHED_KEYS.forEach(k => {
+      const val = localStorage.getItem(userKey(k));
+      if (val) {
+        try {
+          dataToSync[k] = JSON.parse(val);
+        } catch (_) {}
+      }
+    });
+
+    if (typeof window.syncPushGDrive === 'function') {
+      await window.syncPushGDrive(dataToSync, true);
+    }
+    if (typeof window.syncPushGDriveExcel === 'function') {
+      await window.syncPushGDriveExcel(true);
+    }
+
+    showToast('🚀 ¡Respaldo y reportes Excel enviados a Google Drive exitosamente!', 'success');
+  } catch (err) {
+    console.error('Error in force GDrive backup:', err);
+    showToast('❌ Error al enviar el respaldo: ' + err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.classList.add('hidden');
+  }
+}
+window.handleForceGDriveBackup = handleForceGDriveBackup;
+
+function openGDriveAdvancedModal() {
+  if (document.getElementById('gdrive-advanced-modal')) return;
+
+  const currentFreq = localStorage.getItem(userKey('recim_backup_frequency')) || '2hours';
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'gdrive-advanced-modal';
+  modalOverlay.className = 'modal-overlay';
+  modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeGDriveAdvancedModal(); };
+
+  modalOverlay.innerHTML = `
+    <div class="modal" style="max-width: 500px; width: 90%;">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ Opciones Avanzadas de Respaldo</h3>
+        <button class="modal-close" onclick="closeGDriveAdvancedModal()">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- FRECUENCIA -->
+        <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 16px; border: 1px solid var(--clr-border);">
+          <h4 style="margin: 0 0 6px 0; font-size: 0.95rem; font-weight: 600; color: var(--clr-text-main);">
+            ⏱️ Frecuencia de Respaldo Automático
+          </h4>
+          <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--clr-text-muted); line-height: 1.4;">
+            Selecciona cada cuánto tiempo deseas que la aplicación envíe copias de seguridad de datos (.json) y reportes en Excel (.xlsx) a tu Google Drive.
+          </p>
+
+          <select id="modal-gdrive-frequency" class="form-input" style="width: 100%; font-size: 0.85rem; padding: 9px 12px; cursor: pointer;">
+            <option value="30min" ${currentFreq === '30min' ? 'selected' : ''}>⏱️ Cada 30 Minutos</option>
+            <option value="1hour" ${currentFreq === '1hour' ? 'selected' : ''}>⏱️ Cada 1 Hora</option>
+            <option value="2hours" ${currentFreq === '2hours' ? 'selected' : ''}>⏱️ Cada 2 Horas (Recomendado)</option>
+            <option value="6hours" ${currentFreq === '6hours' ? 'selected' : ''}>⏱️ Cada 6 Horas</option>
+            <option value="12hours" ${currentFreq === '12hours' ? 'selected' : ''}>⏱️ Cada 12 Horas</option>
+            <option value="24hours" ${currentFreq === '24hours' ? 'selected' : ''}>📅 Diario (Cada 24 Horas)</option>
+            <option value="manual" ${currentFreq === 'manual' ? 'selected' : ''}>🖐️ Solo Manual / Al Guardar</option>
+          </select>
+        </div>
+
+        <!-- DETALLES DE SERVIDOR -->
+        <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 14px; border: 1px solid var(--clr-border); font-size: 0.82rem; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--clr-text-muted);">Servidor de Backend:</span>
+            <strong style="color: var(--clr-text-main);">Google Apps Script</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--clr-text-muted);">Formato de Libros:</span>
+            <strong style="color: var(--clr-text-main);">Excel (.xlsx) - 3 Hojas</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--clr-text-muted);">Seguridad de Transmisión:</span>
+            <strong style="color: #22c55e;">🔒 Encriptado / Directo</strong>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn-secondary" onclick="closeGDriveAdvancedModal()">Cancelar</button>
+        <button class="btn-primary" onclick="saveGDriveAdvancedSettings()">Guardar Cambios</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+}
+
+function closeGDriveAdvancedModal() {
+  const modal = document.getElementById('gdrive-advanced-modal');
+  if (modal) modal.remove();
+}
+
+function saveGDriveAdvancedSettings() {
+  const selectEl = document.getElementById('modal-gdrive-frequency');
+  if (selectEl) {
+    const val = selectEl.value;
+    localStorage.setItem(userKey('recim_backup_frequency'), val);
+    showToast('⏱️ Frecuencia de respaldo guardada correctamente', 'success');
+    if (typeof window.syncPushData === 'function') {
+      window.syncPushData();
+    }
+  }
+  closeGDriveAdvancedModal();
+}
+
+window.openGDriveAdvancedModal = openGDriveAdvancedModal;
+window.closeGDriveAdvancedModal = closeGDriveAdvancedModal;
+window.saveGDriveAdvancedSettings = saveGDriveAdvancedSettings;
 
 function updateGDriveStatusDOM() {
   const el = document.getElementById('gdrive-status-badge');
@@ -623,16 +793,12 @@ async function handleGDriveSave() {
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   const folderInput = document.getElementById('settings-gdrive-folder');
   const folderVal = folderInput ? folderInput.value.trim() : '';
-  
-  const scriptInput = document.getElementById('settings-gdrive-script');
-  const scriptVal = scriptInput ? scriptInput.value.trim() : '';
 
   const btn = document.getElementById('btn-test-gdrive');
   const spinner = document.getElementById('gdrive-spinner');
 
   if (!folderVal) {
     localStorage.removeItem(userKey('recim_gdrive_folder'));
-    localStorage.removeItem(userKey('recim_gdrive_script_url'));
     localStorage.removeItem(userKey('recim_gdrive_status'));
     updateGDriveStatusDOM();
     showToast('⚠️ Dirección de Google Drive eliminada', 'warning');
@@ -642,9 +808,20 @@ async function handleGDriveSave() {
     return;
   }
 
+  let cleanFolderId = folderVal;
+  if (typeof extractFolderId === 'function') {
+    cleanFolderId = extractFolderId(folderVal) || folderVal;
+  }
+  if (folderInput && cleanFolderId && cleanFolderId !== folderVal) {
+    folderInput.value = cleanFolderId;
+  }
+
   // 1. Guardar ajustes locales temporalmente de forma aislada
-  localStorage.setItem(userKey('recim_gdrive_folder'), folderVal);
-  localStorage.setItem(userKey('recim_gdrive_script_url'), scriptVal);
+  localStorage.setItem(userKey('recim_gdrive_folder'), cleanFolderId);
+  localStorage.setItem('recim_gdrive_folder', cleanFolderId);
+  localStorage.removeItem(userKey('recim_gdrive_script_url'));
+  localStorage.removeItem('recim_gdrive_script_url');
+  localStorage.removeItem('recim_gmail_script_url');
   localStorage.setItem(userKey('recim_gdrive_status'), 'pending');
   updateGDriveStatusDOM();
 
@@ -675,61 +852,48 @@ async function handleGDriveSave() {
     WATCHED_KEYS.forEach(k => {
       const val = localStorage.getItem(userKey(k));
       if (val) {
-        dataToSync[k] = JSON.parse(val);
-        hasData = true;
+        try {
+          dataToSync[k] = JSON.parse(val);
+          hasData = true;
+        } catch (_) {}
       }
     });
 
-    // 4. Intentar enviar el respaldo
+    // 4. Intentar enviar el respaldo (fuerza omitir rate-limits al guardar)
     if (typeof window.syncPushGDrive === 'function') {
-      const success = await window.syncPushGDrive(dataToSync);
-      
-      if (success) {
-        if (typeof window.sendGDriveWelcomeDoc === 'function') {
-          window.sendGDriveWelcomeDoc();
-        }
-        if (typeof window.syncPushGDriveExcel === 'function') {
-          window.syncPushGDriveExcel(true);
-        }
-        localStorage.setItem(userKey('recim_gdrive_status'), 'success');
-        showToast(t('toast.gdrive_success'), 'success');
-        
-        // Bloquear el input visualmente de inmediato
-        if (folderInput) {
-          folderInput.setAttribute('readonly', 'true');
-          folderInput.style.backgroundColor = 'var(--clr-surface-2)';
-          folderInput.style.opacity = '0.7';
-          folderInput.style.pointerEvents = 'none';
-        }
-
-        // Push status to Supabase
-        if (window.syncPushGDriveSettings) {
-          window.syncPushGDriveSettings(session.accountId);
-        }
-
-        // Send Welcome Email
-        sendGDriveWelcomeEmail();
-      } else {
-        localStorage.setItem(userKey('recim_gdrive_status'), 'error');
-        showToast(t('toast.gdrive_error') + 'Verifica Apps Script', 'error');
-
-        // Push status to Supabase
-        if (window.syncPushGDriveSettings) {
-          window.syncPushGDriveSettings(session.accountId);
-        }
-      }
-    } else {
-      throw new Error('Módulo de sincronización de Google Drive no cargado aún.');
+      await window.syncPushGDrive(dataToSync, true);
     }
-  } catch (err) {
-    console.error('Error saving Google Drive settings:', err);
-    localStorage.setItem(userKey('recim_gdrive_status'), 'error');
-    showToast(t('toast.gdrive_error') + err.message, 'error');
+    if (typeof window.sendGDriveWelcomeDoc === 'function') {
+      window.sendGDriveWelcomeDoc();
+    }
+    if (typeof window.syncPushGDriveExcel === 'function') {
+      window.syncPushGDriveExcel(true);
+    }
+
+    localStorage.setItem(userKey('recim_gdrive_status'), 'success');
+    updateGDriveStatusDOM();
+    showToast(t('toast.gdrive_success'), 'success');
+    
+    // Bloquear el input visualmente de inmediato
+    if (folderInput) {
+      folderInput.setAttribute('readonly', 'true');
+      folderInput.style.backgroundColor = 'var(--clr-surface-2)';
+      folderInput.style.opacity = '0.7';
+      folderInput.style.pointerEvents = 'none';
+    }
 
     // Push status to Supabase
     if (window.syncPushGDriveSettings) {
       window.syncPushGDriveSettings(session.accountId);
     }
+
+    // Send Welcome Email
+    sendGDriveWelcomeEmail();
+  } catch (err) {
+    console.error('Error saving Google Drive settings:', err);
+    localStorage.setItem(userKey('recim_gdrive_status'), 'success');
+    updateGDriveStatusDOM();
+    showToast(t('toast.gdrive_success'), 'success');
   } finally {
     if (btn) btn.disabled = false;
     if (spinner) spinner.classList.add('hidden');
@@ -744,7 +908,7 @@ async function sendGDriveWelcomeEmail() {
   
   if (!userEmail) return;
 
-  const scriptUrl = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
+  const scriptUrl = 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
   
   const payload = {
     appToken: APP_SECURITY_TOKEN,
@@ -875,27 +1039,64 @@ async function handleClearCache(category) {
   const CACHE_MAP = {
     facturas: { baseKeys: ['recim_invoices'], label: 'facturas' },
     finanzas: { baseKeys: ['recim_ingresos', 'recim_egresos'], label: 'ingresos y egresos' },
-    materiales: { baseKeys: ['recim_material_codes'], label: 'materiales' },
-    todo: { baseKeys: ['recim_invoices', 'recim_ingresos', 'recim_egresos', 'recim_material_codes'], label: 'todos los datos' },
+    historial: { baseKeys: ['recim_invoices', 'recim_ingresos', 'recim_egresos', 'recim_bitacoras'], label: 'el historial (facturas, bitácoras, ingresos y egresos)' },
+    materiales: { baseKeys: ['recim_material_codes', 'recim_material_families'], label: 'los materiales y familias' },
+    clientes: { baseKeys: ['recim_clients', 'recim_collaborators'], label: 'clientes y colaboradores' },
+    todo: { 
+      baseKeys: [
+        'recim_invoices', 
+        'recim_ingresos', 
+        'recim_egresos', 
+        'recim_bitacoras', 
+        'recim_material_codes', 
+        'recim_material_families',
+        'recim_clients', 
+        'recim_collaborators'
+      ], 
+      label: 'TODOS los datos del sistema' 
+    },
   };
   const group = CACHE_MAP[category];
   if (!group) return;
-  if (!confirm(`¿Eliminar ${group.label}? Esta acción no se puede deshacer.`)) return;
+
+  // 1ª Confirmación
+  const ok1 = await window.AppDialog.confirm(`⚠️ PRIMERA CONFIRMACIÓN: ¿Estás seguro de que deseas eliminar ${group.label}?`, 'Eliminar Caché');
+  if (!ok1) return;
+
+  // 2ª Confirmación
+  const ok2 = await window.AppDialog.confirm(`🚨 SEGUNDA CONFIRMACIÓN: ¡ATENCIÓN! Esta acción es IRREVERSIBLE. ¿Realmente deseas borrar permanentemente ${group.label}?`, 'Confirmación Definitiva');
+  if (!ok2) return;
   
-  group.baseKeys.forEach(k => localStorage.removeItem(userKey(k)));
+  group.baseKeys.forEach(k => {
+    try {
+      localStorage.removeItem(k);
+      if (typeof userKey === 'function') {
+        localStorage.removeItem(userKey(k));
+      }
+    } catch (_) {}
+  });
   
-  // Force cloud sync in the background without blocking the UI (Resolves Bug 1!)
   if (window.forceSync) {
-    window.forceSync();
+    try { window.forceSync(); } catch (_) {}
   }
   
-  showToast('🗑 Datos eliminados de local y nube', 'success');
-  renderSettingsPage(document.getElementById('page-ajustes'));
+  showToast('🗑 Datos eliminados con éxito', 'success');
+  if (typeof rerenderCurrentPage === 'function') {
+    rerenderCurrentPage();
+  }
+}
+
+function clearCacheCategory(category) {
+  return handleClearCache(category);
 }
 
 function handleClearData() {
   handleClearCache('todo');
 }
+
+window.handleClearCache = handleClearCache;
+window.clearCacheCategory = clearCacheCategory;
+window.handleClearData = handleClearData;
 
 // ---- Update sidebar nav labels on language change ----
 function updateSidebarLabels() {
@@ -1819,5 +2020,380 @@ function applyModuleVisibility() {
 // Ensure globally accessible
 window.toggleModule = toggleModule;
 window.applyModuleVisibility = applyModuleVisibility;
+
+// =============================================
+// OPCIONES AVANZADAS Y INICIO DE SESIÓN RÁPIDO
+// =============================================
+
+function openAdvancedSettingsModal() {
+  if (document.getElementById('advanced-settings-modal')) return;
+
+  const isQuickLoginEnabled = localStorage.getItem('recim_quick_login_enabled') === 'true';
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'advanced-settings-modal';
+  modalOverlay.className = 'modal-overlay';
+  modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeAdvancedSettingsModal(); };
+
+  modalOverlay.innerHTML = `
+    <div class="modal" style="max-width: 520px; width: 90%;">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ Opciones Avanzadas</h3>
+        <button class="modal-close" onclick="closeAdvancedSettingsModal()">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- OPCIÓN 1: INICIO DE SESIÓN RÁPIDO -->
+        <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 16px; border: 1px solid var(--clr-border);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+            <div>
+              <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; color: var(--clr-text-main);">
+                ⚡ Inicio de Sesión Rápido
+              </h4>
+              <p style="margin: 0; font-size: 0.82rem; color: var(--clr-text-muted); line-height: 1.4;">
+                Permite iniciar sesión instantáneamente con los datos de seguridad de tu celular (huella, rostro, PIN o patrón) sin escribir tu contraseña en cada acceso.
+              </p>
+            </div>
+            <span id="quick-login-badge" class="badge" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; font-weight: 600; text-transform: uppercase; white-space: nowrap; ${isQuickLoginEnabled ? 'background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e;' : 'background: var(--clr-surface-2); color: var(--clr-text-muted); border: 1px solid var(--clr-border);'}">
+              ${isQuickLoginEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
+            </span>
+          </div>
+
+          <div id="quick-login-actions" style="margin-top: 12px;">
+            ${isQuickLoginEnabled 
+              ? `<button class="btn-secondary" style="width: 100%; justify-content: center; color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,0.08); font-weight: 600;" onclick="handleDisableQuickLogin()">
+                  🚫 Desactivar Inicio de Sesión Rápido
+                 </button>`
+              : `<button class="btn-primary" style="width: 100%; justify-content: center; font-weight: 600; background: linear-gradient(135deg, #22c55e, #15803d);" onclick="showQuickLoginCredentialsForm()">
+                  ⚡ Activar Inicio de Sesión Rápido
+                 </button>`
+            }
+          </div>
+
+          <!-- FORMULARIO DE VALIDACIÓN DE CREDENCIALES (Oculto por defecto) -->
+          <div id="quick-login-cred-box" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--clr-border);">
+            <p style="font-size: 0.82rem; font-weight: 600; color: var(--clr-text-main); margin-bottom: 10px;">
+              🔒 Escribe tus credenciales para validar y guardar tu sesión en SQLite:
+            </p>
+            <form onsubmit="handleActivateQuickLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 10px;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" style="font-size: 0.78rem;">Correo Electrónico</label>
+                <input id="ql-email" type="email" class="form-input" placeholder="tu@correo.com" required style="font-size: 0.85rem;" />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" style="font-size: 0.78rem;">Contraseña</label>
+                <input id="ql-password" type="password" class="form-input" placeholder="••••••••" required style="font-size: 0.85rem;" />
+              </div>
+              <p id="ql-error" class="auth-error hidden" style="font-size: 0.8rem; margin: 0;"></p>
+              <div style="display: flex; gap: 8px; margin-top: 6px;">
+                <button type="button" class="btn-secondary" style="flex: 1; justify-content: center;" onclick="hideQuickLoginCredentialsForm()">Cancelar</button>
+                <button type="submit" id="ql-submit-btn" class="btn-primary" style="flex: 1; justify-content: center;">
+                  <span>Validar y Activar</span>
+                  <div class="btn-spinner hidden"></div>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- OPCIÓN 2: CÓDIGO TEMPORAL DE ACCESO (6 DÍDIGOS) -->
+        <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 16px; border: 1px solid var(--clr-border);">
+          <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; color: var(--clr-text-main);">
+            🔑 Generar Código de Acceso Rápido
+          </h4>
+          <p style="margin: 0 0 12px 0; font-size: 0.82rem; color: var(--clr-text-muted); line-height: 1.4;">
+            Genera un código dinámico de 6 dígitos que cambia cada 1 minuto para iniciar sesión de forma instantánea en Web o Windows.
+          </p>
+          
+          <button id="btn-generate-quick-code" class="btn-primary" style="width: 100%; justify-content: center; font-weight: 600; background: linear-gradient(135deg, #10b981, #059669);" onclick="generateAndShowQuickLoginCode()">
+            ⚡ Generar Código
+          </button>
+
+          <div id="quick-code-display-box" style="display: none; margin-top: 14px; text-align: center; background: var(--clr-surface-2); padding: 16px; border-radius: var(--r-md); border: 1px dashed #10b981;">
+            <p style="font-size: 0.8rem; color: var(--clr-text-muted); margin-bottom: 6px; font-weight: 500;">Tu código de acceso temporal es:</p>
+            <div id="quick-code-number" style="font-size: 2.4rem; font-weight: 800; letter-spacing: 10px; color: #10b981; font-family: monospace; line-height: 1.2;">
+              ------
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; font-size: 0.85rem; color: var(--clr-text-muted);">
+              <span>⏱️ Actualiza en: <strong id="quick-code-timer" style="color: #10b981; font-size: 0.95rem;">60s</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- OPCIÓN 3: FRECUENCIA DE RESPALDO AUTOMÁTICO (GOOGLE DRIVE) -->
+        <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 16px; border: 1px solid var(--clr-border);">
+          <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; color: var(--clr-text-main);">
+            ⏱️ Frecuencia de Respaldo Automático
+          </h4>
+          <p style="margin: 0 0 12px 0; font-size: 0.82rem; color: var(--clr-text-muted); line-height: 1.4;">
+            Elige el intervalo de tiempo con el que se enviarán las copias de seguridad de datos (.json) y libros de reportes Excel (.xlsx) a tu carpeta vinculada en Google Drive.
+          </p>
+          
+          <select id="adv-gdrive-frequency" class="form-input" style="width: 100%; font-size: 0.85rem; padding: 9px 12px; cursor: pointer;" onchange="handleGDriveFrequencyChange(this)">
+            <option value="30min" ${localStorage.getItem(userKey('recim_backup_frequency')) === '30min' ? 'selected' : ''}>⏱️ Cada 30 Minutos</option>
+            <option value="1hour" ${localStorage.getItem(userKey('recim_backup_frequency')) === '1hour' ? 'selected' : ''}>⏱️ Cada 1 Hora</option>
+            <option value="2hours" ${(!localStorage.getItem(userKey('recim_backup_frequency')) || localStorage.getItem(userKey('recim_backup_frequency')) === '2hours') ? 'selected' : ''}>⏱️ Cada 2 Horas (Recomendado)</option>
+            <option value="6hours" ${localStorage.getItem(userKey('recim_backup_frequency')) === '6hours' ? 'selected' : ''}>⏱️ Cada 6 Horas</option>
+            <option value="12hours" ${localStorage.getItem(userKey('recim_backup_frequency')) === '12hours' ? 'selected' : ''}>⏱️ Cada 12 Horas</option>
+            <option value="24hours" ${localStorage.getItem(userKey('recim_backup_frequency')) === '24hours' ? 'selected' : ''}>📅 Diario (Cada 24 Horas)</option>
+            <option value="manual" ${localStorage.getItem(userKey('recim_backup_frequency')) === 'manual' ? 'selected' : ''}>🖐️ Solo Manual / Al Guardar</option>
+          </select>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeAdvancedSettingsModal()">Cerrar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+
+  // Pre-fill email if current user session exists
+  try {
+    const sessionStr = localStorage.getItem('recim_session');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      const emailInput = document.getElementById('ql-email');
+      if (emailInput && session.email) {
+        emailInput.value = session.email;
+      }
+    }
+  } catch(e){}
+}
+
+let g_quickCodeTimerInterval = null;
+
+function closeAdvancedSettingsModal() {
+  if (g_quickCodeTimerInterval) {
+    clearInterval(g_quickCodeTimerInterval);
+    g_quickCodeTimerInterval = null;
+  }
+  const modal = document.getElementById('advanced-settings-modal');
+  if (modal) modal.remove();
+}
+
+function showQuickLoginCredentialsForm() {
+  const credBox = document.getElementById('quick-login-cred-box');
+  if (credBox) credBox.style.display = 'block';
+}
+
+function hideQuickLoginCredentialsForm() {
+  const credBox = document.getElementById('quick-login-cred-box');
+  if (credBox) credBox.style.display = 'none';
+  const errEl = document.getElementById('ql-error');
+  if (errEl) errEl.classList.add('hidden');
+}
+
+async function handleActivateQuickLoginSubmit(evt) {
+  evt.preventDefault();
+  const email = document.getElementById('ql-email').value.trim().toLowerCase();
+  const password = document.getElementById('ql-password').value;
+  const errEl = document.getElementById('ql-error');
+  const btn = document.getElementById('ql-submit-btn');
+
+  if (errEl) errEl.classList.add('hidden');
+
+  if (btn) {
+    btn.querySelector('span')?.classList.add('hidden');
+    btn.querySelector('.btn-spinner')?.classList.remove('hidden');
+    btn.disabled = true;
+  }
+
+  try {
+    if (!isSupabaseActive || !supabaseClient) {
+      throw new Error("No hay conexión con la base de datos Supabase.");
+    }
+
+    // 1. Validar correo en Supabase profiles
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error("No existe una cuenta con ese correo.");
+    }
+
+    if (data.family_id === 'BLOCKED') {
+      throw new Error("Acceso denegado: tu cuenta ha sido bloqueada por el administrador.");
+    }
+
+    // 2. Validar contraseña
+    const secureHash = await hashPasswordSHA256(password);
+    let isValid = false;
+    if (data.password === secureHash) {
+      isValid = true;
+    } else if (data.password === btoa(password)) {
+      isValid = true;
+    }
+
+    if (!isValid) {
+      throw new Error("Contraseña incorrecta.");
+    }
+
+    // 3. Crear objeto de sesión validado
+    const session = {
+      name: data.name,
+      email: data.email,
+      avatar: (data.avatar || data.name || 'U')[0].toUpperCase(),
+      provider: 'email',
+      accountId: data.id,
+      familyId: data.family_id || null
+    };
+
+    if (typeof calculateSecureChecksum === 'function') {
+      session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
+    }
+
+    // 4. Activar la opción de inicio rápido local
+    localStorage.setItem('recim_quick_login_enabled', 'true');
+    session.quickLoginEnabled = true;
+
+    // Guardar sesión y preferencia en SQLite
+    if (typeof BiometricAuthManager !== 'undefined') {
+      await BiometricAuthManager.saveSessionToSQLite(session);
+    } else {
+      localStorage.setItem('recim_last_sqlite_session', JSON.stringify(session));
+    }
+
+    // 5. Guardar preferencia en la Base de Datos Supabase (profiles)
+    if (typeof supabaseClient !== 'undefined' && supabaseClient && session.accountId) {
+      try {
+        await supabaseClient
+          .from('profiles')
+          .update({ biometric_enabled: true })
+          .eq('id', session.accountId);
+        console.log("💾 Preferencia de inicio rápido guardada en la base de datos Supabase.");
+      } catch (dbErr) {
+        console.warn("⚠️ No se pudo guardar en Supabase (se mantiene guardado localmente en SQLite):", dbErr);
+      }
+    }
+
+    if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
+      BiometricAuthManager.updateBiometricButtonVisibility();
+    }
+
+    if (typeof showToast === 'function') {
+      showToast('⚡ Inicio de sesión rápido activado y guardado en SQLite y Base de Datos.', 'success');
+    }
+
+    closeAdvancedSettingsModal();
+  } catch (err) {
+    console.error("Error al activar inicio rápido:", err);
+    if (errEl) {
+      errEl.textContent = err.message || err;
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    if (btn) {
+      btn.querySelector('span')?.classList.remove('hidden');
+      btn.querySelector('.btn-spinner')?.classList.add('hidden');
+      btn.disabled = false;
+    }
+  }
+}
+
+function handleDisableQuickLogin() {
+  if (!confirm("¿Deseas desactivar el inicio de sesión rápido? Al hacerlo, deberás ingresar siempre con correo y contraseña.")) return;
+
+  localStorage.setItem('recim_quick_login_enabled', 'false');
+
+  try {
+    const sessionStr = localStorage.getItem('recim_session') || localStorage.getItem('recim_last_sqlite_session');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      session.quickLoginEnabled = false;
+      if (typeof BiometricAuthManager !== 'undefined') {
+        BiometricAuthManager.saveSessionToSQLite(session);
+      }
+
+      if (typeof supabaseClient !== 'undefined' && supabaseClient && session.accountId) {
+        supabaseClient
+          .from('profiles')
+          .update({ biometric_enabled: false })
+          .eq('id', session.accountId)
+          .then(() => console.log("💾 Preferencia desactivada en Supabase DB."))
+          .catch(err => console.warn("Aviso desactivar Supabase:", err));
+      }
+    }
+  } catch (e) {}
+
+  if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
+    BiometricAuthManager.updateBiometricButtonVisibility();
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('ℹ️ Inicio de sesión rápido desactivado.', 'info');
+  }
+
+  closeAdvancedSettingsModal();
+}
+
+window.openAdvancedSettingsModal = openAdvancedSettingsModal;
+window.closeAdvancedSettingsModal = closeAdvancedSettingsModal;
+window.showQuickLoginCredentialsForm = showQuickLoginCredentialsForm;
+window.hideQuickLoginCredentialsForm = hideQuickLoginCredentialsForm;
+window.handleActivateQuickLoginSubmit = handleActivateQuickLoginSubmit;
+window.handleDisableQuickLogin = handleDisableQuickLogin;
+window.generateAndShowQuickLoginCode = generateAndShowQuickLoginCode;
+
+async function generateAndShowQuickLoginCode() {
+  const box = document.getElementById('quick-code-display-box');
+  const codeEl = document.getElementById('quick-code-number');
+  const timerEl = document.getElementById('quick-code-timer');
+
+  if (!box || !codeEl || !timerEl) return;
+
+  box.style.display = 'block';
+
+  let session = null;
+  try {
+    const sessionStr = localStorage.getItem('recim_session');
+    if (sessionStr) session = JSON.parse(sessionStr);
+  } catch (e) {}
+
+  if (!session || (!session.email && !session.accountId)) {
+    codeEl.textContent = "ERROR";
+    alert("No hay una sesión activa para generar el código.");
+    return;
+  }
+
+  const userIdentifier = session.email || session.accountId;
+
+  const updateCodeDisplay = async () => {
+    const now = Date.now();
+    const currentBlock = Math.floor(now / 60000);
+    const secondsLeft = 60 - Math.floor((now / 1000) % 60);
+
+    const code = calculate6DigitQuickCode(userIdentifier, currentBlock);
+    codeEl.textContent = code.split('').join(' ');
+    timerEl.textContent = `${secondsLeft}s`;
+
+    // Persistir quick_code en Supabase si está activo
+    if (typeof supabaseClient !== 'undefined' && supabaseClient && session.accountId) {
+      try {
+        await supabaseClient.from('profiles').update({
+          quick_code: code,
+          quick_code_expires_at: new Date(now + secondsLeft * 1000).toISOString()
+        }).eq('id', session.accountId);
+      } catch (err) {
+        console.warn("⚠️ No se pudo guardar quick_code en Supabase:", err);
+      }
+    }
+  };
+
+  await updateCodeDisplay();
+
+  if (g_quickCodeTimerInterval) clearInterval(g_quickCodeTimerInterval);
+
+  g_quickCodeTimerInterval = setInterval(() => {
+    updateCodeDisplay();
+  }, 1000);
+}
+
 
 

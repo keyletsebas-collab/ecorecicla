@@ -255,8 +255,9 @@ function handleAddClient() {
   }
 }
 
-function handleDeleteClient(id) {
-  if (!confirm('¿Eliminar este registro?')) return;
+async function handleDeleteClient(id) {
+  const ok = await window.AppDialog.confirm('¿Eliminar este registro?', 'Eliminar Cliente');
+  if (!ok) return;
   deleteClient(id);
   refreshClientsList();
 }

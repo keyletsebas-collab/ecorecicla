@@ -611,7 +611,7 @@ async function sendSubscriptionEmailNotification(state) {
         
         if (!userEmail) return;
 
-        const scriptUrl = 'https://script.google.com/macros/s/AKfycbxYHnE-4KnXCqd-l3MWNKtQ3_HU-Fz6GNsNhf05loH0pfvJTXxbwujAC21OvLZddvSI/exec';
+        const scriptUrl = 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
         
         let planLabel = state.plan === 'trial_10d' ? 'Prueba Gratuita (10 Días)' : (BASE_PLANS[state.plan]?.name || state.plan);
         let expiresText = state.expiresAt === 'lifetime' ? 'De Por Vida (Acceso Ilimitado)' : new Date(state.expiresAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });

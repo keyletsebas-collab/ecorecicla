@@ -32,6 +32,40 @@ function getAllHistoryItems() {
   return [...normInvoices, ...normIngresos, ...normEgresos];
 }
 
+function getUnifiedFinancialSummary(items) {
+  const invoiceIds = new Set();
+  items.forEach(i => {
+    if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local' || i.type === 'basica') {
+      if (i.id) invoiceIds.add(i.id);
+    }
+  });
+
+  let totalIncome = 0;
+  let totalExpense = 0;
+
+  items.forEach(i => {
+    if ((i.itemType === 'ingreso' || i.itemType === 'egreso') && i.ref && invoiceIds.has(i.ref)) {
+      return;
+    }
+
+    if (i.type === 'egreso' || i.itemType === 'egreso') {
+      totalExpense += (i.total || i.amount || 0);
+    } else if (i.type === 'ingreso' || i.itemType === 'ingreso') {
+      totalIncome += (i.total || i.amount || 0);
+    } else if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local') {
+      totalIncome += (i.total !== undefined ? i.total : (i.totalVenta || 0));
+    } else if (i.type === 'basica') {
+      const compra = i.totalCompra !== undefined ? i.totalCompra : 0;
+      const venta = i.totalVenta !== undefined ? i.totalVenta : (i.total || 0);
+      totalExpense += compra;
+      totalIncome += venta;
+    }
+  });
+
+  const netBalance = totalIncome - totalExpense;
+  return { totalIncome, totalExpense, netBalance };
+}
+
 function applyDateFilter(items) {
   window.currentHistoryDateFilter = window.currentHistoryDateFilter || 'all';
   if (window.currentHistoryDateFilter === 'all') return items;
@@ -156,6 +190,7 @@ function renderHistoryPage(container) {
   const allItems = getAllHistoryItems();
   const filteredByDate = applyDateFilter(allItems);
   const items = applyMaterialFilter(filteredByDate);
+  const finSummary = getUnifiedFinancialSummary(items);
   const isEn = (getSettings().language === 'en');
 
   const currentFilter = window.currentHistoryDateFilter || 'all';
@@ -226,7 +261,7 @@ function renderHistoryPage(container) {
         </div>
         <div class="stat-card">
           <div class="stat-label">${t('hist.total_val')}</div>
-          <div class="stat-value stat-value--green">${formatMoney(items.filter(i => i.itemType === 'invoice').reduce((s, i) => s + i.total, 0))}</div>
+          <div class="stat-value ${finSummary.netBalance < 0 ? 'stat-value--red' : 'stat-value--green'}">${formatMoney(finSummary.netBalance)}</div>
         </div>
       </div>
 
@@ -548,15 +583,17 @@ function filterHistory() {
   if (list) list.innerHTML = renderInvoiceCards(items);
 }
 
-function deleteHistoryItem(type, id) {
+async function deleteHistoryItem(type, id) {
   if (type === 'ingreso' || type === 'egreso') {
-    if (!confirm('¿Estás seguro de que deseas eliminar este registro financiero?')) return;
+    const ok = await window.AppDialog.confirm('¿Estás seguro de que deseas eliminar este registro financiero?', 'Eliminar Registro');
+    if (!ok) return;
     const baseKey = type === 'ingreso' ? 'recim_ingresos' : 'recim_egresos';
     const list = JSON.parse(localStorage.getItem(userKey(baseKey)) || '[]').filter(e => e.id !== id);
     localStorage.setItem(userKey(baseKey), JSON.stringify(list));
     showToast('Registro financiero eliminado con éxito', 'success');
   } else {
-    if (!confirm(t('confirm.del_inv'))) return;
+    const ok = await window.AppDialog.confirm(t('confirm.del_inv'), 'Eliminar Factura');
+    if (!ok) return;
     const invoices = getAllInvoices().filter(i => i.id !== id);
     localStorage.setItem(userKey('recim_invoices'), JSON.stringify(invoices));
     showToast(t('toast.del_inv'), 'success');
@@ -564,12 +601,18 @@ function deleteHistoryItem(type, id) {
   rerenderCurrentPage();
 }
 
-function clearHistory() {
-  if (!confirm('¿Estás seguro de que deseas limpiar todo el historial (Facturas, Bitácoras, Ingresos y Egresos)?')) return;
+async function clearHistory() {
+  // 1ª Confirmación
+  const ok1 = await window.AppDialog.confirm('⚠️ PRIMERA CONFIRMACIÓN: ¿Estás seguro de que deseas limpiar todo el historial (Facturas, Bitácoras, Ingresos y Egresos)?', 'Limpiar Historial');
+  if (!ok1) return;
+  // 2ª Confirmación
+  const ok2 = await window.AppDialog.confirm('🚨 SEGUNDA CONFIRMACIÓN: ¡ADVERTENCIA! Esta acción borrará todo el historial de forma permanente. ¿Deseas continuar?', 'Confirmación Definitiva');
+  if (!ok2) return;
   localStorage.setItem(userKey('recim_invoices'), JSON.stringify([]));
   localStorage.setItem(userKey('recim_ingresos'), JSON.stringify([]));
   localStorage.setItem(userKey('recim_egresos'), JSON.stringify([]));
   if (typeof forceSync === 'function') forceSync();
+
   showToast('Todo el historial ha sido limpiado', 'success');
   rerenderCurrentPage();
 }
@@ -1003,25 +1046,139 @@ function renderTradingChart(category) {
 }
 window.renderTradingChart = renderTradingChart;
 
+window.updateFinanzasRecordsTable = function() {
+  const container = document.getElementById('finanzas-records-table-body');
+  const badge = document.getElementById('finanzas-total-badge');
+  const filterVal = document.getElementById('finanzas-flow-filter')?.value || 'all';
+  const query = (document.getElementById('finanzas-search-input')?.value || '').toLowerCase().trim();
+
+  if (!container || !window._currentFinanzasItems) return;
+
+  let items = [...window._currentFinanzasItems];
+
+  // 1. Sort chronologically (Newest first)
+  items.sort((a, b) => {
+    const timeA = new Date(a.createdAt || a.date).getTime() || 0;
+    const timeB = new Date(b.createdAt || b.date).getTime() || 0;
+    return timeB - timeA;
+  });
+
+  // 2. Filter by flow type
+  if (filterVal === 'ingresos') {
+    items = items.filter(i => i.type === 'ingreso' || i.itemType === 'invoice');
+  } else if (filterVal === 'egresos') {
+    items = items.filter(i => i.type === 'egreso');
+  } else if (filterVal === 'facturas') {
+    items = items.filter(i => i.itemType === 'invoice' || i.type === 'local' || i.type === 'empresa');
+  }
+
+  // 3. Search query filter
+  if (query) {
+    items = items.filter(i =>
+      (i.id || '').toLowerCase().includes(query) ||
+      (i.client || '').toLowerCase().includes(query) ||
+      (i.company || '').toLowerCase().includes(query) ||
+      (i.concept || '').toLowerCase().includes(query) ||
+      (i.category || '').toLowerCase().includes(query)
+    );
+  }
+
+  // Calculate Net Total for current filter using unified summary
+  const finSummary = getUnifiedFinancialSummary(items);
+  const totalSum = finSummary.netBalance;
+
+  if (badge) {
+    const isNegative = totalSum < 0;
+    badge.style.borderColor = isNegative ? '#ff0055' : '#00ffcc';
+    badge.style.color = isNegative ? '#ff4d79' : '#00ffcc';
+    badge.innerHTML = `Total: ${safeFormatMoney(totalSum)}`;
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = `<div style="text-align:center; color:#64748b; padding:35px; font-size:0.9rem;">No se encontraron registros que coincidan con los filtros seleccionados.</div>`;
+    return;
+  }
+
+  container.innerHTML = items.map(i => {
+    const isEgreso = i.type === 'egreso';
+    const isInvoice = i.itemType === 'invoice' || i.type === 'local' || i.type === 'empresa';
+    
+    let typeBadge = '';
+    if (isInvoice) {
+      typeBadge = `<span style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">🧾 Factura</span>`;
+    } else if (isEgreso) {
+      typeBadge = `<span style="background:rgba(255,0,85,0.15); color:#ff4d79; border:1px solid rgba(255,0,85,0.3); padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">🔴 Egreso</span>`;
+    } else {
+      typeBadge = `<span style="background:rgba(0,255,204,0.15); color:#00ffcc; border:1px solid rgba(0,255,204,0.3); padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">🟢 Ingreso</span>`;
+    }
+
+    const title = i.id ? `N.º ${i.id}` : (i.concept || 'Registro financiero');
+    const subtitle = i.client || i.company || i.category || (isInvoice ? 'Venta de Material' : 'Movimiento de Caja');
+    
+    let dateStr = i.createdAt ? new Date(i.createdAt).toLocaleString('es-DO', { dateStyle: 'short', timeStyle: 'short' }) : (i.date || '—');
+
+    const amountColor = isEgreso ? '#ff4d79' : '#00ffcc';
+    const amountPrefix = isEgreso ? '- ' : '+ ';
+
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; gap:12px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:200px;">
+          ${typeBadge}
+          <div style="display:flex; flex-direction:column; min-width:0;">
+            <span style="font-weight:700; color:#f8fafc; font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${title}</span>
+            <span style="font-size:0.78rem; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${subtitle}</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:20px; flex-shrink:0;">
+          <div style="display:flex; flex-direction:column; align-items:flex-end;">
+            <span style="font-size:0.75rem; color:#64748b; font-family:monospace;">📅 Creación: ${dateStr}</span>
+            <span style="font-size:1.05rem; font-weight:800; color:${amountColor}; font-family:monospace;">${amountPrefix}${safeFormatMoney(i.total)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
 function drawTradingFinanzasChart(items) {
   const container = document.getElementById('trading-chart-container');
   if (!container) return;
 
+  window._currentFinanzasItems = items;
+
+  const invoiceIds = new Set();
+  items.forEach(i => {
+    if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local' || i.type === 'basica') {
+      if (i.id) invoiceIds.add(i.id);
+    }
+  });
+
   const monthly = {};
   items.forEach(i => {
     if (!i.date) return;
+    if ((i.itemType === 'ingreso' || i.itemType === 'egreso') && i.ref && invoiceIds.has(i.ref)) {
+      return;
+    }
     const monthKey = i.date.substring(0, 7); // 'YYYY-MM'
     if (!monthly[monthKey]) monthly[monthKey] = { income: 0, expense: 0 };
-    if (i.type === 'ingreso' || i.itemType === 'invoice') {
-      monthly[monthKey].income += i.total || 0;
-    } else if (i.type === 'egreso') {
-      monthly[monthKey].expense += i.total || 0;
+    if (i.type === 'egreso' || i.itemType === 'egreso') {
+      monthly[monthKey].expense += (i.total || i.amount || 0);
+    } else if (i.type === 'ingreso' || i.itemType === 'ingreso') {
+      monthly[monthKey].income += (i.total || i.amount || 0);
+    } else if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local') {
+      monthly[monthKey].income += (i.total !== undefined ? i.total : (i.totalVenta || 0));
+    } else if (i.type === 'basica') {
+      const compra = i.totalCompra !== undefined ? i.totalCompra : 0;
+      const venta = i.totalVenta !== undefined ? i.totalVenta : (i.total || 0);
+      monthly[monthKey].expense += compra;
+      monthly[monthKey].income += venta;
     }
   });
 
   const sortedMonths = Object.keys(monthly).sort().slice(-6);
   if (sortedMonths.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:40px;">No hay datos financieros registrados en este rango de fechas.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:60px; font-size:1.05rem;">No hay datos financieros registrados en este rango de fechas.</div>`;
     return;
   }
 
@@ -1031,18 +1188,19 @@ function drawTradingFinanzasChart(items) {
   });
 
   let barSvgContent = '';
-  const startX = 60;
-  const spacingX = 80;
-  const graphHeight = 150;
-  const zeroY = 200;
+  const startX = 85;
+  const spacingX = 110;
+  const graphHeight = 230;
+  const zeroY = 300;
+  const barWidth = 32;
 
   sortedMonths.forEach((m, idx) => {
     const xPos = startX + idx * spacingX;
     const incVal = monthly[m].income;
     const expVal = monthly[m].expense;
     
-    const incHeight = Math.max(3, (incVal / maxVal) * graphHeight);
-    const expHeight = Math.max(3, (expVal / maxVal) * graphHeight);
+    const incHeight = Math.max(4, (incVal / maxVal) * graphHeight);
+    const expHeight = Math.max(4, (expVal / maxVal) * graphHeight);
     
     const incY = zeroY - incHeight;
     const expY = zeroY - expHeight;
@@ -1050,71 +1208,208 @@ function drawTradingFinanzasChart(items) {
     const [y, mm] = m.split('-');
     const label = t('hist.month_' + mm).substring(0, 3).toUpperCase();
     
+    const incText = safeFormatMoney(incVal).replace('RD$', '').trim();
+    const expText = safeFormatMoney(expVal).replace('RD$', '').trim();
+    
     barSvgContent += `
-      <!-- Income Bar (Neon Green with glow) -->
-      <rect x="${xPos}" y="${incY}" width="18" height="${incHeight}" rx="4" fill="url(#neonGreenGrad)" filter="url(#glow)" />
-      <!-- Expense Bar (Neon Red/Pink with glow) -->
-      <rect x="${xPos + 24}" y="${expY}" width="18" height="${expHeight}" rx="4" fill="url(#neonRedGrad)" filter="url(#glow)" />
+      <!-- Income Bar -->
+      <rect x="${xPos}" y="${incY}" width="${barWidth}" height="${incHeight}" rx="6" fill="url(#neonGreenGrad)" filter="url(#glow)" />
+      <!-- Expense Bar -->
+      <rect x="${xPos + barWidth + 8}" y="${expY}" width="${barWidth}" height="${expHeight}" rx="6" fill="url(#neonRedGrad)" filter="url(#glow)" />
       
-      <!-- Value Labels -->
-      <text x="${xPos + 9}" y="${incY - 6}" font-size="8" fill="#00ffcc" text-anchor="middle" font-family="monospace">${safeFormatMoney(incVal).replace('RD$', '').trim()}</text>
-      <text x="${xPos + 33}" y="${expY - 6}" font-size="8" fill="#ff0055" text-anchor="middle" font-family="monospace">${safeFormatMoney(expVal).replace('RD$', '').trim()}</text>
+      <!-- Income Value Tag -->
+      <g transform="translate(${xPos + barWidth/2}, ${incY - 10})">
+        <text font-size="11" fill="#00ffcc" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${incText}</text>
+      </g>
+
+      <!-- Expense Value Tag -->
+      <g transform="translate(${xPos + barWidth + 8 + barWidth/2}, ${expY - 10})">
+        <text font-size="11" fill="#ff4d79" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${expText}</text>
+      </g>
       
-      <!-- X Axis Labels -->
-      <text x="${xPos + 21}" y="225" font-size="9" fill="#9ca3af" text-anchor="middle" font-family="monospace" font-weight="bold">${label}</text>
+      <!-- X Axis Month Label -->
+      <text x="${xPos + barWidth + 4}" y="335" font-size="13" fill="#e5e7eb" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.05em">${label}</text>
     `;
   });
 
   const chartHtml = `
-    <div style="display:flex; flex-direction:column; gap:16px; width:100%;">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:12px; flex-wrap:wrap; gap:10px;">
-        <h4 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;">📊 Balance de Caja (Últimos 6 meses)</h4>
-        <div style="display:flex; gap:16px; font-size:0.8rem; font-weight:600;">
-          <span style="display:inline-flex; align-items:center; gap:6px; color:#00ffcc;"><span style="width:10px; height:10px; border-radius:3px; background:#00ffcc; display:inline-block; box-shadow: 0 0 8px #00ffcc;"></span>Ingresos</span>
-          <span style="display:inline-flex; align-items:center; gap:6px; color:#ff0055;"><span style="width:10px; height:10px; border-radius:3px; background:#ff0055; display:inline-block; box-shadow: 0 0 8px #ff0055;"></span>Egresos</span>
+    <div style="display:flex; flex-direction:column; gap:20px; width:100%;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h4 style="margin:0; font-size:1.3rem; font-weight:800; color:#fff; letter-spacing:-0.02em;">📊 Balance de Caja (Últimos 6 meses)</h4>
+          <span style="font-size:0.85rem; color:#9ca3af; font-weight:500;">Comparativo mensual de flujos financieros</span>
+        </div>
+        <div style="display:flex; gap:20px; font-size:0.9rem; font-weight:700;">
+          <span style="display:inline-flex; align-items:center; gap:8px; color:#00ffcc; background:rgba(0,255,204,0.1); padding:6px 14px; border-radius:20px; border:1px solid rgba(0,255,204,0.2);">
+            <span style="width:12px; height:12px; border-radius:4px; background:#00ffcc; display:inline-block; box-shadow: 0 0 10px #00ffcc;"></span>Ingresos
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:8px; color:#ff0055; background:rgba(255,0,85,0.1); padding:6px 14px; border-radius:20px; border:1px solid rgba(255,0,85,0.2);">
+            <span style="width:12px; height:12px; border-radius:4px; background:#ff0055; display:inline-block; box-shadow: 0 0 10px #ff0055;"></span>Egresos
+          </span>
         </div>
       </div>
 
-      <svg width="100%" height="250" viewBox="0 0 600 250" style="background:#0e1321; border-radius:12px; overflow:visible;">
+      <svg width="100%" height="360" viewBox="0 0 760 360" style="background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:10px;">
         <defs>
           <linearGradient id="neonGreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stop-color="#00ffcc" />
-            <stop offset="100%" stop-color="#00aa88" />
+            <stop offset="100%" stop-color="#059669" />
           </linearGradient>
           <linearGradient id="neonRedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#ff0055" />
-            <stop offset="100%" stop-color="#990033" />
+            <stop offset="0%" stop-color="#ff3366" />
+            <stop offset="100%" stop-color="#be123c" />
           </linearGradient>
           <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
         
-        <line x1="50" y1="50" x2="560" y2="50" stroke="#1f2937" stroke-width="0.5" stroke-dasharray="3,3" />
-        <line x1="50" y1="125" x2="560" y2="125" stroke="#1f2937" stroke-width="0.5" stroke-dasharray="3,3" />
-        <line x1="50" y1="200" x2="560" y2="200" stroke="#374151" stroke-width="1.5" />
+        <!-- Y-Axis Gridlines & Labels -->
+        <line x1="70" y1="70" x2="740" y2="70" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+        <line x1="70" y1="147" x2="740" y2="147" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+        <line x1="70" y1="223" x2="740" y2="223" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+        <line x1="70" y1="300" x2="740" y2="300" stroke="#334155" stroke-width="2" />
         
-        <text x="40" y="53" font-size="8" fill="#6b7280" text-anchor="end" font-family="monospace">${safeFormatMoney(maxVal).replace('RD$', '').trim()}</text>
-        <text x="40" y="128" font-size="8" fill="#6b7280" text-anchor="end" font-family="monospace">${safeFormatMoney(maxVal/2).replace('RD$', '').trim()}</text>
-        <text x="40" y="203" font-size="8" fill="#6b7280" text-anchor="end" font-family="monospace">0</text>
+        <text x="60" y="74" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${safeFormatMoney(maxVal).replace('RD$', '').trim()}</text>
+        <text x="60" y="151" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${safeFormatMoney(maxVal*0.66).replace('RD$', '').trim()}</text>
+        <text x="60" y="227" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${safeFormatMoney(maxVal*0.33).replace('RD$', '').trim()}</text>
+        <text x="60" y="304" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">0</text>
         
         ${barSvgContent}
       </svg>
+
+      <!-- Tabla Detallada de Facturas, Ingresos y Egresos -->
+      <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:16px; border-bottom:1px solid #1e293b; padding-bottom:14px;">
+          <div>
+            <h5 style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">📋 Registro Cronológico de Facturas y Movimientos</h5>
+            <span style="font-size:0.8rem; color:#9ca3af;">Listado ordenado con desglose de totales por tipo de flujo</span>
+          </div>
+
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="finanzas-search-input" placeholder="🔍 Buscar por ID, cliente..." 
+                   style="background:#111827; border:1px solid #374151; color:#fff; padding:8px 12px; border-radius:8px; font-size:0.85rem; width:180px;"
+                   oninput="updateFinanzasRecordsTable()" />
+
+            <select id="finanzas-flow-filter" style="background:#111827; border:1px solid #374151; color:#fff; padding:8px 12px; border-radius:8px; font-size:0.85rem;"
+                    onchange="updateFinanzasRecordsTable()">
+              <option value="all">🌐 Todos los Movimientos</option>
+              <option value="ingresos">🟢 Solo Ingresos</option>
+              <option value="egresos">🔴 Solo Egresos</option>
+              <option value="facturas">🧾 Solo Facturas</option>
+            </select>
+
+            <div id="finanzas-total-badge" style="background:#0f172a; border:1px solid #00ffcc; padding:6px 14px; border-radius:20px; font-size:0.9rem; font-weight:800; color:#00ffcc; font-family:monospace;">
+              Total: RD$ 0.00
+            </div>
+          </div>
+        </div>
+
+        <div id="finanzas-records-table-body" style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">
+        </div>
+      </div>
     </div>
   `;
 
   container.innerHTML = chartHtml;
+  setTimeout(window.updateFinanzasRecordsTable, 0);
 }
+
+window.updateMaterialesRecordsTable = function() {
+  const container = document.getElementById('materiales-records-table-body');
+  const badge = document.getElementById('materiales-total-badge');
+  const query = (document.getElementById('materiales-search-input')?.value || '').toLowerCase().trim();
+  const selectedMatId = document.getElementById('material-filter-select')?.value || 'all';
+
+  if (!container || !window._currentMaterialesItems) return;
+
+  const familySelect = document.getElementById('trading-family-select');
+  const familyId = familySelect?.value;
+  const customCodes = (typeof getCustomCodes === 'function') ? getCustomCodes() : [];
+  const familyMaterials = customCodes.filter(c => c.familyId === familyId);
+
+  let materialEntries = [];
+  window._currentMaterialesItems.forEach(i => {
+    if (i.type === 'basica' && Array.isArray(i.items)) {
+      i.items.forEach(item => {
+        const match = familyMaterials.find(fm => fm.id === item.matId || fm.name.toLowerCase() === item.name.toLowerCase());
+        if (match || familyMaterials.length === 0) {
+          materialEntries.push({
+            matId: match ? match.id : item.matId,
+            bitacoraId: i.id,
+            date: i.date || i.createdAt,
+            createdAt: i.createdAt || i.date,
+            matName: item.name,
+            matCode: match ? match.code : 'GEN',
+            qty: parseFloat(item.qty || 0),
+            unit: item.unit || match?.unit || 'kg',
+            collaborator: i.collaborator || '—'
+          });
+        }
+      });
+    }
+  });
+
+  // Filter exclusively by selected material if a specific material is chosen
+  if (selectedMatId !== 'all') {
+    materialEntries = materialEntries.filter(m => m.matId === selectedMatId);
+  }
+
+  materialEntries.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+
+  if (query) {
+    materialEntries = materialEntries.filter(m =>
+      m.matName.toLowerCase().includes(query) ||
+      m.matCode.toLowerCase().includes(query) ||
+      m.bitacoraId.toLowerCase().includes(query) ||
+      m.collaborator.toLowerCase().includes(query)
+    );
+  }
+
+  const totalWeight = materialEntries.reduce((sum, m) => sum + m.qty, 0);
+  if (badge) {
+    badge.innerHTML = `Peso Acumulado: ${totalWeight.toLocaleString('es-DO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg`;
+  }
+
+  if (materialEntries.length === 0) {
+    container.innerHTML = `<div style="text-align:center; color:#64748b; padding:35px; font-size:0.9rem;">No hay registros de pesaje para el material seleccionado.</div>`;
+    return;
+  }
+
+  container.innerHTML = materialEntries.map(m => {
+    const dateStr = m.createdAt ? new Date(m.createdAt).toLocaleString('es-DO', { dateStyle: 'short', timeStyle: 'short' }) : (m.date || '—');
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; gap:12px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:200px;">
+          <span style="background:rgba(0,255,255,0.15); color:#00ffff; border:1px solid rgba(0,255,255,0.3); padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">📦 ${m.matCode}</span>
+          <div style="display:flex; flex-direction:column; min-width:0;">
+            <span style="font-weight:700; color:#f8fafc; font-size:0.92rem;">${m.matName}</span>
+            <span style="font-size:0.78rem; color:#94a3b8;">Bitácora: N.º ${m.bitacoraId} • Colaborador: ${m.collaborator}</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:20px; flex-shrink:0;">
+          <div style="display:flex; flex-direction:column; align-items:flex-end;">
+            <span style="font-size:0.75rem; color:#64748b; font-family:monospace;">📅 ${dateStr}</span>
+            <span style="font-size:1.05rem; font-weight:800; color:#00ffff; font-family:monospace;">${m.qty.toFixed(1)} ${m.unit}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
 
 function drawTradingMaterialesChart(items) {
   const container = document.getElementById('trading-chart-container');
   const familySelect = document.getElementById('trading-family-select');
   if (!container || !familySelect) return;
 
+  window._currentMaterialesItems = items;
+
   const familyId = familySelect.value;
   if (!familyId) {
-    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:40px;">Por favor, selecciona o crea una familia de materiales primero.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:60px; font-size:1.05rem;">Por favor, selecciona o crea una familia de materiales primero.</div>`;
     return;
   }
 
@@ -1126,13 +1421,13 @@ function drawTradingMaterialesChart(items) {
   const familyMaterials = customCodes.filter(c => c.familyId === familyId);
 
   if (familyMaterials.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:40px;">No hay materiales asociados a la familia <b>${familyName}</b>. Ve a la sección de Códigos de Materiales para asociar códigos a esta familia.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:60px; font-size:1.05rem;">No hay materiales asociados a la familia <b>${familyName}</b>. Ve a la sección de Códigos de Materiales para asociar códigos a esta familia.</div>`;
     return;
   }
 
   const totals = {};
   familyMaterials.forEach(m => {
-    totals[m.id] = { name: m.name, code: m.code, qty: 0, unit: m.unit || 'kg' };
+    totals[m.id] = { id: m.id, name: m.name, code: m.code, qty: 0, unit: m.unit || 'kg' };
   });
 
   items.forEach(i => {
@@ -1150,70 +1445,170 @@ function drawTradingMaterialesChart(items) {
   const chartData = Object.values(totals).filter(t => t.qty > 0);
 
   if (chartData.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:40px;">No se registran transacciones de bitácoras para los materiales de la familia <b>${familyName}</b> en este período.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:60px; font-size:1.05rem;">No se registran transacciones de bitácoras para los materiales de la familia <b>${familyName}</b> en este período.</div>`;
     return;
   }
 
   let maxQty = Math.max(...chartData.map(d => d.qty), 1);
   let chartRowsSvg = '';
-  const rowHeight = 45;
-  const chartHeight = chartData.length * rowHeight + 40;
-  const startY = 20;
-  const labelWidth = 150;
-  const graphWidth = 360;
+  const rowHeight = 78;
+  const chartHeight = chartData.length * rowHeight + 60;
+  const startY = 30;
+  const labelWidth = 270;
+  const graphWidth = 500;
 
   chartData.forEach((d, idx) => {
     const yPos = startY + idx * rowHeight;
-    const barWidth = Math.max(6, (d.qty / maxQty) * graphWidth);
+    const barWidth = Math.max(18, (d.qty / maxQty) * graphWidth);
     
     chartRowsSvg += `
       <!-- Label -->
-      <text x="${labelWidth - 15}" y="${yPos + 18}" font-size="10" fill="#fff" text-anchor="end" font-family="sans-serif" font-weight="600">${d.name} (${d.code})</text>
+      <text x="${labelWidth - 20}" y="${yPos + 26}" font-size="16" fill="#f8fafc" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-weight="800">${d.name} (${d.code})</text>
       
       <!-- Bar Background -->
-      <rect x="${labelWidth}" y="${yPos + 8}" width="${graphWidth}" height="14" rx="7" fill="#1f2937" />
+      <rect x="${labelWidth}" y="${yPos + 4}" width="${graphWidth}" height="32" rx="16" fill="#1e293b" />
       <!-- Bar Foreground (Cyan glow) -->
-      <rect x="${labelWidth}" y="${yPos + 8}" width="${barWidth}" height="14" rx="7" fill="url(#cyanGlowGrad)" filter="url(#cyanGlow)" />
+      <rect x="${labelWidth}" y="${yPos + 4}" width="${barWidth}" height="32" rx="16" fill="url(#cyanGlowGrad)" filter="url(#cyanGlow)" />
       
-      <!-- Value -->
-      <text x="${labelWidth + barWidth + 10}" y="${yPos + 19}" font-size="10" fill="#00ffff" font-family="monospace" font-weight="bold">${d.qty.toFixed(1)} ${d.unit}</text>
+      <!-- Value Tag -->
+      <text x="${labelWidth + barWidth + 18}" y="${yPos + 26}" font-size="17" fill="#00ffff" font-family="system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="0.02em">${d.qty.toLocaleString('es-DO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${d.unit}</text>
     `;
   });
 
+  const materialOptionsHtml = familyMaterials.map(m => `<option value="${m.id}">📦 ${m.name} (${m.code})</option>`).join('');
+
   container.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:16px; width:100%;">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:12px;">
-        <h4 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;">📦 Volumen por Material: Familia ${familyName}</h4>
-        <span style="font-size:0.8rem; color:#9ca3af;">Pesaje acumulado en Bitácoras</span>
+    <div style="display:flex; flex-direction:column; gap:20px; width:100%;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:16px;">
+        <h4 style="margin:0; font-size:1.45rem; font-weight:900; color:#fff; letter-spacing:-0.02em;">📦 Volumen por Material: Familia ${familyName}</h4>
+        <span style="font-size:0.95rem; color:#9ca3af; font-weight:600;">Pesaje acumulado en Bitácoras</span>
       </div>
 
-      <svg width="100%" height="${chartHeight}" viewBox="0 0 600 ${chartHeight}" style="background:#0e1321; border-radius:12px; overflow:visible;">
+      <svg width="100%" height="${chartHeight}" viewBox="0 0 960 ${chartHeight}" style="background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:12px;">
         <defs>
           <linearGradient id="cyanGlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stop-color="#3b82f6" />
             <stop offset="100%" stop-color="#00ffff" />
           </linearGradient>
           <filter id="cyanGlow" x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
         
-        <line x1="${labelWidth}" y1="10" x2="${labelWidth}" y2="${chartHeight - 20}" stroke="#374151" stroke-width="1.5" />
+        <line x1="${labelWidth}" y1="10" x2="${labelWidth}" y2="${chartHeight - 20}" stroke="#334155" stroke-width="2" />
         
         ${chartRowsSvg}
       </svg>
+
+      <!-- Tabla Detallada de Pesajes -->
+      <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:16px; border-bottom:1px solid #1e293b; padding-bottom:14px;">
+          <div>
+            <h5 style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">📋 Pesaje Detallado por Material y Bitácora</h5>
+            <span style="font-size:0.8rem; color:#9ca3af;">Filtrado exclusivo por tipo de material</span>
+          </div>
+
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <select id="material-filter-select" 
+                    style="background:#111827; border:1px solid #374151; color:#00ffff; padding:8px 14px; border-radius:8px; font-size:0.88rem; font-weight:700;"
+                    onchange="updateMaterialesRecordsTable()">
+              <option value="all">🌐 Todos los Materiales</option>
+              ${materialOptionsHtml}
+            </select>
+
+            <input type="text" id="materiales-search-input" placeholder="🔍 Buscar por código, Bitácora..." 
+                   style="background:#111827; border:1px solid #374151; color:#fff; padding:8px 12px; border-radius:8px; font-size:0.85rem; width:200px;"
+                   oninput="updateMaterialesRecordsTable()" />
+
+            <div id="materiales-total-badge" style="background:#0f172a; border:1px solid #00ffff; padding:6px 14px; border-radius:20px; font-size:0.9rem; font-weight:800; color:#00ffff; font-family:monospace;">
+              Peso Acumulado: 0.0 kg
+            </div>
+          </div>
+        </div>
+
+        <div id="materiales-records-table-body" style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">
+        </div>
+      </div>
     </div>
   `;
+  setTimeout(window.updateMaterialesRecordsTable, 0);
 }
+
+window.updateColaboradoresRecordsTable = function() {
+  const container = document.getElementById('colab-records-table-body');
+  const badge = document.getElementById('colab-total-badge');
+  const colabFilter = document.getElementById('colab-name-filter')?.value || 'all';
+  const query = (document.getElementById('colab-search-input')?.value || '').toLowerCase().trim();
+
+  if (!container || !window._currentColabItems) return;
+
+  let items = window._currentColabItems.filter(i => i.collaborator);
+
+  items.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+
+  if (colabFilter !== 'all') {
+    items = items.filter(i => i.collaborator === colabFilter);
+  }
+
+  if (query) {
+    items = items.filter(i =>
+      (i.id || '').toLowerCase().includes(query) ||
+      (i.collaborator || '').toLowerCase().includes(query) ||
+      (i.client || '').toLowerCase().includes(query) ||
+      (i.company || '').toLowerCase().includes(query)
+    );
+  }
+
+  if (badge) {
+    badge.innerHTML = `Actividades Realizadas: ${items.length}`;
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = `<div style="text-align:center; color:#64748b; padding:35px; font-size:0.9rem;">No hay actividades registradas para este colaborador.</div>`;
+    return;
+  }
+
+  container.innerHTML = items.map(i => {
+    const isBitacora = i.type === 'basica';
+    const typeBadge = isBitacora
+      ? `<span style="background:rgba(192,132,252,0.15); color:#c084fc; border:1px solid rgba(192,132,252,0.3); padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">🚛 Bitácora</span>`
+      : `<span style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">🧾 Factura</span>`;
+    
+    const title = `N.º ${i.id}`;
+    const subtitle = `👤 ${i.collaborator} • ${i.client || i.company || 'Recolección'}`;
+    const dateStr = i.createdAt ? new Date(i.createdAt).toLocaleString('es-DO', { dateStyle: 'short', timeStyle: 'short' }) : (i.date || '—');
+
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; gap:12px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:200px;">
+          ${typeBadge}
+          <div style="display:flex; flex-direction:column; min-width:0;">
+            <span style="font-weight:700; color:#f8fafc; font-size:0.92rem;">${title}</span>
+            <span style="font-size:0.78rem; color:#94a3b8;">${subtitle}</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:20px; flex-shrink:0;">
+          <div style="display:flex; flex-direction:column; align-items:flex-end;">
+            <span style="font-size:0.75rem; color:#64748b; font-family:monospace;">📅 ${dateStr}</span>
+            <span style="font-size:1rem; font-weight:800; color:#c084fc; font-family:monospace;">${i.total ? safeFormatMoney(i.total) : 'Completado'}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
 
 function drawTradingColaboradoresChart(items) {
   const container = document.getElementById('trading-chart-container');
   if (!container) return;
 
+  window._currentColabItems = items;
+
   const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
   if (colabs.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:40px;">No hay colaboradores registrados para analizar su rendimiento.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:60px; font-size:1.05rem;">No hay colaboradores registrados para analizar su rendimiento.</div>`;
     return;
   }
 
@@ -1237,17 +1632,17 @@ function drawTradingColaboradoresChart(items) {
   const activeColabs = dataList.filter(d => d.total > 0);
 
   if (activeColabs.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:40px;">Los colaboradores registrados no tienen actividades registradas en el historial de este período.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:60px; font-size:1.05rem;">Los colaboradores registrados no tienen actividades registradas en el historial de este período.</div>`;
     return;
   }
 
-  // 1. Vertical bar chart: Activity total
   let maxActivity = Math.max(...activeColabs.map(d => d.total), 1);
   let barSvgContent = '';
-  const startX = 60;
-  const spacingX = 80;
-  const graphHeight = 100;
-  const zeroY = 140;
+  const startX = 70;
+  const spacingX = 110;
+  const graphHeight = 220;
+  const zeroY = 280;
+  const barWidth = 44;
 
   activeColabs.forEach((d, idx) => {
     const xPos = startX + idx * spacingX;
@@ -1256,52 +1651,50 @@ function drawTradingColaboradoresChart(items) {
     const initialName = d.name.split(' ')[0] || d.name;
     
     barSvgContent += `
-      <rect x="${xPos}" y="${y}" width="24" height="${h}" rx="4" fill="url(#colabBarGrad)" filter="url(#colabGlow)" />
-      <text x="${xPos + 12}" y="${y - 6}" font-size="9" fill="#8b5cf6" text-anchor="middle" font-family="monospace">${d.total}</text>
-      <text x="${xPos + 12}" y="156" font-size="9" fill="#9ca3af" text-anchor="middle" font-family="sans-serif">${initialName}</text>
+      <rect x="${xPos}" y="${y}" width="${barWidth}" height="${h}" rx="8" fill="url(#colabBarGrad)" filter="url(#colabGlow)" />
+      <text x="${xPos + barWidth/2}" y="${y - 10}" font-size="13" fill="#c084fc" text-anchor="middle" font-family="monospace" font-weight="bold">${d.total}</text>
+      <text x="${xPos + barWidth/2}" y="310" font-size="13" fill="#e5e7eb" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${initialName}</text>
     `;
   });
 
   const barChartHtml = `
-    <div style="flex:1.2; min-width:280px; display:flex; flex-direction:column; gap:8px;">
-      <h5 style="margin:0; font-size:0.95rem; font-weight:700; color:#fff;">📊 Actividad Total por Colaborador</h5>
-      <svg width="100%" height="170" viewBox="0 0 350 170" style="background:#0e1321; border-radius:12px; overflow:visible;">
+    <div style="flex:1.4; min-width:340px; display:flex; flex-direction:column; gap:12px;">
+      <h5 style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">📊 Actividad Total por Colaborador</h5>
+      <svg width="100%" height="340" viewBox="0 0 480 340" style="background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:10px;">
         <defs>
           <linearGradient id="colabBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#a855f7" />
+            <stop offset="0%" stop-color="#c084fc" />
             <stop offset="100%" stop-color="#6366f1" />
           </linearGradient>
           <filter id="colabGlow" x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
-        <line x1="40" y1="40" x2="330" y2="40" stroke="#1f2937" stroke-width="0.5" stroke-dasharray="2,2" />
-        <line x1="40" y1="90" x2="330" y2="90" stroke="#1f2937" stroke-width="0.5" stroke-dasharray="2,2" />
-        <line x1="40" y1="140" x2="330" y2="140" stroke="#374151" stroke-width="1.5" />
+        <line x1="45" y1="60" x2="450" y2="60" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+        <line x1="45" y1="170" x2="450" y2="170" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+        <line x1="45" y1="280" x2="450" y2="280" stroke="#334155" stroke-width="2" />
         
-        <text x="35" y="43" font-size="8" fill="#6b7280" text-anchor="end">${maxActivity}</text>
-        <text x="35" y="93" font-size="8" fill="#6b7280" text-anchor="end">${Math.round(maxActivity/2)}</text>
-        <text x="35" y="143" font-size="8" fill="#6b7280" text-anchor="end">0</text>
+        <text x="38" y="64" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${maxActivity}</text>
+        <text x="38" y="174" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${Math.round(maxActivity/2)}</text>
+        <text x="38" y="284" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">0</text>
         
         ${barSvgContent}
       </svg>
     </div>
   `;
 
-  // Donut charts colors
   const colors = ['#00ffcc', '#3b82f6', '#ec4899', '#f59e0b', '#8b5cf6', '#10b981'];
 
-  // Donut Chart 1: Bitacoras
   const bitList = activeColabs.filter(d => d.bitacoras > 0);
   const totalBit = bitList.reduce((s, d) => s + d.bitacoras, 0);
   let donut1Html = '';
 
   if (totalBit === 0) {
     donut1Html = `
-      <div style="flex:1; min-width:240px; display:flex; flex-direction:column; gap:8px;">
-        <h5 style="margin:0; font-size:0.95rem; font-weight:700; color:#fff;">🚛 Bitácoras</h5>
-        <div style="display:flex; align-items:center; justify-content:center; height:150px; background:#0e1321; border-radius:12px; font-size:0.8rem; color:#6b7280;">
+      <div style="flex:1; min-width:260px; display:flex; flex-direction:column; gap:10px;">
+        <h5 style="margin:0; font-size:1.1rem; font-weight:800; color:#fff;">🚛 Bitácoras</h5>
+        <div style="display:flex; align-items:center; justify-content:center; height:240px; background:#090d16; border:1px solid #1e293b; border-radius:16px; font-size:0.9rem; color:#64748b;">
           Sin bitácoras registradas.
         </div>
       </div>
@@ -1309,7 +1702,7 @@ function drawTradingColaboradoresChart(items) {
   } else {
     let stroke1 = '';
     let accumulated1 = 0;
-    const perimeter = 2 * Math.PI * 30; // 188.49
+    const perimeter = 2 * Math.PI * 50; // 314.15
     
     bitList.forEach((d, idx) => {
       const pct = d.bitacoras / totalBit;
@@ -1318,9 +1711,9 @@ function drawTradingColaboradoresChart(items) {
       const color = colors[idx % colors.length];
       
       stroke1 += `
-        <circle cx="50" cy="50" r="30" fill="transparent" stroke="${color}" stroke-width="10" 
+        <circle cx="75" cy="75" r="50" fill="transparent" stroke="${color}" stroke-width="16" 
                 stroke-dasharray="${strokeLen} ${perimeter}" stroke-dashoffset="${strokeOffset}" 
-                transform="rotate(-90 50 50)" style="filter: drop-shadow(0 0 2px ${color});" />
+                transform="rotate(-90 75 75)" style="filter: drop-shadow(0 0 3px ${color});" />
       `;
       accumulated1 += pct;
     });
@@ -1329,23 +1722,23 @@ function drawTradingColaboradoresChart(items) {
       const color = colors[idx % colors.length];
       const pctVal = Math.round((d.bitacoras / totalBit) * 100);
       return `
-        <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.72rem; gap:10px;">
-          <span style="display:inline-flex; align-items:center; gap:4px; font-weight:600; color:#fff;"><span style="width:6px; height:6px; border-radius:1.5px; background:${color}; display:inline-block;"></span>${d.name.split(' ')[0]}</span>
-          <span style="color:#9ca3af; font-family:monospace;">${d.bitacoras} (${pctVal}%)</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.85rem; gap:12px;">
+          <span style="display:inline-flex; align-items:center; gap:6px; font-weight:600; color:#fff;"><span style="width:8px; height:8px; border-radius:2px; background:${color}; display:inline-block;"></span>${d.name.split(' ')[0]}</span>
+          <span style="color:#9ca3af; font-family:monospace; font-weight:600;">${d.bitacoras} (${pctVal}%)</span>
         </div>
       `;
     }).join('');
 
     donut1Html = `
-      <div style="flex:1; min-width:240px; display:flex; flex-direction:column; gap:8px;">
-        <h5 style="margin:0; font-size:0.95rem; font-weight:700; color:#fff;">🚛 Bitácoras (Total: ${totalBit})</h5>
-        <div style="display:flex; gap:10px; align-items:center; background:#0e1321; border-radius:12px; padding:12px; min-height:150px; justify-content:center;">
-          <svg width="80" height="80" viewBox="0 0 100 100" style="flex-shrink:0;">
-            <circle cx="50" cy="50" r="30" fill="transparent" stroke="#1f2937" stroke-width="10" />
+      <div style="flex:1; min-width:260px; display:flex; flex-direction:column; gap:10px;">
+        <h5 style="margin:0; font-size:1.1rem; font-weight:800; color:#fff;">🚛 Bitácoras (Total: ${totalBit})</h5>
+        <div style="display:flex; gap:16px; align-items:center; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px; min-height:240px; justify-content:center;">
+          <svg width="150" height="150" viewBox="0 0 150 150" style="flex-shrink:0;">
+            <circle cx="75" cy="75" r="50" fill="transparent" stroke="#1e293b" stroke-width="16" />
             ${stroke1}
-            <circle cx="50" cy="50" r="25" fill="#0e1321" />
+            <circle cx="75" cy="75" r="40" fill="#090d16" />
           </svg>
-          <div style="flex:1; display:flex; flex-direction:column; gap:4px; min-width:110px;">
+          <div style="flex:1; display:flex; flex-direction:column; gap:6px; min-width:130px;">
             ${legend1}
           </div>
         </div>
@@ -1353,16 +1746,15 @@ function drawTradingColaboradoresChart(items) {
     `;
   }
 
-  // Donut Chart 2: Invoices
   const facList = activeColabs.filter(d => d.invoices > 0);
   const totalFac = facList.reduce((s, d) => s + d.invoices, 0);
   let donut2Html = '';
 
   if (totalFac === 0) {
     donut2Html = `
-      <div style="flex:1; min-width:240px; display:flex; flex-direction:column; gap:8px;">
-        <h5 style="margin:0; font-size:0.95rem; font-weight:700; color:#fff;">🧾 Facturas</h5>
-        <div style="display:flex; align-items:center; justify-content:center; height:150px; background:#0e1321; border-radius:12px; font-size:0.8rem; color:#6b7280;">
+      <div style="flex:1; min-width:260px; display:flex; flex-direction:column; gap:10px;">
+        <h5 style="margin:0; font-size:1.1rem; font-weight:800; color:#fff;">🧾 Facturas</h5>
+        <div style="display:flex; align-items:center; justify-content:center; height:240px; background:#090d16; border:1px solid #1e293b; border-radius:16px; font-size:0.9rem; color:#64748b;">
           Sin facturas registradas.
         </div>
       </div>
@@ -1370,7 +1762,7 @@ function drawTradingColaboradoresChart(items) {
   } else {
     let stroke2 = '';
     let accumulated2 = 0;
-    const perimeter = 2 * Math.PI * 30; // 188.49
+    const perimeter = 2 * Math.PI * 50;
     
     facList.forEach((d, idx) => {
       const pct = d.invoices / totalFac;
@@ -1379,9 +1771,9 @@ function drawTradingColaboradoresChart(items) {
       const color = colors[(idx + 2) % colors.length];
       
       stroke2 += `
-        <circle cx="50" cy="50" r="30" fill="transparent" stroke="${color}" stroke-width="10" 
+        <circle cx="75" cy="75" r="50" fill="transparent" stroke="${color}" stroke-width="16" 
                 stroke-dasharray="${strokeLen} ${perimeter}" stroke-dashoffset="${strokeOffset}" 
-                transform="rotate(-90 50 50)" style="filter: drop-shadow(0 0 2px ${color});" />
+                transform="rotate(-90 75 75)" style="filter: drop-shadow(0 0 3px ${color});" />
       `;
       accumulated2 += pct;
     });
@@ -1390,23 +1782,23 @@ function drawTradingColaboradoresChart(items) {
       const color = colors[(idx + 2) % colors.length];
       const pctVal = Math.round((d.invoices / totalFac) * 100);
       return `
-        <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.72rem; gap:10px;">
-          <span style="display:inline-flex; align-items:center; gap:4px; font-weight:600; color:#fff;"><span style="width:6px; height:6px; border-radius:1.5px; background:${color}; display:inline-block;"></span>${d.name.split(' ')[0]}</span>
-          <span style="color:#9ca3af; font-family:monospace;">${d.invoices} (${pctVal}%)</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.85rem; gap:12px;">
+          <span style="display:inline-flex; align-items:center; gap:6px; font-weight:600; color:#fff;"><span style="width:8px; height:8px; border-radius:2px; background:${color}; display:inline-block;"></span>${d.name.split(' ')[0]}</span>
+          <span style="color:#9ca3af; font-family:monospace; font-weight:600;">${d.invoices} (${pctVal}%)</span>
         </div>
       `;
     }).join('');
 
     donut2Html = `
-      <div style="flex:1; min-width:240px; display:flex; flex-direction:column; gap:8px;">
-        <h5 style="margin:0; font-size:0.95rem; font-weight:700; color:#fff;">🧾 Facturas (Total: ${totalFac})</h5>
-        <div style="display:flex; gap:10px; align-items:center; background:#0e1321; border-radius:12px; padding:12px; min-height:150px; justify-content:center;">
-          <svg width="80" height="80" viewBox="0 0 100 100" style="flex-shrink:0;">
-            <circle cx="50" cy="50" r="30" fill="transparent" stroke="#1f2937" stroke-width="10" />
+      <div style="flex:1; min-width:260px; display:flex; flex-direction:column; gap:10px;">
+        <h5 style="margin:0; font-size:1.1rem; font-weight:800; color:#fff;">🧾 Facturas (Total: ${totalFac})</h5>
+        <div style="display:flex; gap:16px; align-items:center; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px; min-height:240px; justify-content:center;">
+          <svg width="150" height="150" viewBox="0 0 150 150" style="flex-shrink:0;">
+            <circle cx="75" cy="75" r="50" fill="transparent" stroke="#1e293b" stroke-width="16" />
             ${stroke2}
-            <circle cx="50" cy="50" r="25" fill="#0e1321" />
+            <circle cx="75" cy="75" r="40" fill="#090d16" />
           </svg>
-          <div style="flex:1; display:flex; flex-direction:column; gap:4px; min-width:110px;">
+          <div style="flex:1; display:flex; flex-direction:column; gap:6px; min-width:130px;">
             ${legend2}
           </div>
         </div>
@@ -1414,25 +1806,120 @@ function drawTradingColaboradoresChart(items) {
     `;
   }
 
+  const colabOptionsHtml = colabs.map(c => `<option value="${c.name}">👤 ${c.name}</option>`).join('');
+
   container.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:20px; width:100%;">
-      <div style="border-bottom:1px solid #1f2937; padding-bottom:12px;">
-        <h4 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;">👥 Rendimiento y Actividad de Colaboradores</h4>
+    <div style="display:flex; flex-direction:column; gap:24px; width:100%;">
+      <div style="border-bottom:1px solid #1f2937; padding-bottom:16px;">
+        <h4 style="margin:0; font-size:1.3rem; font-weight:800; color:#fff;">👥 Rendimiento y Actividad de Colaboradores</h4>
       </div>
-      <div style="display:flex; flex-wrap:wrap; gap:20px; width:100%;">
+      <div style="display:flex; flex-wrap:wrap; gap:24px; width:100%;">
         ${barChartHtml}
-        <div style="flex:2; display:flex; flex-wrap:wrap; gap:20px; min-width:280px;">
+        <div style="flex:2; display:flex; flex-wrap:wrap; gap:24px; min-width:300px;">
           ${donut1Html}
           ${donut2Html}
         </div>
       </div>
+
+      <!-- Tabla Detallada de Actividades por Colaborador -->
+      <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:16px; border-bottom:1px solid #1e293b; padding-bottom:14px;">
+          <div>
+            <h5 style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">📋 Historial de Actividades por Colaborador</h5>
+            <span style="font-size:0.8rem; color:#9ca3af;">Recogidas y transacciones asignadas</span>
+          </div>
+
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="colab-search-input" placeholder="🔍 Buscar por ID..." 
+                   style="background:#111827; border:1px solid #374151; color:#fff; padding:8px 12px; border-radius:8px; font-size:0.85rem; width:180px;"
+                   oninput="updateColaboradoresRecordsTable()" />
+
+            <select id="colab-name-filter" style="background:#111827; border:1px solid #374151; color:#fff; padding:8px 12px; border-radius:8px; font-size:0.85rem;"
+                    onchange="updateColaboradoresRecordsTable()">
+              <option value="all">🌐 Todos los Colaboradores</option>
+              ${colabOptionsHtml}
+            </select>
+
+            <div id="colab-total-badge" style="background:#0f172a; border:1px solid #c084fc; padding:6px 14px; border-radius:20px; font-size:0.9rem; font-weight:800; color:#c084fc; font-family:monospace;">
+              Actividades Realizadas: 0
+            </div>
+          </div>
+        </div>
+
+        <div id="colab-records-table-body" style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">
+        </div>
+      </div>
     </div>
   `;
+  setTimeout(window.updateColaboradoresRecordsTable, 0);
 }
+
+window.updateVolumeRecordsTable = function() {
+  const container = document.getElementById('volume-records-table-body');
+  const badge = document.getElementById('volume-total-badge');
+  const query = (document.getElementById('volume-search-input')?.value || '').toLowerCase().trim();
+
+  if (!container || !window._currentVolumeItems) return;
+
+  const type = window._currentVolumeType;
+  const filterType = type === 'bitacoras' ? ['basica'] : ['local', 'empresa'];
+  let items = window._currentVolumeItems.filter(i => filterType.includes(i.type));
+
+  items.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+
+  if (query) {
+    items = items.filter(i =>
+      (i.id || '').toLowerCase().includes(query) ||
+      (i.client || '').toLowerCase().includes(query) ||
+      (i.company || '').toLowerCase().includes(query) ||
+      (i.collaborator || '').toLowerCase().includes(query)
+    );
+  }
+
+  if (badge) {
+    badge.innerHTML = `Total Registros: ${items.length}`;
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = `<div style="text-align:center; color:#64748b; padding:35px; font-size:0.9rem;">No hay registros para mostrar.</div>`;
+    return;
+  }
+
+  const neonColor = type === 'bitacoras' ? '#00ffcc' : '#3b82f6';
+  const labelPrefix = type === 'bitacoras' ? '🚛 Bitácora' : '🧾 Factura';
+
+  container.innerHTML = items.map(i => {
+    const title = `N.º ${i.id}`;
+    const subtitle = i.client || i.company || (type === 'bitacoras' ? 'Pesaje de Residuos' : 'Venta de Material');
+    const dateStr = i.createdAt ? new Date(i.createdAt).toLocaleString('es-DO', { dateStyle: 'short', timeStyle: 'short' }) : (i.date || '—');
+
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; gap:12px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:200px;">
+          <span style="background:rgba(0,255,204,0.15); color:${neonColor}; border:1px solid rgba(0,255,204,0.3); padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">${labelPrefix}</span>
+          <div style="display:flex; flex-direction:column; min-width:0;">
+            <span style="font-weight:700; color:#f8fafc; font-size:0.92rem;">${title}</span>
+            <span style="font-size:0.78rem; color:#94a3b8;">${subtitle}</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:20px; flex-shrink:0;">
+          <div style="display:flex; flex-direction:column; align-items:flex-end;">
+            <span style="font-size:0.75rem; color:#64748b; font-family:monospace;">📅 ${dateStr}</span>
+            <span style="font-size:1.05rem; font-weight:800; color:${neonColor}; font-family:monospace;">${i.total ? safeFormatMoney(i.total) : 'Registrado'}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
 
 function drawTradingVolumeChart(items, type) {
   const container = document.getElementById('trading-chart-container');
   if (!container) return;
+
+  window._currentVolumeItems = items;
+  window._currentVolumeType = type;
 
   const title = type === 'bitacoras' ? '🚛 Registro Histórico de Bitácoras' : '🧾 Registro Histórico de Facturas';
   const subtitle = type === 'bitacoras' ? 'Cantidad de recogidas completadas por mes' : 'Cantidad de facturas emitidas por mes';
@@ -1450,17 +1937,18 @@ function drawTradingVolumeChart(items, type) {
 
   const sortedMonths = Object.keys(monthly).sort().slice(-6);
   if (sortedMonths.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:40px;">No hay registros de ${type === 'bitacoras' ? 'bitácoras' : 'facturas'} para mostrar en este rango de fechas.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:60px; font-size:1.05rem;">No hay registros de ${type === 'bitacoras' ? 'bitácoras' : 'facturas'} para mostrar en este rango de fechas.</div>`;
     return;
   }
 
   const maxVal = Math.max(...Object.values(monthly), 5);
 
   let barSvgContent = '';
-  const startX = 60;
-  const spacingX = 80;
-  const graphHeight = 140;
-  const zeroY = 180;
+  const startX = 85;
+  const spacingX = 110;
+  const graphHeight = 230;
+  const zeroY = 300;
+  const barWidth = 48;
 
   sortedMonths.forEach((m, idx) => {
     const xPos = startX + idx * spacingX;
@@ -1471,20 +1959,20 @@ function drawTradingVolumeChart(items, type) {
     const label = t('hist.month_' + mm).substring(0, 3).toUpperCase();
 
     barSvgContent += `
-      <rect x="${xPos + 10}" y="${y}" width="28" height="${h}" rx="5" fill="${neonGrad}" filter="url(#glow)" />
-      <text x="${xPos + 24}" y="${y - 8}" font-size="9" fill="${neonColor}" text-anchor="middle" font-family="monospace" font-weight="bold">${val}</text>
-      <text x="${xPos + 24}" y="200" font-size="9" fill="#9ca3af" text-anchor="middle" font-family="monospace">${label}</text>
+      <rect x="${xPos}" y="${y}" width="${barWidth}" height="${h}" rx="8" fill="${neonGrad}" filter="url(#glow)" />
+      <text x="${xPos + barWidth/2}" y="${y - 10}" font-size="13" fill="${neonColor}" text-anchor="middle" font-family="monospace" font-weight="bold">${val}</text>
+      <text x="${xPos + barWidth/2}" y="335" font-size="13" fill="#e5e7eb" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.05em">${label}</text>
     `;
   });
 
   container.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:16px; width:100%;">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:12px; flex-wrap:wrap; gap:10px;">
-        <h4 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;">${title}</h4>
-        <span style="font-size:0.85rem; color:#9ca3af;">${subtitle}</span>
+    <div style="display:flex; flex-direction:column; gap:20px; width:100%;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <h4 style="margin:0; font-size:1.3rem; font-weight:800; color:#fff;">${title}</h4>
+        <span style="font-size:0.9rem; color:#9ca3af; font-weight:500;">${subtitle}</span>
       </div>
 
-      <svg width="100%" height="220" viewBox="0 0 600 220" style="background:#0e1321; border-radius:12px; overflow:visible;">
+      <svg width="100%" height="360" viewBox="0 0 760 360" style="background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:10px;">
         <defs>
           <linearGradient id="neonGreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stop-color="#00ffcc" />
@@ -1495,21 +1983,45 @@ function drawTradingVolumeChart(items, type) {
             <stop offset="100%" stop-color="#00ffff" />
           </linearGradient>
           <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
         
-        <line x1="50" y1="40" x2="560" y2="40" stroke="#1f2937" stroke-width="0.5" stroke-dasharray="3,3" />
-        <line x1="50" y1="110" x2="560" y2="110" stroke="#1f2937" stroke-width="0.5" stroke-dasharray="3,3" />
-        <line x1="50" y1="180" x2="560" y2="180" stroke="#374151" stroke-width="1.5" />
+        <line x1="70" y1="70" x2="740" y2="70" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+        <line x1="70" y1="185" x2="740" y2="185" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+        <line x1="70" y1="300" x2="740" y2="300" stroke="#334155" stroke-width="2" />
         
-        <text x="40" y="43" font-size="8" fill="#6b7280" text-anchor="end" font-family="monospace">${maxVal}</text>
-        <text x="40" y="113" font-size="8" fill="#6b7280" text-anchor="end" font-family="monospace">${Math.round(maxVal/2)}</text>
-        <text x="40" y="183" font-size="8" fill="#6b7280" text-anchor="end" font-family="monospace">0</text>
+        <text x="60" y="74" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${maxVal}</text>
+        <text x="60" y="189" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${Math.round(maxVal/2)}</text>
+        <text x="60" y="304" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">0</text>
         
         ${barSvgContent}
       </svg>
+
+      <!-- Tabla Detallada de Registros -->
+      <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:16px; border-bottom:1px solid #1e293b; padding-bottom:14px;">
+          <div>
+            <h5 style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">📋 Listado Cronológico de Registros</h5>
+            <span style="font-size:0.8rem; color:#9ca3af;">${type === 'bitacoras' ? 'Recogidas registradas' : 'Facturas emitidas'}</span>
+          </div>
+
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="volume-search-input" placeholder="🔍 Buscar..." 
+                   style="background:#111827; border:1px solid #374151; color:#fff; padding:8px 12px; border-radius:8px; font-size:0.85rem; width:200px;"
+                   oninput="updateVolumeRecordsTable()" />
+
+            <div id="volume-total-badge" style="background:#0f172a; border:1px solid ${neonColor}; padding:6px 14px; border-radius:20px; font-size:0.9rem; font-weight:800; color:${neonColor}; font-family:monospace;">
+              Total Registros: 0
+            </div>
+          </div>
+        </div>
+
+        <div id="volume-records-table-body" style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">
+        </div>
+      </div>
     </div>
   `;
+  setTimeout(window.updateVolumeRecordsTable, 0);
 }

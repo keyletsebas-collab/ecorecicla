@@ -28,19 +28,25 @@ if (fs.existsSync('www')) {
 }
 fs.mkdirSync('www', { recursive: true });
 
-console.log("📦 Copiando archivos web a 'www'...");
+console.log("📦 Copiando archivos web a 'www' y 'ReciminsaApp/wwwroot'...");
 const filesToCopy = ['index.html', 'service-worker.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'logo-white-lines.png', 'logo-no-white-lines.png'];
-filesToCopy.forEach(file => {
-    if (fs.existsSync(file)) {
-        fs.copyFileSync(file, path.join('www', file));
+const targets = ['www', path.join('ReciminsaApp', 'wwwroot')];
+
+targets.forEach(target => {
+    if (fs.existsSync(target)) {
+        filesToCopy.forEach(file => {
+            if (fs.existsSync(file)) {
+                fs.copyFileSync(file, path.join(target, file));
+            }
+        });
+
+        const dirsToCopy = ['js', 'css'];
+        dirsToCopy.forEach(dir => {
+            if (fs.existsSync(dir)) {
+                copyDir(dir, path.join(target, dir));
+            }
+        });
     }
 });
 
-const dirsToCopy = ['js', 'css'];
-dirsToCopy.forEach(dir => {
-    if (fs.existsSync(dir)) {
-        copyDir(dir, path.join('www', dir));
-    }
-});
-
-console.log("✨ Carpeta 'www' preparada para Capacitor.");
+console.log("✨ Carpetas 'www' y 'ReciminsaApp/wwwroot' preparadas exitosamente.");

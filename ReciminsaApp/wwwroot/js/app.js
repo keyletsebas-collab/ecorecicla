@@ -4,6 +4,13 @@
 
 // ---- Toast system ----
 function showToast(message, type = 'success') {
+    if (window.AppLogger) {
+        if (type === 'error') window.AppLogger.error('TOAST', message);
+        else if (type === 'warning') window.AppLogger.warn('TOAST', message);
+        else if (type === 'info') window.AppLogger.info('TOAST', message);
+        else window.AppLogger.success('TOAST', message);
+    }
+
     let container = document.getElementById('toast-container');
     if (!container) {
         container = document.createElement('div');
@@ -11,13 +18,35 @@ function showToast(message, type = 'success') {
         document.body.appendChild(container);
     }
 
+    // Haptic vibration feedback for mobile devices
+    try {
+        if (navigator.vibrate) {
+            if (type === 'error') navigator.vibrate([30, 50, 30]);
+            else if (type === 'warning') navigator.vibrate([25]);
+            else navigator.vibrate([15]);
+        }
+    } catch (_) { }
+
     const toast = document.createElement('div');
     toast.className = `toast toast--${type}`;
-    toast.textContent = message;
+
+    let icon = '🔔';
+    if (type === 'success') icon = '✅';
+    else if (type === 'error') icon = '❌';
+    else if (type === 'warning') icon = '⚠️';
+    else if (type === 'info') icon = 'ℹ️';
+
+    toast.innerHTML = `<span style="font-size:1.15rem; flex-shrink:0;">${icon}</span><span style="flex:1;">${message}</span>`;
     container.appendChild(toast);
 
-    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3000);
+    setTimeout(() => {
+        toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-15px) scale(0.95)';
+        setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+    }, 3000);
 }
+
 
 // ---- Page title keys (used with t()) ----
 const PAGE_TITLE_KEYS = {
