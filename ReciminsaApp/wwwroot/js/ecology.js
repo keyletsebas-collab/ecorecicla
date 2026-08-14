@@ -70,8 +70,11 @@ function calculateEcoImpact(invoices, clientName = null, startDate = null, endDa
   };
 
   invoices.forEach(inv => {
+    if (!inv) return;
+    const invCompany = (inv.company || inv.client || '').trim().toLowerCase();
+    
     // Filter by client name if provided
-    if (clientName && inv.company.trim().toLowerCase() !== clientName.trim().toLowerCase()) return;
+    if (clientName && invCompany !== clientName.trim().toLowerCase()) return;
     
     // Filter by date range
     if (startDate && inv.date < startDate) return;
@@ -117,15 +120,195 @@ function calculateEcoImpact(invoices, clientName = null, startDate = null, endDa
   return stats;
 }
 
+let currentEcoTypeFilter = 'all';
+
+function escapeHTMLString(str) {
+  if (!str) return '';
+  return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function generateClientCertCode(clientName) {
+  if (!clientName) return 'MSSZQ5MI';
+  let hash = 5381;
+  const str = clientName.trim().toUpperCase();
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+  }
+  const positive = Math.abs(hash).toString(36).toUpperCase();
+  return (positive + 'RECIMINSA').slice(0, 8);
+}
+
+function getEcoClientsList(clientsDB, invoices) {
+    const materials = typeof getCustomCodes === 'function' ? getCustomCodes() : [];
+    const materialNames = new Set(materials.map(m => (m.name || '').trim().toLowerCase()));
+
+    const clientMap = new Map();
+
+    // 1. Procesar clientes de la base de datos
+    clientsDB.forEach(c => {
+        if (!c.name) return;
+        const cleanName = c.name.trim();
+        const lower = cleanName.toLowerCase();
+        if (materialNames.has(lower)) return;
+        if (/^(alambre|cobre|carton|cartón|papel|plastico|plástico|vidrio|metal|hierro|aluminio|bronce|chatarra)/i.test(cleanName)) return;
+
+        clientMap.set(lower, {
+            name: cleanName,
+            type: c.type === 'empresa' ? 'empresa' : 'persona',
+            nit: c.nit || ''
+        });
+    });
+
+    // 2. Procesar clientes extraídos de facturas
+    invoices.forEach(inv => {
+        const rawName = (inv.company || inv.client || '').trim();
+        if (!rawName) return;
+        const lower = rawName.toLowerCase();
+        if (materialNames.has(lower)) return;
+        if (/^(alambre|cobre|carton|cartón|papel|plastico|plástico|vidrio|metal|hierro|aluminio|bronce|chatarra)/i.test(rawName)) return;
+
+        let detectedType = 'persona';
+        if (inv.ncfType === 'B01' || inv.ncfType === 'B14' || inv.typeName === 'empresa' || (inv.rnc && inv.rnc.length >= 9)) {
+            detectedType = 'empresa';
+        }
+
+        if (!clientMap.has(lower)) {
+            clientMap.set(lower, {
+                name: rawName,
+                type: detectedType,
+                nit: inv.rnc || inv.nit || ''
+            });
+        } else {
+            const existing = clientMap.get(lower);
+            if (detectedType === 'empresa' && existing.type !== 'empresa') {
+                existing.type = 'empresa';
+            }
+            if (!existing.nit && (inv.rnc || inv.nit)) {
+                existing.nit = inv.rnc || inv.nit;
+            }
+        }
+    });
+
+    // 3. Calcular impacto individual por cliente y asignar código de validación único
+    return Array.from(clientMap.values()).map(c => {
+        const cStats = calculateEcoImpact(invoices, c.name);
+        const certCode = generateClientCertCode(c.name);
+        return {
+            ...c,
+            certCode: certCode,
+            stats: cStats
+        };
+    }).filter(c => c.stats && c.stats.totalWeight > 0)
+      .sort((a, b) => b.stats.totalWeight - a.stats.totalWeight);
+}
+
+function renderEcoClientCards(clientList) {
+  const container = document.getElementById('eco-cards-grid');
+  if (!container) return;
+
+  const searchInput = document.getElementById('eco-search-input');
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+  const filtered = clientList.filter(c => {
+    if (currentEcoTypeFilter === 'persona' && c.type !== 'persona') return false;
+    if (currentEcoTypeFilter === 'empresa' && c.type !== 'empresa') return false;
+
+    if (query) {
+      const matchName = c.name.toLowerCase().includes(query);
+      const matchNit = c.nit ? c.nit.toLowerCase().includes(query) : false;
+      const matchCode = c.certCode ? c.certCode.toLowerCase().includes(query) : false;
+      if (!matchName && !matchNit && !matchCode) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 36px 16px; color: var(--clr-text-muted); background: var(--clr-surface-2); border-radius: var(--r-md); border: 1px dashed var(--clr-border);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
+        <div style="font-weight: 700; font-size: 0.95rem;">No se encontraron diplomas para esta búsqueda</div>
+        <p style="font-size: 0.8rem; margin-top: 4px;">Prueba buscando por nombre, RNC o código de validación (ej. MSSZQ5MI).</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(c => {
+    const isEmp = c.type === 'empresa';
+    const totalTons = (c.stats.totalWeight / 1000).toFixed(2);
+    
+    return `
+      <div class="card card--elevated eco-client-card" style="display:flex; flex-direction:column; justify-content:space-between; padding: 16px; border-top: 4px solid ${isEmp ? '#047857' : '#3b82f6'}; position:relative; background: var(--clr-surface-1);">
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; flex-wrap:wrap; gap:4px;">
+            <span style="background:${isEmp ? 'rgba(4,120,87,0.15)' : 'rgba(59,130,246,0.15)'}; color:${isEmp ? '#047857' : '#3b82f6'}; font-weight:800; font-size:0.68rem; padding: 3px 9px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">
+              ${isEmp ? '🏢 EMPRESA' : '👤 PERSONA'}
+            </span>
+            <span style="font-size:0.72rem; color:var(--clr-primary); font-weight:700; background:var(--clr-surface-3); padding:2px 8px; border-radius:6px; font-family: monospace;" title="Código de Validación del Diploma">
+              🔑 ${c.certCode}
+            </span>
+          </div>
+
+          <h4 style="font-size: 1.05rem; font-weight: 800; color: var(--clr-text-main); margin: 0 0 6px 0; line-height: 1.3;">${c.name}</h4>
+          ${c.nit ? `<div style="font-size:0.72rem; color:var(--clr-text-muted); font-weight:600; margin-bottom:6px;">RNC / Cédula: ${c.nit}</div>` : ''}
+
+          <div style="font-size: 1.35rem; font-weight: 900; color: #10b981; margin-bottom: 10px; display:flex; align-items:baseline; gap: 6px;">
+            <span>${c.stats.totalWeight.toLocaleString('es-DO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</span>
+            <span style="font-size:0.75rem; color:var(--clr-text-muted); font-weight:600;">(${totalTons} Ton)</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:0.72rem; color:var(--clr-text-secondary); margin-bottom: 14px;">
+            <div style="background:var(--clr-surface-3); padding:5px 8px; border-radius:6px;">🌳 Árboles: <strong>${Math.ceil(c.stats.treesSaved)}</strong></div>
+            <div style="background:var(--clr-surface-3); padding:5px 8px; border-radius:6px;">💧 Agua: <strong>${Math.round(c.stats.waterSaved).toLocaleString()}L</strong></div>
+            <div style="background:var(--clr-surface-3); padding:5px 8px; border-radius:6px;">⚡ Energía: <strong>${Math.round(c.stats.energySaved).toLocaleString()}kWh</strong></div>
+            <div style="background:var(--clr-surface-3); padding:5px 8px; border-radius:6px;">💨 CO₂: <strong>${Math.round(c.stats.co2Avoided).toLocaleString()}kg</strong></div>
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="generateEcoImpactPDFEngine({ clientName: '${escapeHTMLString(c.name)}', certCode: '${c.certCode}' })" style="width:100%; justify-content:center; gap:6px; background: linear-gradient(135deg, #10b981, #059669); border-color:#059669; font-weight:700; padding: 8px 12px; font-size: 0.82rem; border-radius: var(--r-md); cursor: pointer;">
+          📜 Generar Diploma PDF
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function setEcoTypeFilter(type) {
+  currentEcoTypeFilter = type;
+  ['all', 'empresa', 'persona'].forEach(tKey => {
+    const btn = document.getElementById(`btn-eco-filter-${tKey}`);
+    if (btn) {
+      if (tKey === type) {
+        btn.style.background = 'var(--clr-primary)';
+        btn.style.color = '#ffffff';
+      } else {
+        btn.style.background = 'transparent';
+        btn.style.color = 'var(--clr-text-muted)';
+      }
+    }
+  });
+  if (window._cachedEcoClients) {
+    renderEcoClientCards(window._cachedEcoClients);
+  }
+}
+
+function handleEcoSearchInput() {
+  if (window._cachedEcoClients) {
+    renderEcoClientCards(window._cachedEcoClients);
+  }
+}
+
 function renderEcologyPage(container) {
   const invoices = getAllInvoices();
   const stats = calculateEcoImpact(invoices);
   const clients = getClients();
 
-  // Get unique client names from both the client list and existing invoices
-  const clientNamesFromDB = clients.map(c => c.name ? c.name.trim() : '');
-  const clientNamesFromInvoices = invoices.map(inv => inv.company ? inv.company.trim() : '');
-  const activeClientNames = [...new Set([...clientNamesFromDB, ...clientNamesFromInvoices])].filter(Boolean).sort();
+  const ecoClientsList = getEcoClientsList(clients, invoices);
+  window._cachedEcoClients = ecoClientsList;
+  currentEcoTypeFilter = 'all';
+
+  const empresaCount = ecoClientsList.filter(c => c.type === 'empresa').length;
+  const personaCount = ecoClientsList.filter(c => c.type === 'persona').length;
 
   container.innerHTML = `
     <div class="page-header">
@@ -200,7 +383,7 @@ function renderEcologyPage(container) {
             <label class="form-label">${t('eco.select_client')}</label>
             <select id="eco-client-select" class="form-select">
               <option value="">${t('eco.all_clients')}</option>
-              ${activeClientNames.map(name => `<option value="${escapeHTMLString(name)}">${name}</option>`).join('')}
+              ${ecoClientsList.map(c => `<option value="${escapeHTMLString(c.name)}">${c.name} (${c.type === 'empresa' ? 'Empresa' : 'Persona'})</option>`).join('')}
             </select>
           </div>
 
@@ -221,7 +404,38 @@ function renderEcologyPage(container) {
         </div>
       </div>
     </div>
+
+    <!-- SECCIÓN: Buscador y Catálogo de Diplomas por Cliente -->
+    <div class="card card--elevated" style="margin-top: 24px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap: 14px; margin-bottom: 16px; border-bottom: 1px solid var(--clr-border); padding-bottom: 14px;">
+        <div>
+          <h3 class="section-title" style="font-size: 1.1rem; margin-bottom: 4px;">📜 Buscador de Diplomas por Cliente</h3>
+          <p style="font-size: 0.78rem; color: var(--clr-text-muted); margin: 0;">Filtra e inspecciona diplomas de impacto ecológico divididos entre empresas y clientes individuales.</p>
+        </div>
+        
+        <!-- Pestañas de Filtro por Categoría -->
+        <div style="display:flex; gap: 6px; background: var(--clr-surface-3); padding: 4px; border-radius: var(--r-md);">
+          <button id="btn-eco-filter-all" class="btn-secondary" onclick="setEcoTypeFilter('all')" style="padding: 6px 14px; font-size: 0.78rem; font-weight: 700; border: none; background: var(--clr-primary); color: #ffffff; cursor: pointer; border-radius: 6px;">🌐 Todos (${ecoClientsList.length})</button>
+          <button id="btn-eco-filter-empresa" class="btn-secondary" onclick="setEcoTypeFilter('empresa')" style="padding: 6px 14px; font-size: 0.78rem; font-weight: 700; border: none; background: transparent; color: var(--clr-text-muted); cursor: pointer; border-radius: 6px;">🏢 Empresas (${empresaCount})</button>
+          <button id="btn-eco-filter-persona" class="btn-secondary" onclick="setEcoTypeFilter('persona')" style="padding: 6px 14px; font-size: 0.78rem; font-weight: 700; border: none; background: transparent; color: var(--clr-text-muted); cursor: pointer; border-radius: 6px;">👤 Personas (${personaCount})</button>
+        </div>
+      </div>
+
+      <!-- Buscador por Texto (Nombre / RNC / Código) -->
+      <div style="margin-bottom: 20px;">
+        <input id="eco-search-input" type="text" class="form-input" placeholder="🔍 Buscar por cliente, RNC o código de validación (ej. MSSZQ5MI)..." oninput="handleEcoSearchInput()" style="width:100%; font-size:0.88rem; padding: 11px 16px; background: var(--clr-surface-2);" />
+      </div>
+
+      <!-- Rejilla Dinámica de Tarjetas de Diplomas -->
+      <div id="eco-cards-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+      </div>
+    </div>
   `;
+
+  // Renderizar las tarjetas iniciales de clientes
+  setTimeout(() => {
+    renderEcoClientCards(ecoClientsList);
+  }, 50);
 }
 
 function renderMaterialProgressRow(name, weight, total, color) {
@@ -239,189 +453,395 @@ function renderMaterialProgressRow(name, weight, total, color) {
   `;
 }
 
-function generateEcoCertificatePDF() {
-  const clientName = document.getElementById('eco-client-select').value;
-  const startDate = document.getElementById('eco-start-date').value;
-  const endDate = document.getElementById('eco-end-date').value;
+function generateEcoImpactPDFEngine(options = {}) {
+    const {
+        clientName = null,
+        startDate = null,
+        endDate = null,
+        invoices = [],
+        customTitle = null,
+        onSuccess = null,
+        onError = null
+    } = options;
 
-  const invoices = getAllInvoices();
-  const stats = calculateEcoImpact(invoices, clientName, startDate, endDate);
+    // 1. Obtener estadísticas de impacto ecológico
+    const targetInvoices = invoices && invoices.length > 0 ? invoices : (typeof getAllInvoices === 'function' ? getAllInvoices() : []);
+    const stats = typeof calculateEcoImpact === 'function' ? calculateEcoImpact(targetInvoices, clientName, startDate, endDate) : null;
 
-  if (stats.totalWeight === 0) {
-    showToast(t('eco.toast_no_invoices'), 'error');
-    return;
-  }
+    if (!stats || stats.totalWeight === 0) {
+        if (typeof showToast === 'function') {
+            const msg = typeof t === 'function' ? t('eco.toast_no_invoices') : '⚠️ No hay datos registrados para este cliente en el rango seleccionado';
+            showToast(msg, 'warning');
+        }
+        if (onError) onError('No hay datos');
+        return;
+    }
 
-  showToast(t('eco.toast_generating'), 'info');
+    if (typeof showToast === 'function') {
+        showToast('🌱 Generando Certificado Oficial de Impacto Ambiental...', 'info', 3000);
+    }
 
-  // Get current white label settings if configured
-  let appName = 'Reciminsa';
-  try {
-    const settings = JSON.parse(localStorage.getItem(userKey('recim_settings')) || '{}');
-    if (settings.companyName) appName = settings.companyName;
-  } catch (_) {}
+    // 2. Obtener la configuración corporativa (Registro de Empresa: Nombre, Logo, RNC, Teléfono, Correo, Dirección)
+    let settings = {};
+    if (typeof getSettings === 'function') {
+        settings = getSettings();
+    } else {
+        try {
+            const sessionStr = localStorage.getItem('recim_session');
+            let accountId = 'default';
+            if (sessionStr) accountId = JSON.parse(sessionStr).accountId || 'default';
+            const key = typeof userKey === 'function' ? userKey('recim_settings') : `recim_settings_${accountId}`;
+            settings = JSON.parse(localStorage.getItem(key) || '{}');
+            if (!settings.companyName) {
+                settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+            }
+        } catch (_) {}
+    }
 
-  // Formatting dates
-  const formatTextDate = (dStr) => {
-    if (!dStr) return '';
-    const parts = dStr.split('-');
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  };
+    let companyName = settings.companyName || 'RECIMINSA';
+    let companyLogo = settings.companyLogo || settings.logoUrl || (typeof window !== 'undefined' ? window.DEFAULT_APP_LOGO : '') || '';
+    let rnc = settings.companyRNC || settings.rnc || settings.companyRnc || '';
+    let phone = settings.companyPhone || settings.phone || settings.userPhone || '';
+    let email = settings.companyEmail || settings.userEmail || '';
+    let address = settings.companyAddress || '';
 
-  const periodText = startDate && endDate 
-    ? t('eco.cert_period_desc').replace('{start}', formatTextDate(startDate)).replace('{end}', formatTextDate(endDate))
-    : t('eco.cert_period_accum');
+    if (typeof userKey === 'function') {
+        try {
+            const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
+            if (sharedSettings.companyName) companyName = sharedSettings.companyName;
+            if (sharedSettings.companyRNC) rnc = sharedSettings.companyRNC;
+            if (sharedSettings.companyPhone) phone = sharedSettings.companyPhone;
+            if (sharedSettings.companyEmail) email = sharedSettings.companyEmail;
+            if (sharedSettings.companyAddress) address = sharedSettings.companyAddress;
+            if (sharedSettings.companyLogo) companyLogo = sharedSettings.companyLogo;
+        } catch (e) {}
+    }
 
-  const clientText = clientName || t('eco.cert_all_clients');
+    const certId = `CERT-ECO-${Date.now().toString(36).toUpperCase()}`;
 
-  // HTML content for Certificate with compact dimensions and flex spacing to guarantee a single page
-  const htmlContent = `
-    <div style="width: 800px; height: 570px; background: #ffffff; padding: 20px; box-sizing: border-box; font-family: 'Inter', sans-serif; color: #1f2937;">
-      <div style="height: 100%; border: 8px double #10b981; border-radius: 12px; padding: 20px 30px; position: relative; background: #fafdfb; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-        
-        <!-- Decorative Ornaments -->
-        <div style="position: absolute; top: 12px; left: 12px; font-size: 1.2rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; top: 12px; right: 12px; font-size: 1.2rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; bottom: 12px; left: 12px; font-size: 1.2rem; color: #10b981; opacity: 0.6;">🌿</div>
-        <div style="position: absolute; bottom: 12px; right: 12px; font-size: 1.2rem; color: #10b981; opacity: 0.6;">🌿</div>
+    // 3. Fechas formateadas
+    const formatTextDate = (dStr) => {
+        if (!dStr) return '';
+        const parts = dStr.split('-');
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    };
 
-        <!-- Upper Section -->
-        <div>
-          <!-- Header -->
-          <div style="font-size: 0.7rem; letter-spacing: 4px; font-weight: 700; color: #047857; text-transform: uppercase; margin-top: 10px; margin-bottom: 8px;">
-            ${t('eco.cert_title')}
-          </div>
-          
-          <h1 style="font-size: 1.8rem; font-weight: 800; color: #065f46; margin: 0; font-family: Georgia, serif; letter-spacing: 1px;">
-            ${t('eco.cert_recognition')}
-          </h1>
-          
-          <div style="width: 120px; height: 3px; background: #10b981; margin: 8px auto; border-radius: 2px;"></div>
+    const periodText = startDate && endDate 
+        ? `Período del ${formatTextDate(startDate)} al ${formatTextDate(endDate)}`
+        : 'Período acumulado al presente';
 
-          <p style="font-size: 0.85rem; color: #4b5563; font-style: italic; margin-bottom: 8px;">
-            ${t('eco.cert_given_to')}
-          </p>
+    const targetClient = clientName || 'TODOS LOS CLIENTES (CERTIFICADO GENERAL)';
+    const issueDate = new Date().toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' });
 
-          <h2 style="font-size: 1.4rem; font-weight: 800; color: #111827; margin: 0 0 10px 0; border-bottom: 1px dashed #d1d5db; display: inline-block; padding-bottom: 4px; min-width: 350px; text-transform: uppercase;">
-            ${clientText}
-          </h2>
+    // 4. Calcular porcentajes y peso por tipo de material
+    const totalW = stats.totalWeight || 1;
+    const materialsBreakdown = [
+        { name: 'Papel y Cartón', weight: stats.paperWeight, color: [16, 185, 129] },
+        { name: 'Plásticos (PET/HDPE/Film)', weight: stats.plasticWeight, color: [59, 130, 246] },
+        { name: 'Metales (Aluminio/Cobre/Hierro)', weight: stats.metalWeight, color: [245, 158, 11] },
+        { name: 'Vidrio', weight: stats.glassWeight, color: [139, 92, 246] },
+        { name: 'Otros / Mezclados', weight: stats.otherWeight, color: [100, 116, 139] }
+    ].map(m => ({
+        ...m,
+        pct: ((m.weight / totalW) * 100).toFixed(1)
+    }));
 
-          <p style="font-size: 0.82rem; line-height: 1.5; color: #374151; max-width: 620px; margin: 0 auto;">
-            ${t('eco.cert_desc').replace('{period}', periodText).replace('{weight}', stats.totalWeight.toFixed(1))}
-          </p>
-        </div>
+    // 5. Obtener constructor jsPDF usando getJsPDFConstructor (idéntico a pdf-utils.js)
+    const jsPDFConstructor = typeof getJsPDFConstructor === 'function' 
+        ? getJsPDFConstructor() 
+        : (window.jsPDF || (window.jspdf && window.jspdf.jsPDF) || (window.html2pdf && window.html2pdf.jsPDF));
 
-        <!-- Middle Section: Metrics Grid -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px auto; width: 100%; max-width: 620px;">
-          
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.2rem; margin-bottom: 2px;">🌳</div>
-            <div style="font-size: 1rem; font-weight: 800; color: #047857;">${Math.ceil(stats.treesSaved)}</div>
-            <div style="font-size: 0.6rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">${t('eco.trees_saved')}</div>
-          </div>
+    if (!jsPDFConstructor) {
+        console.error('jsPDF NOT FOUND');
+        if (typeof showToast === 'function') showToast('❌ Error: Librería jsPDF no disponible', 'error');
+        if (onError) onError('jsPDF not found');
+        return;
+    }
 
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.2rem; margin-bottom: 2px;">💧</div>
-            <div style="font-size: 1rem; font-weight: 800; color: #047857;">${Math.round(stats.waterSaved).toLocaleString()} L</div>
-            <div style="font-size: 0.6rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">${t('eco.cert_water_saved')}</div>
-          </div>
+    // 6. Instanciar documento Carta Apaisado (279.4mm x 215.9mm)
+    const doc = new jsPDFConstructor({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'letter'
+    });
 
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.2rem; margin-bottom: 2px;">⚡</div>
-            <div style="font-size: 1rem; font-weight: 800; color: #047857;">${Math.round(stats.energySaved).toLocaleString()}</div>
-            <div style="font-size: 0.6rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">${t('eco.cert_kwh_saved')}</div>
-          </div>
+    const pageWidth = 279.4;
+    const pageHeight = 215.9;
 
-          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div style="font-size: 1.2rem; margin-bottom: 2px;">💨</div>
-            <div style="font-size: 1rem; font-weight: 800; color: #047857;">${Math.round(stats.co2Avoided).toLocaleString()} kg</div>
-            <div style="font-size: 0.6rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">${t('eco.co2_avoided')}</div>
-          </div>
+    // --- A. FONDO Y MARCO DE HONOR (Doble Borde Verde Esmeralda) ---
+    doc.setFillColor(240, 253, 244);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-        </div>
+    // Borde exterior
+    doc.setDrawColor(5, 150, 105); // Verde esmeralda #059669
+    doc.setLineWidth(1.2);
+    doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
 
-        <!-- Lower Section -->
-        <div>
-          <p style="font-size: 0.68rem; color: #6b7280; line-height: 1.4; max-width: 540px; margin: 0 auto 15px auto;">
-            ${t('eco.cert_footer_desc')}
-          </p>
+    // Borde interior
+    doc.setDrawColor(52, 211, 153); // #34d399
+    doc.setLineWidth(0.4);
+    doc.rect(10.5, 10.5, pageWidth - 21, pageHeight - 21);
 
-          <!-- Signature and Date info -->
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px; margin-bottom: 5px;">
-            <div style="text-align: left;">
-              <div style="font-size: 0.62rem; color: #9ca3af; text-transform: uppercase; font-weight: 600;">${t('eco.cert_issue_date')}</div>
-              <div style="font-size: 0.75rem; font-weight: 700; color: #374151; margin-top: 2px;">
-                ${new Date().toLocaleDateString(getSettings().language === 'en' ? 'en-US' : 'es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
-              </div>
-            </div>
-            
-            <div style="text-align: center; border-top: 1px solid #9ca3af; width: 160px; padding-top: 4px;">
-              <div style="font-size: 0.72rem; font-weight: 700; color: #111827;">${appName}</div>
-              <div style="font-size: 0.55rem; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-top: 1px;">${t('eco.cert_mgmt')}</div>
-            </div>
-          </div>
-        </div>
+    // Fondo blanco del cuerpo interno
+    doc.setFillColor(255, 255, 255);
+    doc.rect(12, 12, pageWidth - 24, pageHeight - 24, 'F');
 
-      </div>
-    </div>
-  `;
+    // --- B. CABECERA INSTITUCIONAL ---
+    let logoDrawn = false;
+    if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
+        try {
+            let logoFormat = 'PNG';
+            if (companyLogo.includes('image/jpeg') || companyLogo.includes('image/jpg')) logoFormat = 'JPEG';
+            doc.addImage(companyLogo, logoFormat, 16, 16, 32, 14);
+            logoDrawn = true;
+        } catch (e) {
+            console.error('Error dibujando logo en certificado:', e);
+        }
+    }
 
-  // Generate PDF via html2pdf using offscreen temporary wrapper for pixel accuracy
-  const opt = {
-    margin:       0.1, // Small margin to prevent page break issues
-    filename:     `Certificado_Impacto_${clientName || 'General'}_${new Date().toISOString().split('T')[0]}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true, windowWidth: 800, scrollX: 0, scrollY: 0 },
-    jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
-  };
+    const textLeftX = logoDrawn ? 52 : 16;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(6, 95, 70);
+    doc.text(companyName, textLeftX, 20);
 
-  const container = document.createElement('div');
-  container.style.position = 'fixed';
-  container.style.left = '0';
-  container.style.top = '0';
-  container.style.width = '800px';
-  container.style.height = '0';
-  container.style.overflow = 'hidden';
-  container.style.zIndex = '-9999';
-  container.style.pointerEvents = 'none';
-  document.body.appendChild(container);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(4, 120, 87);
+    doc.text("Gestión Integral de Reciclaje & Desarrollo Sostenible", textLeftX, 24.5);
 
-  const wrapper = document.createElement('div');
-  wrapper.style.width = '800px';
-  wrapper.style.background = '#fff';
-  wrapper.innerHTML = htmlContent;
-  container.appendChild(wrapper);
+    const contactParts = [];
+    if (rnc) contactParts.push(`RNC: ${rnc}`);
+    if (phone) contactParts.push(`Tel: ${phone}`);
+    if (email) contactParts.push(`Email: ${email}`);
 
-  html2pdf().from(wrapper).set(opt).output('blob').then((pdfBlob) => {
+    if (contactParts.length > 0) {
+        doc.setFontSize(6.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(contactParts.join(' | '), textLeftX, 28.5);
+    }
+
+
+
+    // Línea divisoria cabecera
+    doc.setDrawColor(167, 243, 208);
+    doc.setLineWidth(0.5);
+    doc.line(16, 33, 263.4, 33);
+
+    // --- C. TÍTULO PRINCIPAL Y OTORGAMIENTO ---
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(5, 150, 105);
+    doc.text(customTitle || 'CERTIFICADO DE IMPACTO MEDIOAMBIENTAL', pageWidth / 2, 40, { align: 'center' });
+
+    doc.setFont('Times', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(6, 78, 59);
+    doc.text("Reconocimiento de Excelencia Verde", pageWidth / 2, 49, { align: 'center' });
+
+    // Barrita decorativa central
+    doc.setFillColor(16, 185, 129);
+    doc.roundedRect((pageWidth / 2) - 25, 52, 50, 1.2, 0.6, 0.6, 'F');
+
+    doc.setFont('Helvetica', 'oblique');
+    doc.setFontSize(9);
+    doc.setTextColor(71, 85, 105);
+    doc.text("Otorgado solemnemente a la entidad o corporación:", pageWidth / 2, 59, { align: 'center' });
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(4, 120, 87);
+    doc.text(targetClient.toUpperCase(), pageWidth / 2, 67, { align: 'center' });
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.2);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Por su valiosa contribución al desarrollo sostenible y la economía circular durante el ${periodText},`, pageWidth / 2, 73, { align: 'center' });
+    doc.text(`canalizando un total de ${stats.totalWeight.toLocaleString('es-DO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg (${(stats.totalWeight / 1000).toFixed(2)} Toneladas) de material reciclable devuelto al ciclo productivo.`, pageWidth / 2, 77.5, { align: 'center' });
+
+    // --- D. 5 TARJETAS DE IMPACTO ECOLÓGICO ---
+    const cardsY = 82;
+    const cardW = 46.8;
+    const cardH = 26;
+    const cardGap = 3.1;
+    const startX = 16;
+
+    const cardsData = [
+        { label: 'TOTAL RECICLADO', val: `${stats.totalWeight.toFixed(1)} kg`, color: [4, 120, 87] },
+        { label: 'ÁRBOLES SALVADOS', val: `${Math.ceil(stats.treesSaved)}`, color: [5, 150, 105] },
+        { label: 'AGUA CONSERVADA', val: `${Math.round(stats.waterSaved).toLocaleString()} L`, color: [2, 132, 199] },
+        { label: 'ENERGÍA AHORRADA', val: `${Math.round(stats.energySaved).toLocaleString()} kWh`, color: [217, 119, 6] },
+        { label: 'CO2 EVITADO', val: `${Math.round(stats.co2Avoided).toLocaleString()} kg`, color: [124, 58, 237] }
+    ];
+
+    cardsData.forEach((c, idx) => {
+        const cx = startX + idx * (cardW + cardGap);
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(167, 243, 208);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(cx, cardsY, cardW, cardH, 2, 2, 'FD');
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(c.color[0], c.color[1], c.color[2]);
+        doc.text(c.val, cx + (cardW / 2), cardsY + 12, { align: 'center' });
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(100, 116, 139);
+        doc.text(c.label, cx + (cardW / 2), cardsY + 20, { align: 'center' });
+    });
+
+    // --- E. TABLA DE COMPOSICIÓN Y SELLO/FIRMAS ---
+    const boxY = 112;
+    const boxH = 60;
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(16, boxY, 247.4, boxH, 2.5, 2.5, 'FD');
+
+    // Columna Izquierda: Desglose de Materiales
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(4, 120, 87);
+    doc.text("COMPOSICIÓN DEL MATERIAL PROCESADO:", 22, boxY + 8);
+
+    let rowY = boxY + 14;
+    materialsBreakdown.forEach(m => {
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(51, 65, 85);
+        doc.text(m.name, 22, rowY);
+        doc.text(`${m.weight.toFixed(1)} kg (${m.pct}%)`, 135, rowY, { align: 'right' });
+
+        // Bar Track
+        doc.setFillColor(226, 232, 240);
+        doc.roundedRect(22, rowY + 1.5, 113, 3, 1, 1, 'F');
+
+        // Bar Fill
+        const fillW = Math.max(1, (parseFloat(m.pct) / 100) * 113);
+        doc.setFillColor(m.color[0], m.color[1], m.color[2]);
+        doc.roundedRect(22, rowY + 1.5, fillW, 3, 1, 1, 'F');
+
+        rowY += 9;
+    });
+
+    // Separador vertical discontinuo
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.setLineDashPattern([1.5, 1.5], 0);
+    doc.line(143, boxY + 5, 143, boxY + boxH - 5);
+    doc.setLineDashPattern([], 0);
+
+    // Sello Oficial de Empresa
+    const sealCx = 168;
+    const sealCy = boxY + 25;
+    doc.setFillColor(240, 253, 244);
+    doc.setDrawColor(5, 150, 105);
+    doc.setLineWidth(0.8);
+    doc.circle(sealCx, sealCy, 14, 'FD');
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(5.2);
+    doc.setTextColor(4, 120, 87);
+    doc.text("SELLO OFICIAL", sealCx, sealCy - 1.5, { align: 'center' });
+    doc.setFontSize(4.8);
+    doc.setTextColor(5, 150, 105);
+    doc.text("DE EMPRESA", sealCx, sealCy + 2.5, { align: 'center' });
+
+    // Firma de Dirección
+    const sigX = 202;
+    const sigY = boxY + 34;
+    doc.setDrawColor(100, 116, 139);
+    doc.setLineWidth(0.3);
+    doc.line(sigX, sigY, sigX + 50, sigY);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(companyName, sigX + 25, sigY + 4.5, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Dirección de Sostenibilidad", sigX + 25, sigY + 8, { align: 'center' });
+
+    // Metadatos
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Emisión: ${issueDate}`, 150, boxY + 53);
+    doc.text(`Código Validación: ${certId.slice(-8)}`, 255, boxY + 53, { align: 'right' });
+
+    // --- F. PIE DE PÁGINA AUDITABLE ---
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(16, 178, 263.4, 178);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Este certificado auditable valida que los materiales fueron clasificados y procesados mediante métodos de reciclaje ecológicos.", 16, 183);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(5, 150, 105);
+    doc.text("Página 1 de 1 • Certificado Ecológico Oficial", 263.4, 183, { align: 'right' });
+
+    // 7. Exportación y Descarga Multiplataforma (Copiado de la lógica de pdf-utils.js)
+    const filename = `Certificado_Impacto_${(targetClient || 'General').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+
+    let base64Data = '';
+    try {
+        base64Data = doc.output('datauristring').split(',')[1] || '';
+    } catch (_) {}
+
+    // PUENTE NATIVO WINDOWS / MAUI WEBVIEW2
     if (window.chrome && window.chrome.webview) {
-        const reader = new FileReader();
-        reader.readAsDataURL(pdfBlob);
-        reader.onloadend = () => {
-            const base64data = reader.result.split(',')[1];
+        try {
             window.chrome.webview.postMessage(JSON.stringify({
                 action: 'download',
-                filename: opt.filename,
-                data: base64data
+                filename: filename,
+                data: base64Data
             }));
-            showToast(t('eco.toast_ready'), 'success');
-        };
-    } else {
-        const url = URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = opt.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-        showToast(t('eco.toast_downloaded'), 'success');
+            if (typeof showToast === 'function') showToast('✅ Certificado enviado a descargas', 'success');
+            if (onSuccess) onSuccess(doc.output('blob'));
+            return;
+        } catch (e) {
+            console.warn('WebView bridge error:', e);
+        }
     }
-  }).catch((err) => {
-    console.error(err);
-    showToast(t('eco.toast_error'), 'error');
-  }).finally(() => {
-    if (document.body.contains(container)) {
-      document.body.removeChild(container);
+
+    // DESCARGA ESTÁNDAR
+    try {
+        doc.save(filename);
+        if (typeof showToast === 'function') showToast('✅ Certificado PDF descargado con éxito', 'success');
+        if (onSuccess) onSuccess(doc.output('blob'));
+    } catch (err) {
+        console.error('Error guardando PDF:', err);
+        if (typeof showToast === 'function') showToast('❌ Error al guardar el certificado PDF', 'error');
+        if (onError) onError(err);
     }
-  });
 }
+
+function generateEcoCertificatePDF() {
+  try {
+    const clientSelect = document.getElementById('eco-client-select');
+    const startDateInput = document.getElementById('eco-start-date');
+    const endDateInput = document.getElementById('eco-end-date');
+
+    const clientName = clientSelect ? clientSelect.value : null;
+    const startDate = startDateInput ? startDateInput.value : null;
+    const endDate = endDateInput ? endDateInput.value : null;
+
+    generateEcoImpactPDFEngine({
+      clientName: clientName,
+      startDate: startDate,
+      endDate: endDate,
+      invoices: typeof getAllInvoices === 'function' ? getAllInvoices() : []
+    });
+  } catch (e) {
+    console.error('Error al hacer clic en Generar Certificado:', e);
+    if (typeof showToast === 'function') {
+      showToast('❌ Error al procesar la solicitud de certificado: ' + e.message, 'error');
+    }
+  }
+}
+

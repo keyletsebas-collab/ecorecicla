@@ -8,6 +8,9 @@ function getClients() {
 
 function saveClients(clients) {
   localStorage.setItem(userKey('recim_clients'), JSON.stringify(clients));
+  if (window.syncPushData) {
+    window.syncPushData(true);
+  }
 }
 
 function addClient(name, nit, address, contact, type = 'local', isRst = false) {

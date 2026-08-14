@@ -1069,15 +1069,15 @@ async function handleClearCache(category) {
   
   group.baseKeys.forEach(k => {
     try {
-      localStorage.removeItem(k);
+      localStorage.setItem(k, '[]');
       if (typeof userKey === 'function') {
-        localStorage.removeItem(userKey(k));
+        localStorage.setItem(userKey(k), '[]');
       }
     } catch (_) {}
   });
   
   if (window.forceSync) {
-    try { window.forceSync(); } catch (_) {}
+    try { await window.forceSync(); } catch (_) {}
   }
   
   showToast('🗑 Datos eliminados con éxito', 'success');

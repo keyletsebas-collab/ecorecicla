@@ -3,6 +3,9 @@
    ============================================= */
 
 function getAllHistoryItems() {
+  if (typeof sanitizeFinancialData === 'function') {
+    sanitizeFinancialData();
+  }
   const invoices = getAllInvoices();
   const ingresos = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
   const egresos = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
@@ -33,32 +36,19 @@ function getAllHistoryItems() {
 }
 
 function getUnifiedFinancialSummary(items) {
-  const invoiceIds = new Set();
-  items.forEach(i => {
-    if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local' || i.type === 'basica') {
-      if (i.id) invoiceIds.add(i.id);
-    }
-  });
-
   let totalIncome = 0;
   let totalExpense = 0;
 
   items.forEach(i => {
-    if ((i.itemType === 'ingreso' || i.itemType === 'egreso') && i.ref && invoiceIds.has(i.ref)) {
-      return;
-    }
-
-    if (i.type === 'egreso' || i.itemType === 'egreso') {
-      totalExpense += (i.total || i.amount || 0);
-    } else if (i.type === 'ingreso' || i.itemType === 'ingreso') {
-      totalIncome += (i.total || i.amount || 0);
-    } else if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local') {
-      totalIncome += (i.total !== undefined ? i.total : (i.totalVenta || 0));
-    } else if (i.type === 'basica') {
-      const compra = i.totalCompra !== undefined ? i.totalCompra : 0;
-      const venta = i.totalVenta !== undefined ? i.totalVenta : (i.total || 0);
-      totalExpense += compra;
-      totalIncome += venta;
+    if (i.itemType === 'egreso' || i.type === 'egreso') {
+      totalExpense += (i.amount || i.total || 0);
+    } else if (i.itemType === 'ingreso' || i.type === 'ingreso') {
+      totalIncome += (i.amount || i.total || 0);
+    } else if (i.itemType === 'invoice' && (i.type === 'empresa' || i.type === 'local')) {
+      const hasIncomeRef = items.some(ing => (ing.itemType === 'ingreso' || ing.type === 'ingreso') && String(ing.ref) === String(i.id));
+      if (!hasIncomeRef) {
+        totalIncome += (i.total !== undefined ? i.total : (i.totalVenta || 0));
+      }
     }
   });
 
@@ -249,11 +239,11 @@ function renderHistoryPage(container) {
         </div>
         <div class="stat-card">
           <div class="stat-label">${t('hist.income_count')}</div>
-          <div class="stat-value stat-value--green">${items.filter(i => i.type === 'ingreso').length}</div>
+          <div class="stat-value stat-value--green" style="font-size:1.1rem;">${formatMoney(finSummary.totalIncome)} <span style="font-size:0.75rem; opacity:0.7; font-weight:normal;">(${items.filter(i => i.type === 'ingreso').length})</span></div>
         </div>
         <div class="stat-card">
           <div class="stat-label">${t('hist.expense_count')}</div>
-          <div class="stat-value stat-value--red">${items.filter(i => i.type === 'egreso').length}</div>
+          <div class="stat-value stat-value--red" style="font-size:1.1rem;">${formatMoney(finSummary.totalExpense)} <span style="font-size:0.75rem; opacity:0.7; font-weight:normal;">(${items.filter(i => i.type === 'egreso').length})</span></div>
         </div>
         <div class="stat-card">
           <div class="stat-label">${t('hist.logs_count')}</div>
@@ -598,6 +588,9 @@ async function deleteHistoryItem(type, id) {
     localStorage.setItem(userKey('recim_invoices'), JSON.stringify(invoices));
     showToast(t('toast.del_inv'), 'success');
   }
+  if (window.forceSync) {
+    try { await window.forceSync(); } catch (_) {}
+  }
   rerenderCurrentPage();
 }
 
@@ -611,7 +604,9 @@ async function clearHistory() {
   localStorage.setItem(userKey('recim_invoices'), JSON.stringify([]));
   localStorage.setItem(userKey('recim_ingresos'), JSON.stringify([]));
   localStorage.setItem(userKey('recim_egresos'), JSON.stringify([]));
-  if (typeof forceSync === 'function') forceSync();
+  if (window.forceSync) {
+    try { await window.forceSync(); } catch (_) {}
+  }
 
   showToast('Todo el historial ha sido limpiado', 'success');
   rerenderCurrentPage();
@@ -1147,32 +1142,21 @@ function drawTradingFinanzasChart(items) {
 
   window._currentFinanzasItems = items;
 
-  const invoiceIds = new Set();
-  items.forEach(i => {
-    if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local' || i.type === 'basica') {
-      if (i.id) invoiceIds.add(i.id);
-    }
-  });
-
   const monthly = {};
   items.forEach(i => {
     if (!i.date) return;
-    if ((i.itemType === 'ingreso' || i.itemType === 'egreso') && i.ref && invoiceIds.has(i.ref)) {
-      return;
-    }
     const monthKey = i.date.substring(0, 7); // 'YYYY-MM'
     if (!monthly[monthKey]) monthly[monthKey] = { income: 0, expense: 0 };
-    if (i.type === 'egreso' || i.itemType === 'egreso') {
-      monthly[monthKey].expense += (i.total || i.amount || 0);
-    } else if (i.type === 'ingreso' || i.itemType === 'ingreso') {
-      monthly[monthKey].income += (i.total || i.amount || 0);
-    } else if (i.itemType === 'invoice' || i.type === 'empresa' || i.type === 'local') {
-      monthly[monthKey].income += (i.total !== undefined ? i.total : (i.totalVenta || 0));
-    } else if (i.type === 'basica') {
-      const compra = i.totalCompra !== undefined ? i.totalCompra : 0;
-      const venta = i.totalVenta !== undefined ? i.totalVenta : (i.total || 0);
-      monthly[monthKey].expense += compra;
-      monthly[monthKey].income += venta;
+
+    if (i.itemType === 'egreso' || i.type === 'egreso') {
+      monthly[monthKey].expense += (i.amount || i.total || 0);
+    } else if (i.itemType === 'ingreso' || i.type === 'ingreso') {
+      monthly[monthKey].income += (i.amount || i.total || 0);
+    } else if (i.itemType === 'invoice' && (i.type === 'empresa' || i.type === 'local')) {
+      const hasIncomeRef = items.some(ing => (ing.itemType === 'ingreso' || ing.type === 'ingreso') && String(ing.ref) === String(i.id));
+      if (!hasIncomeRef) {
+        monthly[monthKey].income += (i.total !== undefined ? i.total : (i.totalVenta || 0));
+      }
     }
   });
 

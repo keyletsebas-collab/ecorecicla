@@ -60,5 +60,3 @@ begin
 
   Result := RuntimeNeeded;
 end;
-
-
