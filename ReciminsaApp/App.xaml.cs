@@ -1,3 +1,4 @@
+#nullable enable
 namespace ReciminsaApp;
 
 public partial class App : Application

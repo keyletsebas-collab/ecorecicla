@@ -3,5 +3,5 @@
     "dotnet.sdk.dotnetPath": "/usr/bin/dotnet",
     "omnisharp.dotnetPath": "/usr/bin/dotnet",
     "omnisharp.enableMsBuildLoadProjectsOnDemand": false,
-    "dotnet.defaultTargetFramework": "net10.0-android"
+    "dotnet.defaultTargetFramework": "net10.0-android36.0"
 }

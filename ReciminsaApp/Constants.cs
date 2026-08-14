@@ -1,13 +1,16 @@
+using System.IO;
+using SQLite;
+
 namespace ReciminsaApp;
 
 public static class Constants
 {
     public const string DatabaseFilename = "ReciminsaOffline.db3";
 
-    public const SQLite.SQLiteOpenFlags Flags =
-        SQLite.SQLiteOpenFlags.ReadWrite |
-        SQLite.SQLiteOpenFlags.Create |
-        SQLite.SQLiteOpenFlags.SharedCache;
+    public const SQLiteOpenFlags Flags =
+        SQLiteOpenFlags.ReadWrite |
+        SQLiteOpenFlags.Create |
+        SQLiteOpenFlags.SharedCache;
 
     public static string DatabasePath =>
         Path.Combine(FileSystem.AppDataDirectory, DatabaseFilename);

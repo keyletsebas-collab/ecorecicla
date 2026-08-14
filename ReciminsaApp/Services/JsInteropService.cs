@@ -1,12 +1,14 @@
-using Microsoft.JSInterop;
-using System.Threading.Tasks;
+#nullable enable
 using System;
+using System.IO;
+using System.Threading.Tasks;
+using Microsoft.JSInterop;
 
 namespace ReciminsaApp.Services;
 
 public static class JsInteropService
 {
-    private static DatabaseService _dbService = new DatabaseService();
+    private static readonly DatabaseService _dbService = new();
 
     [JSInvokable]
     public static async Task DownloadFile(string filename, string base64Data)
@@ -14,12 +16,12 @@ public static class JsInteropService
         try
         {
             byte[] fileBytes = Convert.FromBase64String(base64Data);
-            
+
             // Generate a safe unique file path in the cache directory
             string cachePath = FileSystem.CacheDirectory;
             string safeFileName = filename.Replace("/", "_").Replace("\\", "_");
             string filePath = Path.Combine(cachePath, safeFileName);
-            
+
             // Ensure unique name if file exists (just in case)
             int count = 1;
             string fileNameOnly = Path.GetFileNameWithoutExtension(safeFileName);
@@ -63,12 +65,12 @@ public static class JsInteropService
         var records = await _dbService.GetUnsyncedRecordsAsync();
         return System.Text.Json.JsonSerializer.Serialize(records);
     }
-    
+
     [JSInvokable]
     public static async Task MarkAsSynced(int id)
     {
         var record = await _dbService.GetRecordAsync(id);
-        if(record != null)
+        if (record != null)
         {
             record.IsSynced = true;
             await _dbService.SaveRecordAsync(record);

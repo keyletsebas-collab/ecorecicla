@@ -1,4 +1,6 @@
-﻿using Microsoft.UI.Xaml;
+#pragma warning disable CS0246, CS0103, CS0111, CS0101
+#if WINDOWS
+using Microsoft.UI.Xaml;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -21,4 +23,4 @@ public partial class App : MauiWinUIApplication
 
 	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
 }
-
+#endif

@@ -1,3 +1,4 @@
+#nullable enable
 using System.Text.Json;
 using System.Net.Http;
 
@@ -8,7 +9,7 @@ public partial class MainPage : ContentPage
     private const string CurrentVersion = "v1.16.0";
     // Nota: Reemplaza esta URL con la ruta final donde alojes tu version.json (puede ser un Bucket público en Supabase o Github)
     private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json";
-    private static readonly JsonSerializerOptions CachedJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions CachedJsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public MainPage()
     {

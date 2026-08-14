@@ -1,3 +1,4 @@
+#nullable enable
 using SQLite;
 using System.Collections.Generic;
 using System.Threading.Tasks;

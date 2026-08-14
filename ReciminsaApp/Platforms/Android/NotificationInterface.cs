@@ -1,7 +1,17 @@
+#nullable enable
 #if ANDROID
+using System;
+using System.IO;
+using System.Threading.Tasks;
 using Android.Webkit;
 using Plugin.LocalNotification;
-using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.ApplicationModel.DataTransfer;
+using Microsoft.Maui.Dispatching;
+using Microsoft.Maui.Media;
+using Microsoft.Maui.Storage;
+
+#pragma warning disable CA1822 // Mark members as static
 
 namespace ReciminsaApp.Platforms.Android
 {
@@ -44,7 +54,7 @@ namespace ReciminsaApp.Platforms.Android
             {
                 byte[] fileBytes = Convert.FromBase64String(base64Data);
                 string filePath = "";
-                
+
                 try
                 {
                     var downloadsDir = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads);
@@ -54,7 +64,7 @@ namespace ReciminsaApp.Platforms.Android
                     }
                     string downloadsPath = downloadsDir.AbsolutePath;
                     filePath = System.IO.Path.Combine(downloadsPath, filename);
-                    
+
                     int count = 1;
                     string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filename);
                     string extension = System.IO.Path.GetExtension(filename);
@@ -82,7 +92,7 @@ namespace ReciminsaApp.Platforms.Android
                         {
                             File = new ReadOnlyFile(finalPath)
                         });
-                        
+
                         if (!opened)
                         {
                             await Share.Default.RequestAsync(new ShareFileRequest
@@ -143,10 +153,7 @@ namespace ReciminsaApp.Platforms.Android
         {
             try
             {
-                MainThread.BeginInvokeOnMainThread(async () =>
-                {
-                    await Launcher.Default.OpenAsync(new Uri(url));
-                });
+                MainThread.BeginInvokeOnMainThread(async () => await Launcher.Default.OpenAsync(new Uri(url)));
             }
             catch (Exception ex)
             {
@@ -241,7 +248,7 @@ namespace ReciminsaApp.Platforms.Android
                     }
 
                     // Android 9 (API 28) y superior: usar BiometricPrompt con todos los métodos
-                    if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.P)
+                    if (OperatingSystem.IsAndroidVersionAtLeast(28))
                     {
                         var executor = activity.MainExecutor;
                         if (executor == null)
@@ -250,10 +257,7 @@ namespace ReciminsaApp.Platforms.Android
                             return;
                         }
 
-                        var callback = new BiometricCallback((success, err) =>
-                        {
-                            SendBiometricResultToJS(success, err);
-                        });
+                        var callback = new BiometricCallback((success, err) => SendBiometricResultToJS(success, err));
 
                         var builder = new global::Android.Hardware.Biometrics.BiometricPrompt.Builder(activity)
                             .SetTitle(string.IsNullOrEmpty(title) ? "Confirmar Identidad" : title)
@@ -261,7 +265,7 @@ namespace ReciminsaApp.Platforms.Android
 
                         // API 30+ (Android 11): usar SetAllowedAuthenticators para habilitar
                         // TODOS los métodos: huella, rostro, iris, PIN, patrón, contraseña
-                        if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.R)
+                        if (OperatingSystem.IsAndroidVersionAtLeast(30))
                         {
                             // BIOMETRIC_WEAK = 0x00FF (huella, rostro, iris)
                             // DEVICE_CREDENTIAL = 0x8000 (PIN, patrón, contraseña)
@@ -270,9 +274,9 @@ namespace ReciminsaApp.Platforms.Android
                         else
                         {
                             // API 28-29: usar SetDeviceCredentialAllowed (deprecated en API 30 pero funcional aquí)
-                            #pragma warning disable CA1422 // Validate platform compatibility
+                            #pragma warning disable CA1416, CA1422 // Validate platform compatibility
                             builder.SetDeviceCredentialAllowed(true);
-                            #pragma warning restore CA1422
+                            #pragma warning restore CA1416, CA1422
                         }
 
                         var prompt = builder.Build();
@@ -283,12 +287,14 @@ namespace ReciminsaApp.Platforms.Android
                     {
                         // Android 8 y anterior: usar KeyguardManager que soporta PIN/patrón/contraseña
                         var keyguardManager = (global::Android.App.KeyguardManager?)activity.GetSystemService(global::Android.Content.Context.KeyguardService);
-                        if (keyguardManager != null && keyguardManager.IsKeyguardSecure)
+                        if (keyguardManager?.IsKeyguardSecure is true)
                         {
+                            #pragma warning disable CA1422
                             var intent = keyguardManager.CreateConfirmDeviceCredentialIntent(
                                 string.IsNullOrEmpty(title) ? "Confirmar Identidad" : title,
                                 string.IsNullOrEmpty(subtitle) ? "Usa tu método de seguridad para continuar" : subtitle
                             );
+                            #pragma warning restore CA1422
                             if (intent != null)
                             {
                                 activity.StartActivity(intent);
@@ -319,7 +325,7 @@ namespace ReciminsaApp.Platforms.Android
             {
                 string safeErr = error.Replace("'", "\\'").Replace("\n", " ");
                 string script = $"if (typeof window.onBiometricAuthResult === 'function') {{ window.onBiometricAuthResult({(success ? "true" : "false")}, '{safeErr}'); }}";
-                
+
                 if (_webView != null)
                 {
                     _webView.EvaluateJavascript(script, null);
@@ -332,37 +338,31 @@ namespace ReciminsaApp.Platforms.Android
         }
     }
 
-    public class BiometricCallback : global::Android.Hardware.Biometrics.BiometricPrompt.AuthenticationCallback, global::Android.Content.IDialogInterfaceOnClickListener
+    [System.Runtime.Versioning.SupportedOSPlatform("android28.0")]
+    public class BiometricCallback(Action<bool, string> onResult) : global::Android.Hardware.Biometrics.BiometricPrompt.AuthenticationCallback, global::Android.Content.IDialogInterfaceOnClickListener
     {
-        private readonly Action<bool, string> _onResult;
-
-        public BiometricCallback(Action<bool, string> onResult)
-        {
-            _onResult = onResult;
-        }
-
         public override void OnAuthenticationSucceeded(global::Android.Hardware.Biometrics.BiometricPrompt.AuthenticationResult? result)
         {
             base.OnAuthenticationSucceeded(result);
-            _onResult(true, "");
+            onResult(true, "");
         }
 
         public override void OnAuthenticationFailed()
         {
             base.OnAuthenticationFailed();
-            // No llamamos _onResult aquí porque Android permite reintentar automáticamente
+            // No llamamos onResult aquí porque Android permite reintentar automáticamente
             // Solo se reporta en OnAuthenticationError cuando se agotan los intentos
         }
 
         public override void OnAuthenticationError(global::Android.Hardware.Biometrics.BiometricErrorCode errorCode, Java.Lang.ICharSequence? errString)
         {
             base.OnAuthenticationError(errorCode, errString);
-            _onResult(false, errString?.ToString() ?? "Error de autenticación biométrica");
+            onResult(false, errString?.ToString() ?? "Error de autenticación biométrica");
         }
 
         public void OnClick(global::Android.Content.IDialogInterface? dialog, int which)
         {
-            _onResult(false, "Cancelado por el usuario");
+            onResult(false, "Cancelado por el usuario");
         }
     }
 }
