@@ -166,7 +166,7 @@
         let hasData = false;
         WATCHED_KEYS.forEach(k => {
             const val = localStorage.getItem(userKey(k.pattern));
-            if (val) {
+            if (val !== null && val !== undefined) {
                 try {
                     dataToSync[k.pattern] = JSON.parse(val);
                 } catch (_) {

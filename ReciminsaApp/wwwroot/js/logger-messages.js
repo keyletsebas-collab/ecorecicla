@@ -184,6 +184,11 @@
             return new Promise((resolve) => {
                 this.initDOM();
 
+                if (this.cleanupTimeout) {
+                    clearTimeout(this.cleanupTimeout);
+                    this.cleanupTimeout = null;
+                }
+
                 const overlay = document.getElementById('native-dialog-overlay');
                 const card = document.getElementById('native-dialog-card');
                 const iconBg = document.getElementById('native-dialog-icon-bg');
@@ -235,11 +240,13 @@
 
                 const cleanup = () => {
                     card.classList.remove('active');
-                    setTimeout(() => {
+                    if (this.cleanupTimeout) clearTimeout(this.cleanupTimeout);
+                    this.cleanupTimeout = setTimeout(() => {
                         overlay.classList.add('hidden');
                         confirmBtn.onclick = null;
                         cancelBtn.onclick = null;
                         document.removeEventListener('keydown', keyHandler);
+                        this.cleanupTimeout = null;
                     }, 200);
                 };
 

@@ -62,6 +62,7 @@ function renderCategoryBreakdown(entries, isIncome) {
 // =============================================
 
 function renderIngresosPage(container) {
+  if (typeof sanitizeFinancialData === 'function') sanitizeFinancialData();
   const entries = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
   const total = entries.reduce((s, e) => s + (typeof getConvertedAmount === 'function' ? getConvertedAmount(e.amount, e.currency) : (e.amount || 0)), 0);
 
@@ -145,6 +146,7 @@ function handleAddIncome(evt) {
 // =============================================
 
 function renderEgresosPage(container) {
+  if (typeof sanitizeFinancialData === 'function') sanitizeFinancialData();
   const entries = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
   const total = entries.reduce((s, e) => s + (typeof getConvertedAmount === 'function' ? getConvertedAmount(e.amount, e.currency) : (e.amount || 0)), 0);
 
@@ -249,11 +251,15 @@ function renderFinanceList(entries, type) {
   </div>`;
 }
 
-function deleteFinanceEntry(type, id) {
+async function deleteFinanceEntry(type, id) {
+  const ok = await window.AppDialog.confirm('¿Estás seguro de que deseas eliminar este registro?', 'Eliminar Registro');
+  if (!ok) return;
   const baseKey = type === 'ingreso' ? 'recim_ingresos' : 'recim_egresos';
   const list = JSON.parse(localStorage.getItem(userKey(baseKey)) || '[]').filter(e => e.id !== id);
-  // localStorage override in sync.js automatically pushes deletion to Firebase
   localStorage.setItem(userKey(baseKey), JSON.stringify(list));
+  if (window.forceSync) {
+    try { await window.forceSync(); } catch (_) {}
+  }
   showToast(t('toast.del_entry'), 'success');
   rerenderCurrentPage();
 }

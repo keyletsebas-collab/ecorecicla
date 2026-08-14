@@ -67,13 +67,14 @@ Dado que la compilación de WinUI requiere el SDK nativo de Windows, debes ejecu
 ```text
 1. Clona el repositorio en tu PC con Windows.
 2. Abre la consola y ejecuta: "git pull origin main"
-3. Elimina carpetas temporales anteriores ("bin" y "obj" en ReciminsaApp).
-4. Compila en modo Release autocontenido:
-   dotnet publish -f net10.0-windows10.0.19041.0 -c Release -r win-x64 --self-contained true -p:PublishSelfContained=true -p:PublishSingleFile=false
-5. Copia los archivos del publish a la carpeta de distribución.
-6. Compila el instalador usando Inno Setup:
+3. Sincroniza los archivos web ejecutando: "node build.js"
+4. Elimina carpetas temporales anteriores ("bin" y "obj" en ReciminsaApp).
+5. Compila en modo Release autocontenido:
+   dotnet publish -f net9.0-windows10.0.19041.0 -c Release -r win-x64 --self-contained true -p:PublishSelfContained=true -p:PublishSingleFile=false
+6. Copia los archivos del publish a la carpeta "reciminsaapp windows port".
+7. Compila el instalador usando Inno Setup:
    iscc InnoSetupScript_MAUI.iss
-7. El archivo final "Instalar_Reciminsa_Windows.exe" estará listo para distribuir.
+8. El archivo final "Instalar_Reciminsa_Windows.exe" estará listo para distribuir.
 ```
 
 ---
