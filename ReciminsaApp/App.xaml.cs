@@ -1,3 +1,5 @@
+using Microsoft.Maui.Controls;
+
 namespace ReciminsaApp;
 
 public partial class App : Application
