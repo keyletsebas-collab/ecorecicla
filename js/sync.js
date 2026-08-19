@@ -26,6 +26,9 @@
     const SETTINGS_KEY = 'recim_settings';
     const USERS_KEY = 'recim_users';
 
+    // Flag to prevent sync loop (pull triggering automatic push)
+    let isSyncPulling = false;
+
     console.log("🔄 Sync Module v1.1 Active: Cloud deletions support enabled.");
 
     /**
@@ -150,10 +153,52 @@
         } catch (_) { return null; }
     }
 
+    /**
+     * Helper: Combina elementos de arreglos por su ID/código sin destruir registros de otros empleados.
+     */
+    function mergeItemsById(localList, remoteList) {
+        if (!Array.isArray(localList)) localList = [];
+        if (!Array.isArray(remoteList)) remoteList = [];
+
+        const map = new Map();
+
+        const getItemKey = (item) => {
+            if (!item || typeof item !== 'object') return null;
+            return item.id || item.code || item.codeId || item.nit || null;
+        };
+
+        // Agregar remotos al mapa
+        remoteList.forEach(item => {
+            const key = getItemKey(item);
+            if (key) {
+                map.set(String(key), item);
+            }
+        });
+
+        // Fusionar locales: si no existe en remoto o el local es más reciente, conserva/actualiza
+        localList.forEach(item => {
+            const key = getItemKey(item);
+            if (key) {
+                if (!map.has(String(key))) {
+                    map.set(String(key), item);
+                } else {
+                    const existing = map.get(String(key));
+                    const localTime = new Date(item.createdAt || item.updatedAt || item.date || 0).getTime();
+                    const remoteTime = new Date(existing.createdAt || existing.updatedAt || existing.date || 0).getTime();
+                    if (localTime > remoteTime) {
+                        map.set(String(key), item);
+                    }
+                }
+            }
+        });
+
+        return Array.from(map.values());
+    }
+
     let lastPushTime = 0;
 
     /**
-     * Push current localStorage data to Supabase.
+     * Push current localStorage data to Supabase (Relational Tables + user_data fallback).
      */
     async function syncPushData(force = false) {
         if (!isSupabaseActive || !supabaseClient) return;
@@ -177,8 +222,46 @@
         });
 
         try {
+            // Sincronización relacional a nivel de fila individual por entidad
+            const entityMap = [
+                { pattern: 'recim_invoices', table: 'invoices' },
+                { pattern: 'recim_ingresos', table: 'finances', type: 'ingreso' },
+                { pattern: 'recim_egresos', table: 'finances', type: 'egreso' },
+                { pattern: 'recim_clients', table: 'clients' },
+                { pattern: 'recim_material_codes', table: 'materials' },
+                { pattern: 'recim_collaborators', table: 'collaborators' }
+            ];
+
+            for (const ent of entityMap) {
+                const val = localStorage.getItem(userKey(ent.pattern));
+                if (val) {
+                    try {
+                        const items = JSON.parse(val);
+                        if (Array.isArray(items) && items.length > 0) {
+                            const rows = items.map(item => {
+                                const itemId = String(item.id || item.code || `${ent.pattern}_${Date.now()}_${Math.random()}`);
+                                return {
+                                    id: itemId,
+                                    db_id: dbId,
+                                    type: ent.type || item.type || null,
+                                    data: item,
+                                    updated_at: new Date().toISOString()
+                                };
+                            });
+                            for (let i = 0; i < rows.length; i += 50) {
+                                const chunk = rows.slice(i, i + 50);
+                                await supabaseClient.from(ent.table).upsert(chunk);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`⚠️ Error insertando filas relacionales en ${ent.table}:`, e);
+                    }
+                }
+            }
+
+            // Respaldo secundario en user_data
             const finalData = hasData ? dataToSync : {};
-            const { error } = await supabaseClient
+            await supabaseClient
                 .from('user_data')
                 .upsert({
                     id: dbId,
@@ -186,8 +269,7 @@
                     updated_at: new Date().toISOString()
                 });
 
-            if (error) throw error;
-            console.log(`☁️ Cloud Sync Push: ${hasData ? 'Datos actualizados' : 'Nube limpiada (vacío)'} para DB: ${dbId}`);
+            console.log(`☁️ Cloud Relational Push: Filas relacionales insertadas/actualizadas para DB: ${dbId}`);
             
             // Sincronizar también con Google Drive (respaldo dual automático)
             syncPushGDrive(finalData, force).then(ok => {
@@ -513,7 +595,7 @@ async function sendGDriveWelcomeDoc() {
 }
 
     /**
-     * Pull data from Supabase and update localStorage.
+     * Pull data from Supabase (Relational Tables + user_data fallback) and update localStorage.
      */
     async function syncPullData(dbId) {
         if (!isSupabaseActive || !supabaseClient) return;
@@ -522,80 +604,132 @@ async function sendGDriveWelcomeDoc() {
         }
         if (!dbId) return;
 
+        isSyncPulling = true;
         try {
+            let changed = false;
+
+            // Verificar permisos de módulos para el usuario actual antes de descargar
+            let canAccessIngresos = true;
+            let canAccessEgresos = true;
+            if (typeof getModuleConfig === 'function') {
+                const moduleCfg = getModuleConfig();
+                const isAdmin = (typeof isCurrentUserAdminOrFounder === 'function') ? isCurrentUserAdminOrFounder() : true;
+                if (!isAdmin) {
+                    if (moduleCfg['ingresos'] === false) canAccessIngresos = false;
+                    if (moduleCfg['egresos'] === false) canAccessEgresos = false;
+                }
+            }
+
+            // Purgar datos financieros del dispositivo si el colaborador no tiene autorización
+            if (!canAccessIngresos) {
+                if (localStorage.getItem(userKey('recim_ingresos')) !== null) {
+                    localStorage.removeItem(userKey('recim_ingresos'));
+                    console.log("🔒 Seguridad RLS/Local: Purga de ingresos no autorizados en dispositivo");
+                }
+            }
+            if (!canAccessEgresos) {
+                if (localStorage.getItem(userKey('recim_egresos')) !== null) {
+                    localStorage.removeItem(userKey('recim_egresos'));
+                    console.log("🔒 Seguridad RLS/Local: Purga de egresos no autorizados en dispositivo");
+                }
+            }
+
+            const entityMap = [
+                { pattern: 'recim_invoices', table: 'invoices', label: '🧾 Facturas' },
+                { pattern: 'recim_ingresos', table: 'finances', type: 'ingreso', label: '💰 Ingresos' },
+                { pattern: 'recim_egresos', table: 'finances', type: 'egreso', label: '💸 Egresos' },
+                { pattern: 'recim_clients', table: 'clients', label: '👥 Clientes' },
+                { pattern: 'recim_material_codes', table: 'materials', label: '🏷️ Materiales' },
+                { pattern: 'recim_collaborators', table: 'collaborators', label: '🤝 Colaboradores' }
+            ];
+
+            const relationalFound = new Set();
+
+            // 1. Descargar y fusionar filas relacionales por entidad (respetando permisos)
+            for (const ent of entityMap) {
+                if (ent.pattern === 'recim_ingresos' && !canAccessIngresos) continue;
+                if (ent.pattern === 'recim_egresos' && !canAccessEgresos) continue;
+
+                try {
+                    let query = supabaseClient.from(ent.table).select('id, type, data, is_deleted').eq('db_id', dbId);
+                    if (ent.type) {
+                        query = query.eq('type', ent.type);
+                    }
+                    const { data: rows, error } = await query;
+                    if (!error && Array.isArray(rows) && rows.length > 0) {
+                        relationalFound.add(ent.pattern);
+                        const remoteItems = rows.filter(r => !r.is_deleted).map(r => r.data);
+                        const localRaw = localStorage.getItem(userKey(ent.pattern));
+                        const localItems = localRaw ? JSON.parse(localRaw) : [];
+
+                        const merged = mergeItemsById(localItems, remoteItems);
+                        const mergedStr = JSON.stringify(merged);
+                        if (localRaw !== mergedStr) {
+                            localStorage.setItem(userKey(ent.pattern), mergedStr);
+                            changed = true;
+                            console.log(`☁️ Cloud Relational Pull: Fusionados ${merged.length} items en ${ent.label}`);
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`⚠️ Error descargando tabla relacional ${ent.table}:`, e);
+                }
+            }
+
+            // 2. Respaldo / fallback para llaves no relacionales o vacías en relacional
             const { data, error } = await supabaseClient
                 .from('user_data')
                 .select('data')
                 .eq('id', dbId)
                 .maybeSingle();
 
-            if (error) throw error;
+            if (!error && data && data.data) {
+                const remoteData = data.data;
+                WATCHED_KEYS.forEach(k => {
+                    if (relationalFound.has(k.pattern)) return; // ya procesado con datos relacionales
+                    if (k.pattern === 'recim_ingresos' && !canAccessIngresos) return;
+                    if (k.pattern === 'recim_egresos' && !canAccessEgresos) return;
 
-            if (!data || !data.data || Object.keys(data.data).length === 0) {
-                console.log(`☁️ Cloud Sync Pull: Sin datos en la nube para ${dbId}. Inicializando con datos locales...`);
-                await syncPushData(true);
-                return;
-            }
-            
-            const remoteData = data.data;
-            let changed = false;
+                    const remoteVal = remoteData[k.pattern];
+                    const localVal = localStorage.getItem(userKey(k.pattern));
+                    if (remoteVal !== undefined && remoteVal !== null) {
+                        const remoteStr = (typeof remoteVal === 'string') ? remoteVal : JSON.stringify(remoteVal);
+                        let remoteItems = [];
+                        try { remoteItems = Array.isArray(remoteVal) ? remoteVal : JSON.parse(remoteStr); } catch (_) {}
+                        
+                        let localItems = [];
+                        if (localVal) {
+                            try {
+                                const parsed = JSON.parse(localVal);
+                                if (Array.isArray(parsed)) localItems = parsed;
+                            } catch (_) {}
+                        }
 
-            // 1. Update or clear local data based on remote state
-            WATCHED_KEYS.forEach(k => {
-                const remoteVal = remoteData[k.pattern];
-                const localVal = localStorage.getItem(userKey(k.pattern));
-                
-                if (remoteVal === undefined) {
-                    // Missing in cloud: do NOT delete local data if it contains items!
-                    // This prevents wiping local data before it has been pushed.
-                    if (localVal !== null && localVal !== '[]' && localVal !== '{}') {
-                        console.log(`☁️ Cloud Sync Pull: ${k.label} no existe en la nube pero tiene datos locales. Conservando y programando push.`);
-                        setTimeout(() => syncPushData(), 1000);
-                    } else if (localVal !== null) {
-                        localStorage.removeItem(userKey(k.pattern));
-                        changed = true;
-                        console.log(`☁️ Cloud Sync Pull: Eliminando ${k.label} localmente (Sincronizado)`);
-                    }
-                } else {
-                    // Exists in cloud = update local if different
-                    const remoteStr = (typeof remoteVal === 'string') ? remoteVal : JSON.stringify(remoteVal);
-                    if (localVal !== remoteStr) {
-                        // Check if remote is empty but local has items
-                        let remoteIsEmpty = false;
-                        let localIsEmpty = true;
-                        
-                        try {
-                            const rParsed = remoteVal;
-                            const lParsed = JSON.parse(localVal || 'null');
-                            
-                            if (Array.isArray(rParsed) && rParsed.length === 0) remoteIsEmpty = true;
-                            else if (rParsed && typeof rParsed === 'object' && Object.keys(rParsed).length === 0) remoteIsEmpty = true;
-                            else if (rParsed === null || rParsed === '') remoteIsEmpty = true;
-                            
-                            if (lParsed && Array.isArray(lParsed) && lParsed.length > 0) localIsEmpty = false;
-                            else if (lParsed && typeof lParsed === 'object' && Object.keys(lParsed).length > 0) localIsEmpty = false;
-                        } catch(e){}
-                        
-                        if (remoteIsEmpty && !localIsEmpty) {
-                            console.log(`☁️ Cloud Sync Pull: ${k.label} está vacío en la nube pero local tiene datos. Conservando local y programando push.`);
-                            setTimeout(() => syncPushData(), 1000);
-                        } else {
-                            localStorage.setItem(userKey(k.pattern), remoteStr);
+                        let mergedStr = remoteStr;
+                        if (Array.isArray(remoteItems) && Array.isArray(localItems)) {
+                            const merged = mergeItemsById(localItems, remoteItems);
+                            mergedStr = JSON.stringify(merged);
+                        }
+
+                        if (localVal !== mergedStr) {
+                            localStorage.setItem(userKey(k.pattern), mergedStr);
                             changed = true;
-                            console.log(`☁️ Cloud Sync Pull: Actualizando ${k.label} (Datos remotos)`);
+                            console.log(`☁️ Cloud Fallback Pull: Recuperados datos de ${k.pattern} desde user_data`);
                         }
                     }
-                }
-            });
+                });
+            }
 
             if (changed) {
-                console.log('☁️ Cloud Sync Pull: Cambios aplicados, renderizando...');
+                console.log('☁️ Cloud Sync Pull: Cambios relacionales aplicados, renderizando...');
                 try { rerenderCurrentPage(); } catch (_) { }
             } else {
                 console.log('☁️ Cloud Sync Pull: Local sincronizado con nube (sin cambios)');
             }
         } catch (err) {
-            console.error('Supabase Pull Error:', err);
+            const errStr = (err && (err.message || err.details || err.hint)) ? (err.message || err.details || err.hint) : (typeof err === 'object' ? JSON.stringify(err) : String(err));
+            console.error('Supabase Pull Error:', errStr);
+        } finally {
+            isSyncPulling = false;
         }
     }
 
@@ -834,8 +968,8 @@ async function sendGDriveWelcomeDoc() {
     localStorage.setItem = function (key, value) {
         originalSetItem.apply(this, arguments);
 
-        // If the key is one of our watched keys, push to cloud
-        if (isSupabaseActive && key.startsWith('recim_')) {
+        // Disparar push solo si la modificación provino del usuario (no del syncPull)
+        if (!isSyncPulling && isSupabaseActive && key.startsWith('recim_')) {
             const isWatched = WATCHED_KEYS.some(wk => userKey(wk.pattern) === key);
             if (isWatched) {
                 debouncedSyncPush();
@@ -847,8 +981,8 @@ async function sendGDriveWelcomeDoc() {
     localStorage.removeItem = function (key) {
         originalRemoveItem.apply(this, arguments);
 
-        // If a watched key is removed, sync the empty state to cloud
-        if (isSupabaseActive && key.startsWith('recim_')) {
+        // Disparar push solo si la eliminación provino del usuario (no del syncPull)
+        if (!isSyncPulling && isSupabaseActive && key.startsWith('recim_')) {
             const isWatched = WATCHED_KEYS.some(wk => userKey(wk.pattern) === key);
             if (isWatched) {
                 debouncedSyncPush();
@@ -865,21 +999,20 @@ async function sendGDriveWelcomeDoc() {
                 if (isSupabaseActive) {
                     syncPullData(dbId);
                     
-                    // Activate Realtime Database listeners
-                    supabaseClient.channel('custom-all-channel')
-                        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `id=eq.${dbId}` }, payload => {
-                            console.log('🔄 Cambio detectado en Realtime Database:', payload);
-                            if (Date.now() - lastPushTime < 3500) {
-                                console.log('⏭️ Ignorando cambio realtime porque fue originado por nosotros hace poco.');
-                                return;
-                            }
-                            syncPullData(dbId);
-                        })
-                        .subscribe((status) => {
-                            if (status === 'SUBSCRIBED') {
-                                console.log('📡 Conectado a Supabase Realtime Database exitosamente.');
-                            }
-                        });
+                    // Activar escuchadores de Supabase Realtime para tablas relacionales y user_data
+                    const tablesToListen = ['invoices', 'finances', 'clients', 'materials', 'collaborators', 'user_data'];
+                    tablesToListen.forEach(tableName => {
+                        supabaseClient.channel(`realtime:${tableName}:${dbId}`)
+                            .on('postgres_changes', { event: '*', schema: 'public', table: tableName, filter: `db_id=eq.${dbId}` }, payload => {
+                                console.log(`🔄 Cambio detectado en tabla relacional ${tableName}:`, payload);
+                                if (Date.now() - lastPushTime < 3500) {
+                                    console.log('⏭️ Ignorando cambio realtime porque fue originado por nosotros hace poco.');
+                                    return;
+                                }
+                                syncPullData(dbId);
+                            })
+                            .subscribe();
+                    });
                         
                     // Activar notificaciones Push para Soporte IT
                     supabaseClient.channel('global:support_notifications')

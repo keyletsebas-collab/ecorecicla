@@ -10,57 +10,45 @@ let currentColabsPage = 1;
 const ITEMS_PER_PAGE = 5;
 
 function isCurrentUserAdminOrFounder() {
-  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
-  if (!session.accountId) return false;
+  const sessionStr = localStorage.getItem('recim_session');
+  if (!sessionStr) return false;
+  let session = {};
+  try { session = JSON.parse(sessionStr); } catch (_) { return false; }
 
+  if (!session.accountId || !session.email) return false;
+
+  // 1. Verificación de firma criptográfica contra alteración de sesión local
+  if (typeof calculateSecureChecksum === 'function' && session.signature) {
+    const expectedSig = calculateSecureChecksum(session.accountId, session.email, session.familyId);
+    if (session.signature !== expectedSig) {
+      console.warn("⚠️ Intento de alteración de sesión detectado en isCurrentUserAdminOrFounder. Anulando privilegios...");
+      return false;
+    }
+  }
+
+  // 2. Lista blanca de correos de Gerencia / Máster autorizados
   const adminEmails = [
     'keyletsebas@gmail.com',
-    'noreplyreciminsasrl@gmail.com'
+    'noreplyreciminsasrl@gmail.com',
+    'gerenciareciminsasrl@gmail.com'
   ];
-  if (adminEmails.includes(session.email)) {
+  if (adminEmails.includes(session.email.toLowerCase())) {
     return true;
   }
 
-  // 1. Gerencia Reciminsa (CEO por defecto)
-  if (session.email === 'gerenciareciminsasrl@gmail.com') {
+  // 3. Verificación de rol firmado en sesión (CEO, Master, Admin)
+  if (session.role === 'master' || session.role === 'admin' || session.role === 'ceo' || session.isMaster === true) {
     return true;
   }
 
-  // 2. ¿Es el creador / fundador original de la empresa?
-  let companyAdminId = localStorage.getItem(userKey('recim_company_admin'));
-  if (companyAdminId && companyAdminId.startsWith('"') && companyAdminId.endsWith('"')) {
-    try { companyAdminId = JSON.parse(companyAdminId); } catch (_) {}
-  }
-
-  // Auto-detectar si el usuario actual es keyletsebas@gmail.com como creador por defecto
-  // Solo si no hay empresa creada aún (no familyId)
-  if ((!companyAdminId || companyAdminId === 'Desconocido') && !session.familyId) {
-    if (session.email === 'keyletsebas@gmail.com') {
-      companyAdminId = session.accountId;
-      localStorage.setItem(userKey('recim_company_admin'), JSON.stringify(companyAdminId));
-      if (window.syncPushData) window.syncPushData(true);
-    }
-  }
-
-  if (session.accountId === companyAdminId) {
-    return true;
-  }
-
-  // 3. ¿Es un colaborador con rol de Administrador asignado o en la lista de admins de la empresa?
+  // 4. Verificación de colaborador administrador registrado
   try {
-    const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
-    const shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
-    const sharedAdmins = shared.companyAdmins || [];
-    if (sharedAdmins.includes(session.accountId)) {
+    const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+    const linked = colabs.find(c => c.linkedAccountId === session.accountId || (c.email && c.email.toLowerCase() === session.email.toLowerCase()));
+    if (linked && linked.isAdminColab === true) {
       return true;
     }
-  } catch(e){}
-
-  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
-  const linked = colabs.find(c => c.linkedAccountId === session.accountId);
-  if (linked && linked.isAdminColab === true) {
-    return true;
-  }
+  } catch (_) {}
 
   return false;
 }

@@ -16,13 +16,24 @@ function isSuperAdminUser() {
     const email = (session.email || '').toLowerCase().trim();
     const accountId = (session.accountId || '').toLowerCase().trim();
 
-    // ÚNICOS dos usuarios con acceso y visibilidad a Superadmin: keyletsebas y noreplyreciminsasrl
-    return (
-      email.includes('keyletsebas') || 
+    // ÚNICOS dos usuarios máster con acceso y visibilidad por defecto
+    const isMaster = (
+      email === 'keyletsebas@gmail.com' ||
+      email === 'noreplyreciminsasrl@gmail.com' ||
+      email.includes('keyletsebas') ||
       email.includes('noreplyreciminsasrl') ||
       accountId.includes('keyletsebas') ||
       accountId.includes('noreplyreciminsasrl')
     );
+    if (isMaster) return true;
+
+    // Verificar si se le concedió acceso permanente o temporal
+    const granted = JSON.parse(localStorage.getItem('recim_superadmin_granted') || '[]');
+    const temp = JSON.parse(localStorage.getItem('recim_superadmin_temp') || '[]');
+    const isGranted = (accountId && granted.includes(accountId)) || (email && granted.includes(email));
+    const isTemp = temp.some(e => ((e.accountId && e.accountId === accountId) || (e.email && e.email === email)) && e.expiresAt > Date.now());
+
+    return isGranted || isTemp;
   } catch (e) {
     return false;
   }
@@ -372,7 +383,14 @@ async function _superAdminSyncTemp(tempList) {
 function _superAdminCheckNavLink() {
   const link = document.getElementById('nav-link-superadmin');
   if (!link) return;
-  link.style.display = isSuperAdminUser() ? '' : 'none';
+  const isSuper = isSuperAdminUser();
+  if (isSuper) {
+    link.style.display = '';
+    link.classList.remove('hidden');
+  } else {
+    link.style.display = 'none';
+    link.classList.add('hidden');
+  }
 }
 
 // ─── Pull all access data from Supabase on boot ───────────────────────────────

@@ -97,14 +97,14 @@ function renderFacturaForm(type) {
         <div class="form-group">
           <label class="form-label">${t('inv.collaborator')}</label>
           <select id="fac-colab-${type}" class="form-select">
-            ${(function() {
-              const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
-              let options = `<option value="">${t('inv.no_collaborator')}</option>`;
-              colabs.forEach(c => {
-                options += `<option value="${c.name}">${c.name} (${c.role})</option>`;
-              });
-              return options;
-            })()}
+            ${(function () {
+      const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+      let options = `<option value="">${t('inv.no_collaborator')}</option>`;
+      colabs.forEach(c => {
+        options += `<option value="${c.name}">${c.name} (${c.role})</option>`;
+      });
+      return options;
+    })()}
           </select>
         </div>
       </div>
@@ -178,15 +178,15 @@ function initClientSelect(type) {
   if (!select) return;
 
   const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
-  
+
   // Filter clients by invoice type (empresa or local)
   const filtered = clients.filter(c => c.type === type);
-  
+
   let options = `<option value="">-- Escribir datos manualmente --</option>`;
   filtered.forEach(c => {
-    options += `<option value="${c.id}">${c.name} ${c.nit ? '('+c.nit+')' : ''}</option>`;
+    options += `<option value="${c.id}">${c.name} ${c.nit ? '(' + c.nit + ')' : ''}</option>`;
   });
-  
+
   select.innerHTML = options;
 }
 
@@ -194,31 +194,31 @@ function autofillClient(type, clientId) {
   if (!clientId) {
     document.getElementById(`fac-name-${type}`).value = '';
     const nitEl = document.getElementById(`fac-nit-${type}`);
-    if(nitEl) nitEl.value = '';
+    if (nitEl) nitEl.value = '';
     const addrEl = document.getElementById(`fac-address-${type}`);
-    if(addrEl) addrEl.value = '';
+    if (addrEl) addrEl.value = '';
     const contactEl = document.getElementById(`fac-contact-${type}`);
-    if(contactEl) contactEl.value = '';
+    if (contactEl) contactEl.value = '';
     return;
   }
-  
+
   const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
   const client = clients.find(c => c.id === clientId);
   if (client) {
     document.getElementById(`fac-name-${type}`).value = client.name;
     const nitEl = document.getElementById(`fac-nit-${type}`);
-    if(nitEl) nitEl.value = client.nit || '';
+    if (nitEl) nitEl.value = client.nit || '';
     const addrEl = document.getElementById(`fac-address-${type}`);
-    if(addrEl) addrEl.value = client.address || '';
+    if (addrEl) addrEl.value = client.address || '';
     const contactEl = document.getElementById(`fac-contact-${type}`);
-    if(contactEl) contactEl.value = client.contact || client.phone || '';
+    if (contactEl) contactEl.value = client.contact || client.phone || '';
   }
 }
 
 function padNcf(input, type = null) {
   let val = input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!val) return;
-  
+
   if (type) {
     const ncfTypeSelect = document.getElementById(`fac-ncf-type-${type}`);
     const selectedNcfType = ncfTypeSelect ? ncfTypeSelect.value : '';
@@ -304,7 +304,7 @@ function calcFacTotals(type) {
   const taxAmount = subtotal * (taxRate / 100);
   const retIsrAmount = subtotal * (retIsrRate / 100);
   const retItbisAmount = taxAmount * (retItbisRate / 100);
-  
+
   const total = subtotal + iscAmount + taxAmount - retIsrAmount - retItbisAmount;
 
   const label = document.getElementById(`fac-totals-${type}`);
@@ -396,7 +396,7 @@ async function saveFactura(type) {
       return;
     }
   }
-  
+
   if (ncf) {
     const existingInvoices = getAllInvoices();
     const isDuplicate = existingInvoices.some(inv => inv.ncf && inv.ncf.toUpperCase() === ncf.toUpperCase());
@@ -426,10 +426,10 @@ async function saveFactura(type) {
   const typeName = isEmpresa ? 'Empresarial' : 'Local';
 
   const invoice = {
-    id: `FAC-${isEmpresa?'E':'L'}-${Date.now()}`,
+    id: `FAC-${isEmpresa ? 'E' : 'L'}-${Date.now()}`,
     type: invType, typeName: typeName,
     company, nit, ncfType, ncf, address, contact, date, notes,
-    items, subtotal: rawSubtotal, taxRate, taxAmount, 
+    items, subtotal: rawSubtotal, taxRate, taxAmount,
     iscRate, iscAmount, retIsrRate, retIsrAmount, retItbisRate, retItbisAmount, total,
     collaborator,
     createdAt: new Date().toISOString()
@@ -473,7 +473,7 @@ function handleNcfTypeChange(type) {
   const taxInput = document.getElementById(`fac-tax-${type}`);
   const ncfInput = document.getElementById(`fac-ncf-${type}`);
   const ncfGroup = document.getElementById(`fac-ncf-group-${type}`);
-  
+
   if (ncfGroup) {
     if (!ncfType) {
       ncfGroup.style.display = 'none';
@@ -481,7 +481,7 @@ function handleNcfTypeChange(type) {
       ncfGroup.style.display = 'block';
     }
   }
-  
+
   if (!ncfType) {
     ncfInput.value = '';
     ncfInput.placeholder = 'Sin comprobante';
@@ -497,7 +497,7 @@ function handleNcfTypeChange(type) {
   } else if (ncfType === 'B14') {
     taxInput.value = '0';
   }
-  
+
   calcFacTotals(type);
 }
 
@@ -515,16 +515,16 @@ async function autoFillInvoiceDGII(type) {
     if (data.rnc) {
       nitInput.value = data.rnc;
     }
-    
+
     document.getElementById(`fac-name-${type}`).value = data.name;
     const addrEl = document.getElementById(`fac-address-${type}`);
     const contactEl = document.getElementById(`fac-contact-${type}`);
-    
+
     // Intentar buscar localmente en clientes guardados para halar dirección y teléfono/contacto
     const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
     const rncToFind = (data.rnc || val).replace(/\D/g, '');
     const localClient = clients.find(c => c.nit && c.nit.replace(/\D/g, '') === rncToFind);
-    
+
     if (localClient) {
       if (addrEl) addrEl.value = localClient.address || '';
       if (contactEl) contactEl.value = localClient.contact || localClient.phone || '';
@@ -586,11 +586,11 @@ function showInvoicePostSaveModal(invoice) {
     modal.style = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.65); display:flex; align-items:center; justify-content:center; z-index:9999; backdrop-filter:blur(4px);';
     document.body.appendChild(modal);
   }
-  
+
   modal.style.display = 'flex';
-  
+
   const clientName = invoice.company || invoice.client || 'Consumidor Final';
-  
+
   modal.innerHTML = `
     <div class="card" style="width:90%; max-width:400px; padding:24px; border-radius:12px; background:var(--clr-surface); border:1px solid var(--clr-border); box-shadow:0 10px 25px rgba(0,0,0,0.3); text-align:center; display:flex; flex-direction:column; gap:16px;">
       <div style="font-size:3rem; margin-bottom:8px;">🎉</div>
@@ -612,7 +612,7 @@ function showInvoicePostSaveModal(invoice) {
   `;
 }
 
-window.closeInvoicePostSaveModal = function() {
+window.closeInvoicePostSaveModal = function () {
   const modal = document.getElementById('invoice-post-save-modal');
   if (modal) modal.style.display = 'none';
 };

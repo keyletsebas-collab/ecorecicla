@@ -28,16 +28,17 @@ function userKey(baseKey) {
     if (session) {
       const user = JSON.parse(session);
       if (user && user.accountId) {
-        if (typeof calculateSecureChecksum === 'function') {
+        if (typeof calculateSecureChecksum === 'function' && user.signature) {
           const expectedSig = calculateSecureChecksum(user.accountId, user.email, user.familyId);
           if (user.signature !== expectedSig) {
-            console.warn("⚠️ Sesión alterada detectada. Cerrando sesión...");
+            console.warn("⚠️ Sesión alterada detectada en userKey. Cerrando sesión...");
             localStorage.removeItem('recim_session');
             window.location.reload();
             return baseKey;
           }
         }
-        return `${baseKey}_${user.accountId}`;
+        const scope = user.familyId ? `family_${user.familyId}` : user.accountId;
+        return `${baseKey}_${scope}`;
       }
     }
   } catch (e) {
@@ -244,7 +245,8 @@ async function handleLogin(evt) {
         avatar: (data.avatar || data.name || 'U')[0].toUpperCase(),
         provider: 'email',
         accountId: data.id,
-        familyId: data.family_id || null
+        familyId: data.family_id || null,
+        lastOnlineValidation: Date.now()
       };
 
       if (typeof calculateSecureChecksum === 'function') {
@@ -505,7 +507,8 @@ async function handleVerifySignup(evt) {
       avatar: pending.name[0].toUpperCase(),
       provider: 'email',
       accountId: accountId,
-      familyId: null
+      familyId: null,
+      lastOnlineValidation: Date.now()
     };
 
     if (typeof calculateSecureChecksum === 'function') {
@@ -565,6 +568,10 @@ async function handleLogout() {
 
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
+  
+  if (typeof _superAdminCheckNavLink === 'function') {
+    _superAdminCheckNavLink();
+  }
   
   // Reset BOTH login and signup form button states (Resolves Bug 1!)
   const loginBtn = document.getElementById('login-btn');

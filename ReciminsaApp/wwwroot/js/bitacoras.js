@@ -365,17 +365,11 @@ async function saveBasicInvoiceBatch() {
 
   saveInvoice(invoice);
 
-  // Finance entries
+  // Finance entries: Registrar únicamente el egreso por la compra del material en la bitácora
   if (totalC > 0) {
     addFinanceEntry('egreso', {
       concept: `Compra: ${invoice.id} – ${client}`,
       amount: totalC, date, category: 'Materiales', ref: invoice.id
-    });
-  }
-  if (balanceTotal > 0) {
-    addFinanceEntry('ingreso', {
-      concept: `Ganancia: ${invoice.id} – ${client}`,
-      amount: balanceTotal, date, category: 'Materiales', ref: invoice.id
     });
   }
 

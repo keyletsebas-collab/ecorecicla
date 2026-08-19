@@ -17,9 +17,24 @@ public partial class MainPage : ContentPage
         blazorWebView.BlazorWebViewInitialized += BlazorWebView_BlazorWebViewInitialized;
         blazorWebView.UrlLoading += (sender, e) =>
         {
-            if (e.Url.Host != "0.0.0.0" && e.Url.Host != "0.0.0.1" && e.Url.Host != "localhost")
+            var host = e.Url?.Host?.ToLowerInvariant() ?? string.Empty;
+            var scheme = e.Url?.Scheme?.ToLowerInvariant() ?? string.Empty;
+
+            // Navegaciones internas del BlazorWebView (esquemas locales y hosts de app local)
+            bool isLocalUrl = scheme == "app" || scheme == "file" || scheme == "about" || scheme == "data" || scheme == "blob"
+                              || string.IsNullOrEmpty(host)
+                              || host == "0.0.0.0"
+                              || host == "0.0.0.1"
+                              || host == "localhost"
+                              || host == "app";
+
+            if (!isLocalUrl)
             {
                 e.UrlLoadingStrategy = Microsoft.AspNetCore.Components.WebView.UrlLoadingStrategy.OpenExternally;
+            }
+            else
+            {
+                e.UrlLoadingStrategy = Microsoft.AspNetCore.Components.WebView.UrlLoadingStrategy.OpenInWebView;
             }
         };
     }

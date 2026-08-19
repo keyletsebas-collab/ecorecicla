@@ -209,28 +209,34 @@ async function submitTicket(e) {
       formattedUserName = `${cleanUserName(session.name)} | Empresa: ${companyName} (${companyId}) | Cuenta Principal`;
     }
 
+    const ticketPayload = {
+      user_email: session.email, // Keep in reporter's dashboard
+      user_name: formattedUserName,
+      module: moduleVal,
+      issue_date: dateVal,
+      description: descVal,
+      status: 'open'
+    };
+
+    // Generar UUID en cliente para compatibilidad universal con Supabase
+    if (window.crypto && window.crypto.randomUUID) {
+      ticketPayload.id = window.crypto.randomUUID();
+    }
+
     const { data, error } = await supabaseClient
       .from('support_tickets')
-      .insert([
-        {
-          user_email: session.email, // Keep in reporter's dashboard
-          user_name: formattedUserName,
-          module: moduleVal,
-          issue_date: dateVal,
-          description: descVal,
-          status: 'open'
-        }
-      ]);
+      .insert([ticketPayload]);
 
     if (error) throw error;
 
-    alert("Reclamo enviado correctamente. El equipo de soporte se pondrá en contacto pronto.");
+    alert("✅ Reclamo enviado correctamente. El equipo de soporte se pondrá en contacto pronto.");
     document.getElementById('ticket-form').reset();
     document.getElementById('ticket-user').value = session.email;
     loadMyTickets();
   } catch (err) {
     console.error("Error al enviar reclamo:", err);
-    alert("Ocurrió un error. Verifica que la tabla 'support_tickets' exista en Supabase.");
+    const detail = err ? (err.message || err.details || JSON.stringify(err)) : '';
+    alert(`❌ Error al enviar el reclamo: ${detail}\n\nPor favor verifica que la tabla 'support_tickets' exista en Supabase o ejecuta el script SQL 'soporte-it/supabase_setup.sql'.`);
   } finally {
     btn.disabled = false;
     spinner.classList.add('hidden');

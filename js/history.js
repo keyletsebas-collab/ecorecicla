@@ -12,24 +12,27 @@ function getAllHistoryItems() {
 
   const normInvoices = invoices.map(i => ({
     ...i,
+    date: i.date || (i.createdAt ? i.createdAt.split('T')[0] : (i.fecha ? i.fecha.split('T')[0] : new Date().toISOString().split('T')[0])),
     itemType: 'invoice',
     total: i.total !== undefined ? i.total : (i.totalVenta || 0)
   }));
   const normIngresos = ingresos.map(i => ({
     ...i,
+    date: i.date || (i.createdAt ? i.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
     itemType: 'ingreso',
     type: 'ingreso',
     typeName: 'Ingreso',
     total: i.amount,
-    createdAt: i.createdAt || new Date(i.date + 'T12:00:00Z').toISOString()
+    createdAt: i.createdAt || new Date((i.date || new Date().toISOString().split('T')[0]) + 'T12:00:00Z').toISOString()
   }));
   const normEgresos = egresos.map(e => ({
     ...e,
+    date: e.date || (e.createdAt ? e.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
     itemType: 'egreso',
     type: 'egreso',
     typeName: 'Egreso',
     total: e.amount,
-    createdAt: e.createdAt || new Date(e.date + 'T12:00:00Z').toISOString()
+    createdAt: e.createdAt || new Date((e.date || new Date().toISOString().split('T')[0]) + 'T12:00:00Z').toISOString()
   }));
 
   return [...normInvoices, ...normIngresos, ...normEgresos];
@@ -299,7 +302,9 @@ function renderInvoiceCards(items) {
 
   // Sort by date (desc) and then by creation time (desc)
   const sorted = [...items].sort((a, b) => {
-    if (b.date !== a.date) return b.date.localeCompare(a.date);
+    const dateA = a.date || (a.createdAt ? a.createdAt.split('T')[0] : '');
+    const dateB = b.date || (b.createdAt ? b.createdAt.split('T')[0] : '');
+    if (dateB !== dateA) return dateB.localeCompare(dateA);
     const timeA = a.createdAt || '';
     const timeB = b.createdAt || '';
     return timeB.localeCompare(timeA);
@@ -308,10 +313,13 @@ function renderInvoiceCards(items) {
   // Group by Month and then by Day
   const groups = {};
   sorted.forEach(item => {
-    if (!item.date) return;
-    const [y, m, d] = item.date.split('-');
+    const rawDate = item.date || (item.createdAt ? item.createdAt.split('T')[0] : (item.fecha ? item.fecha.split('T')[0] : new Date().toISOString().split('T')[0]));
+    item.date = rawDate;
+    const parts = rawDate.split('-');
+    const y = parts[0] || '2026';
+    const m = parts[1] || '01';
     const monthKey = `${y}-${m}`;
-    const dayKey = item.date;
+    const dayKey = rawDate;
     if (!groups[monthKey]) groups[monthKey] = {};
     if (!groups[monthKey][dayKey]) groups[monthKey][dayKey] = [];
     groups[monthKey][dayKey].push(item);

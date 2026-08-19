@@ -25,7 +25,8 @@ const COLOR_THEMES = [
 
 // ---- Getters / Setters ----
 function getSettings() {
-  const localSettings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+  const settingsKey = typeof userKey === 'function' ? userKey('recim_settings') : 'recim_settings';
+  const localSettings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
   try {
     const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
     const shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
@@ -33,11 +34,9 @@ function getSettings() {
     if (shared.companyRNC) localSettings.companyRNC = shared.companyRNC;
     if (shared.companyPhone) {
       localSettings.companyPhone = shared.companyPhone;
-      localSettings.userPhone = shared.companyPhone;
     }
     if (shared.companyEmail) {
       localSettings.companyEmail = shared.companyEmail;
-      localSettings.userEmail = shared.companyEmail;
     }
     if (shared.companyAddress) localSettings.companyAddress = shared.companyAddress;
     if (shared.companyLogo) localSettings.companyLogo = shared.companyLogo;
@@ -46,9 +45,10 @@ function getSettings() {
 }
 
 function saveSetting(key, value) {
-  const s = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+  const settingsKey = typeof userKey === 'function' ? userKey('recim_settings') : 'recim_settings';
+  const s = JSON.parse(localStorage.getItem(settingsKey) || '{}');
   s[key] = value;
-  localStorage.setItem('recim_settings', JSON.stringify(s));
+  localStorage.setItem(settingsKey, JSON.stringify(s));
 }
 
 // ---- Apply stored settings on boot ----
@@ -351,13 +351,13 @@ function renderSettingsPage(container) {
 
             <div class="form-group">
               <label class="form-label" for="set-company-phone">Teléfono de la Empresa</label>
-              <input id="set-company-phone" type="text" class="form-input" placeholder="Ej: +1 (849) 585-0386" value="${settings.companyPhone || settings.userPhone || ''}" onchange="saveCompanyPhoneSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
+              <input id="set-company-phone" type="text" class="form-input" placeholder="Ej: +1 (849) 585-0386" value="${settings.companyPhone || ''}" onchange="saveCompanyPhoneSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
               <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
             </div>
             
             <div class="form-group">
               <label class="form-label" for="set-company-email">Correo Electrónico</label>
-              <input id="set-company-email" type="email" class="form-input" placeholder="Ej: contacto@empresa.com" value="${settings.companyEmail || settings.userEmail || ''}" onchange="saveCompanyEmailSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
+              <input id="set-company-email" type="email" class="form-input" placeholder="Ej: contacto@empresa.com" value="${settings.companyEmail || session.email || ''}" onchange="saveCompanyEmailSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
               <p style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:4px;">Se usará en la generación de facturas (PDF).</p>
             </div>
 
@@ -1322,20 +1322,19 @@ async function updateFamilyMembersDOM(familyId, myAccountId) {
       const isMe = m.accountId === myAccountId;
       const cName = m.name ? m.name.split(' | ')[0].trim() : 'Usuario';
       const initial = (m.avatar || cName || 'U')[0].toUpperCase();
-      const isFounder = m.accountId === companyAdminId;
+      const isFounder = m.role === 'ceo' || m.role === 'master' || m.accountId === companyAdminId;
       const isMemberAdmin = isFounder || sharedAdmins.includes(m.accountId);
       const canManageAdmin = !isMe && myIsAdmin && !isFounder;
-      const showKick = !isMe && myIsAdmin && !isFounder; // only admins can kick, cannot kick founder or self
+      const showKick = !isMe && myIsAdmin && !isFounder; // solo admins pueden eliminar, no se puede eliminar al creador ni a sí mismo
       
       return `
-        <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--clr-surface-2); border:1px solid var(--clr-border); border-radius:var(--r-md);">
-          <div style="width:32px; height:32px; border-radius:50%; background:var(--clr-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--clr-surface-2); border:1px solid ${isFounder ? 'rgba(251, 191, 36, 0.4)' : 'var(--clr-border)'}; border-radius:var(--r-md);">
+          <div style="width:32px; height:32px; border-radius:50%; background:${isFounder ? 'linear-gradient(135deg, #f59e0b, #fbbf24)' : 'var(--clr-primary)'}; color:${isFounder ? '#000' : '#fff'}; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; box-shadow: ${isFounder ? '0 0 10px rgba(251,191,36,0.5)' : '0 2px 5px rgba(0,0,0,0.1)'};">
             ${initial}
           </div>
           <div style="flex:1; min-width:0;">
             <div style="font-size:0.84rem; font-weight:600; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px;">
-              <span>${cName}</span>
-              ${isFounder ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#2563eb; color:#fff;">Fundador</span>` : ''}
+              <span style="${isFounder ? 'color:#fbbf24; font-weight:700; text-shadow:0 0 10px rgba(251,191,36,0.4);' : ''}">${cName}</span>
               ${(!isFounder && isMemberAdmin) ? `<span class="badge badge--blue" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px; background:#10b981; color:#fff;">Admin</span>` : ''}
               ${isMe ? `<span class="badge badge--green" style="padding:2px 6px; font-size:0.65rem; font-weight:normal; border-radius:4px;">Tú</span>` : ''}
             </div>
@@ -1544,19 +1543,32 @@ async function handleCreateFamily() {
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   session.familyId = code;
+  session.role = 'ceo';
+  if (typeof calculateSecureChecksum === 'function') {
+    session.signature = calculateSecureChecksum(session.accountId, session.email, code);
+  }
   localStorage.setItem('recim_session', JSON.stringify(session));
   localStorage.setItem(userKey('recim_company_id'), code);
 
   // Sincronizar en la nube (Supabase)
   if (isSupabaseActive && supabaseClient) {
     try {
-      showToast('📡 Registrando empresa en el servidor...', 'info');
+      showToast('📡 Registrando empresa y asignando rol CEO...', 'info');
       
-      // 1. Guardar family_id en tabla profiles del usuario
-      const { error: profileError } = await supabaseClient
+      // 1. Guardar family_id y asignar rol de CEO en la tabla profiles del creador
+      let { error: profileError } = await supabaseClient
         .from('profiles')
-        .update({ family_id: code })
+        .update({ family_id: code, role: 'ceo' })
         .eq('id', session.accountId);
+
+      if (profileError && (profileError.code === 'PGRST204' || (profileError.message && profileError.message.includes('role')))) {
+        console.warn("⚠️ Columna 'role' no disponible en Supabase cache. Reintentando solo con family_id...");
+        const { error: retryError } = await supabaseClient
+          .from('profiles')
+          .update({ family_id: code })
+          .eq('id', session.accountId);
+        profileError = retryError;
+      }
 
       if (profileError) throw profileError;
       
@@ -1640,6 +1652,9 @@ async function submitJoinFamily() {
       if (updateError) throw updateError;
 
       session.familyId = code;
+      if (typeof calculateSecureChecksum === 'function') {
+        session.signature = calculateSecureChecksum(session.accountId, session.email, code);
+      }
       localStorage.setItem('recim_session', JSON.stringify(session));
       localStorage.setItem(userKey('recim_company_id'), code);
       
@@ -1674,42 +1689,93 @@ async function handleLeaveFamily() {
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   const oldFamilyId = session.familyId;
-  session.familyId = null;
-  localStorage.setItem('recim_session', JSON.stringify(session));
-  localStorage.removeItem(userKey('recim_company_id'));
+  if (!session.accountId) {
+    showToast('⚠️ No hay sesión activa', 'warning');
+    return;
+  }
 
-  // Update in Supabase
+  // 1. Sincronizar salida con la nube (Supabase) PRIMERO
   if (isSupabaseActive && supabaseClient) {
     try {
       showToast('📡 Saliendo de la empresa...', 'info');
-      const { error } = await supabaseClient
+      const newRole = session.role === 'master' ? 'master' : 'colaborador';
+      let { error } = await supabaseClient
         .from('profiles')
-        .update({ family_id: null })
+        .update({ family_id: null, role: newRole })
         .eq('id', session.accountId);
       
-      if (error) throw error;
+      if (error && (error.code === 'PGRST204' || (error.message && error.message.includes('role')))) {
+        console.warn("⚠️ Columna 'role' no disponible en Supabase cache. Reintentando solo con family_id...");
+        const { error: retryError } = await supabaseClient
+          .from('profiles')
+          .update({ family_id: null })
+          .eq('id', session.accountId);
+        error = retryError;
+      }
+
+      if (error) {
+        console.error("Error al actualizar usuario en Supabase:", error);
+        showToast('❌ Error al salir de la empresa en el servidor: ' + (error.message || 'Error de permisos'), 'error');
+        return;
+      }
     } catch (err) {
       console.error("Error al actualizar usuario en Supabase:", err);
+      showToast('❌ Error de conexión al intentar salir de la empresa', 'error');
+      return;
     }
   }
 
-  // Clear local database
-  const keysToRemove = [
+  // 2. Limpiar llaves locales de la empresa antigua ANTES de cambiar session.familyId
+  if (oldFamilyId) {
+    const familyKeysToRemove = [
+      `recim_company_id_family_${oldFamilyId}`,
+      `recim_company_admin_family_${oldFamilyId}`,
+      `recim_company_shared_settings_family_${oldFamilyId}`,
+      `recim_invoices_family_${oldFamilyId}`,
+      `recim_material_codes_family_${oldFamilyId}`,
+      `recim_clients_family_${oldFamilyId}`,
+      `recim_ingresos_family_${oldFamilyId}`,
+      `recim_egresos_family_${oldFamilyId}`,
+      `recim_collaborators_family_${oldFamilyId}`
+    ];
+    familyKeysToRemove.forEach(k => localStorage.removeItem(k));
+  }
+  localStorage.removeItem(`recim_company_id_${session.accountId}`);
+
+  // 3. Actualizar la sesión local a privada (familyId = null)
+  session.familyId = null;
+  if (session.role !== 'master') {
+    session.role = 'colaborador';
+  }
+  if (typeof calculateSecureChecksum === 'function') {
+    session.signature = calculateSecureChecksum(session.accountId, session.email, null);
+  }
+  localStorage.setItem('recim_session', JSON.stringify(session));
+
+  // 4. Purgar caché privado actual para obligar descarga limpia de datos personales
+  const privateKeys = [
     'recim_invoices',
     'recim_material_codes',
     'recim_clients',
     'recim_ingresos',
     'recim_egresos'
   ];
-  keysToRemove.forEach(k => localStorage.removeItem(userKey(k)));
+  privateKeys.forEach(k => localStorage.removeItem(userKey(k)));
 
-  // Pull user's private data from Supabase
+  // 5. Descargar datos privados del usuario desde Supabase
   if (window.syncPullData) {
     await window.syncPullData(session.accountId);
   }
 
-  showToast('👋 Has salido de la empresa', 'success');
+  showToast('👋 Has salido de la empresa exitosamente', 'success');
   renderFamilySection();
+
+  // Re-renderizar página actual si es relevante
+  try {
+    if (typeof rerenderCurrentPage === 'function') {
+      rerenderCurrentPage();
+    }
+  } catch (_) {}
 }
 
 // ---- White Label settings handlers ----

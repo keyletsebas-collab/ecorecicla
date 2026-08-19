@@ -29,8 +29,10 @@ function numeroALetras(num) {
     const unidades = ['UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
     const decenas = ['DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
     const especiales = {
-        11: 'ONCE', 12: 'DOCE', 13: 'TRECE', 14: 'CATORCE', 15: 'QUINCE',
-        16: 'DIECISEIS', 17: 'DIECISIETE', 18: 'DIECIOCHO', 19: 'DIECINUEVE'
+        10: 'DIEZ', 11: 'ONCE', 12: 'DOCE', 13: 'TRECE', 14: 'CATORCE', 15: 'QUINCE',
+        16: 'DIECISEIS', 17: 'DIECISIETE', 18: 'DIECIOCHO', 19: 'DIECINUEVE',
+        20: 'VEINTE', 21: 'VEINTIÚN', 22: 'VEINTIDÓS', 23: 'VEINTITRÉS', 24: 'VEINTICUATRO',
+        25: 'VEINTICINCO', 26: 'VEINTISÉIS', 27: 'VEINTISIETE', 28: 'VEINTIOCHO', 29: 'VEINTINUEVE'
     };
     const centenas = ['CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'];
     
@@ -44,7 +46,7 @@ function numeroALetras(num) {
         if (rest > 0) {
             if (rest < 10) {
                 s += unidades[rest - 1];
-            } else if (rest >= 11 && rest <= 19) {
+            } else if (especiales[rest]) {
                 s += especiales[rest];
             } else {
                 const d = Math.floor(rest / 10);
@@ -56,24 +58,35 @@ function numeroALetras(num) {
         return s.trim();
     }
 
+    function convEntero(n) {
+        if (n === 0) return '';
+        if (n < 1000) return convCentena(n);
+        if (n < 1000000) {
+            const miles = Math.floor(n / 1000);
+            const resto = n % 1000;
+            const strMiles = miles === 1 ? 'MIL' : convCentena(miles) + ' MIL';
+            const strResto = convCentena(resto);
+            return (strMiles + ' ' + strResto).trim();
+        }
+        if (n < 1000000000000) {
+            const millones = Math.floor(n / 1000000);
+            const resto = n % 1000000;
+            const strMillones = millones === 1 ? 'UN MILLÓN' : convEntero(millones) + ' MILLONES';
+            const strResto = convEntero(resto);
+            return (strMillones + ' ' + strResto).trim();
+        }
+        return 'MONTO MUY GRANDE';
+    }
+
     if (num === 0) return `CERO ${currencyName}`;
     
     const entero = Math.floor(num);
     const centavos = Math.round((num - entero) * 100);
     
-    let letras = '';
-    if (entero < 1000) {
-        letras = convCentena(entero);
-    } else if (entero < 1000000) {
-        const miles = Math.floor(entero / 1000);
-        const resto = entero % 1000;
-        letras = (miles === 1 ? 'MIL' : convCentena(miles) + ' MIL') + ' ' + convCentena(resto);
-    } else {
-        letras = 'MONTO MUY GRANDE';
-    }
-    
+    const letras = convEntero(entero);
+    const dePrefix = (entero >= 1000000 && entero % 1000000 === 0) ? 'DE ' : '';
     const centavosStr = String(centavos).padStart(2, '0');
-    return `SON: ${letras.trim()} ${currencyName} CON ${centavosStr}/100 ${centavosName}`;
+    return `SON: ${letras.trim()} ${dePrefix}${currencyName} CON ${centavosStr}/100 ${centavosName}`;
 }
 
 // Obtener constructor jsPDF dinámicamente

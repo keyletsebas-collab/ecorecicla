@@ -154,6 +154,7 @@ function _extractValidDate(item) {
     if (typeof d === 'string') {
         let trimmed = d.trim();
         if (trimmed.includes('T')) trimmed = trimmed.split('T')[0];
+        if (trimmed.includes(' ')) trimmed = trimmed.split(' ')[0];
         if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
         if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/.test(trimmed)) {
             const parts = trimmed.split(/[\/-]/);
@@ -162,7 +163,10 @@ function _extractValidDate(item) {
     }
     const parsed = new Date(d);
     if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString().split('T')[0];
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const day = String(parsed.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
     }
     return new Date().toISOString().split('T')[0];
 }
@@ -588,9 +592,22 @@ function _parseDateTimeVal(row) {
             parsedDateObj = _excelSerialToDate(numSerial);
         } else {
             let cStr = String(rawCreated).trim();
-            if (cStr.length === 10) cStr += 'T12:00:00';
-            const d = new Date(cStr);
-            if (!isNaN(d.getTime())) parsedDateObj = d;
+            if (cStr.includes('T')) cStr = cStr.split('T')[0];
+            if (cStr.includes(' ')) cStr = cStr.split(' ')[0];
+            if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/.test(cStr)) {
+                const parts = cStr.split(/[\/-]/);
+                cStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+            const match = cStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (match) {
+                const y = parseInt(match[1], 10);
+                const m = parseInt(match[2], 10) - 1;
+                const d = parseInt(match[3], 10);
+                parsedDateObj = new Date(y, m, d, 12, 0, 0);
+            } else {
+                const d = new Date(`${cStr}T12:00:00`);
+                if (!isNaN(d.getTime())) parsedDateObj = d;
+            }
         }
     }
 
@@ -602,13 +619,29 @@ function _parseDateTimeVal(row) {
             // Handle DD/MM/YYYY vs YYYY-MM-DD
             let dStr = String(dateStr).trim();
             if (dStr.includes('T')) dStr = dStr.split('T')[0];
+            if (dStr.includes(' ')) dStr = dStr.split(' ')[0];
             if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/.test(dStr)) {
                 const parts = dStr.split(/[\/-]/);
                 dStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
             }
-            const timePart = (timeStr && /^\d{1,2}:\d{2}/.test(timeStr)) ? `T${timeStr}:00` : 'T12:00:00';
-            const d = new Date(`${dStr}${timePart}`);
-            if (!isNaN(d.getTime())) parsedDateObj = d;
+            
+            const match = dStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (match) {
+                const y = parseInt(match[1], 10);
+                const m = parseInt(match[2], 10) - 1;
+                const d = parseInt(match[3], 10);
+                let hours = 12, mins = 0;
+                if (timeStr && /^\d{1,2}:\d{2}/.test(timeStr)) {
+                    const tParts = timeStr.split(':');
+                    hours = parseInt(tParts[0], 10);
+                    mins = parseInt(tParts[1], 10);
+                }
+                parsedDateObj = new Date(y, m, d, hours, mins, 0);
+            } else {
+                const timePart = (timeStr && /^\d{1,2}:\d{2}/.test(timeStr)) ? `T${timeStr}:00` : 'T12:00:00';
+                const d = new Date(`${dStr}${timePart}`);
+                if (!isNaN(d.getTime())) parsedDateObj = d;
+            }
         }
     }
 

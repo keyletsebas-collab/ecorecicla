@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+#if ANDROID || IOS || MACCATALYST
 using Plugin.LocalNotification;
+#endif
 
 namespace ReciminsaApp;
 

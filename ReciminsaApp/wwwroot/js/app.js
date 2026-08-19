@@ -196,6 +196,9 @@ function initApp(user) {
     if (typeof applyModuleVisibility === 'function') {
         applyModuleVisibility();
     }
+    if (typeof _superAdminCheckNavLink === 'function') {
+        _superAdminCheckNavLink();
+    }
     
     // Default page (Restricted to Ingresos/Egresos on mobile)
     const defaultPage = isMobile() ? 'ingresos' : 'historial';
@@ -293,6 +296,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
+            // Función helper: Verifica que la sesión fuera de línea no supere las 24 horas sin re-validación
+            function enforceOfflineTimeout(u) {
+                if (!u) return false;
+                const MAX_OFFLINE_MS = 24 * 60 * 60 * 1000; // 24 Horas
+                const lastValid = u.lastOnlineValidation || u.loginTimestamp || 0;
+                const elapsedMs = Date.now() - lastValid;
+
+                if (elapsedMs > MAX_OFFLINE_MS) {
+                    console.warn("⛔ Sesión expirada: Excedido el tiempo máximo offline (24h sin re-validación en nube).");
+                    localStorage.removeItem('recim_session');
+                    if (typeof showToast === 'function') {
+                        showToast('⚠️ Tu sesión offline ha expirado (máximo 24h sin conexión). Conéctate a internet para re-validar.', 'error', 7000);
+                    }
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1800);
+                    return true;
+                }
+                return false;
+            }
+
             // Verificación asíncrona y actualización de perfil en Supabase
             if (user && user.accountId && typeof isSupabaseActive !== 'undefined' && isSupabaseActive && supabaseClient) {
                 supabaseClient
@@ -312,8 +336,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 return;
                             }
 
-                            // Update cached session if different
+                            // Re-validación online exitosa: renovar timestamp de sesión de 24h
                             const cachedSession = JSON.parse(localStorage.getItem('recim_session') || '{}');
+                            cachedSession.lastOnlineValidation = Date.now();
                             const oldFamilyId = cachedSession.familyId || null;
                             const newFamilyId = data.family_id || null;
                             const oldName = cachedSession.name || '';
@@ -321,36 +346,42 @@ document.addEventListener('DOMContentLoaded', () => {
                             const oldAvatar = cachedSession.avatar || '';
                             const newAvatar = (data.avatar || data.name || 'U')[0].toUpperCase();
 
-                            if (oldFamilyId !== newFamilyId || oldName !== newName || oldAvatar !== newAvatar) {
-                                cachedSession.familyId = newFamilyId;
-                                cachedSession.name = newName;
-                                cachedSession.avatar = newAvatar;
-                                if (typeof calculateSecureChecksum === 'function') {
-                                    cachedSession.signature = calculateSecureChecksum(cachedSession.accountId, cachedSession.email, newFamilyId);
-                                }
-                                localStorage.setItem('recim_session', JSON.stringify(cachedSession));
-                                
-                                // Update sidebar UI directly
-                                const nameEl = document.getElementById('sidebar-user-name');
-                                const avatarEl = document.getElementById('sidebar-avatar');
-                                if (nameEl) nameEl.textContent = newName.split(' | ')[0].trim();
-                                if (avatarEl) avatarEl.textContent = newAvatar;
+                            cachedSession.familyId = newFamilyId;
+                            cachedSession.name = newName;
+                            cachedSession.avatar = newAvatar;
+                            if (typeof calculateSecureChecksum === 'function') {
+                                cachedSession.signature = calculateSecureChecksum(cachedSession.accountId, cachedSession.email, newFamilyId);
+                            }
+                            localStorage.setItem('recim_session', JSON.stringify(cachedSession));
+                            
+                            // Update sidebar UI directly
+                            const nameEl = document.getElementById('sidebar-user-name');
+                            const avatarEl = document.getElementById('sidebar-avatar');
+                            if (nameEl) nameEl.textContent = newName.split(' | ')[0].trim();
+                            if (avatarEl) avatarEl.textContent = newAvatar;
 
-                                // If familyId changed, we need to trigger sync pull for the new ID
-                                if (oldFamilyId !== newFamilyId) {
-                                    const newDbId = newFamilyId ? `family_${newFamilyId}` : cachedSession.accountId;
-                                    showToast('🔄 Tu estado de empresa ha cambiado. Actualizando datos...', 'info');
-                                    if (window.syncPullData) {
-                                        window.syncPullData(newDbId);
-                                    }
-                                    if (typeof getCurrentPage === 'function' && getCurrentPage() === 'ajustes') {
-                                        rerenderCurrentPage();
-                                    }
+                            // If familyId changed, we need to trigger sync pull for the new ID
+                            if (oldFamilyId !== newFamilyId) {
+                                const newDbId = newFamilyId ? `family_${newFamilyId}` : cachedSession.accountId;
+                                showToast('🔄 Tu estado de empresa ha cambiado. Actualizando datos...', 'info');
+                                if (window.syncPullData) {
+                                    window.syncPullData(newDbId);
+                                }
+                                if (typeof getCurrentPage === 'function' && getCurrentPage() === 'ajustes') {
+                                    rerenderCurrentPage();
                                 }
                             }
                         }
                     })
-                    .catch(err => console.error('Error verifying profile:', err));
+                    .catch(err => {
+                        console.error('Error verifying profile:', err);
+                        enforceOfflineTimeout(user);
+                    });
+            } else {
+                // Modo fuera de línea o sin cliente Supabase activo: verificar límite de 24h offline
+                if (enforceOfflineTimeout(user)) {
+                    return;
+                }
             }
             
             initApp(user);
@@ -410,7 +441,11 @@ async function handleAppRefresh() {
 
     // 5. Reload the page after 1.2 seconds to let the user see the rotation and feedback
     setTimeout(() => {
-        window.location.reload();
+        if (window.location.search) {
+            window.location.href = window.location.origin + window.location.pathname;
+        } else {
+            window.location.reload();
+        }
     }, 1200);
 }
 

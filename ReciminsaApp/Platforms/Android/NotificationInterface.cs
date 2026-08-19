@@ -32,18 +32,25 @@ namespace ReciminsaApp.Platforms.Android
         [Java.Interop.Export("ShowNotification")]
         public void ShowNotification(string title, string body)
         {
-            var request = new NotificationRequest
+            try
             {
-                NotificationId = new Random().Next(1000, 9999),
-                Title = title,
-                Description = body,
-                Schedule = new NotificationRequestSchedule
+                var request = new NotificationRequest
                 {
-                    NotifyTime = DateTime.Now.AddSeconds(1)
-                }
-            };
+                    NotificationId = Random.Shared.Next(1000, 9999),
+                    Title = title ?? "Notificación",
+                    Description = body ?? string.Empty,
+                    Schedule = new NotificationRequestSchedule
+                    {
+                        NotifyTime = DateTime.Now.AddSeconds(1)
+                    }
+                };
 
-            LocalNotificationCenter.Current.Show(request);
+                LocalNotificationCenter.Current.Show(request);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en ShowNotification: {ex.Message}");
+            }
         }
 
         [JavascriptInterface]
@@ -57,11 +64,8 @@ namespace ReciminsaApp.Platforms.Android
 
                 try
                 {
-                    var downloadsDir = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads);
-                    if (downloadsDir == null)
-                    {
-                        throw new System.IO.DirectoryNotFoundException("Public downloads directory is not available.");
-                    }
+                    var downloadsDir = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads)
+                        ?? throw new System.IO.DirectoryNotFoundException("Public downloads directory is not available.");
                     string downloadsPath = downloadsDir.AbsolutePath;
                     filePath = System.IO.Path.Combine(downloadsPath, filename);
 
