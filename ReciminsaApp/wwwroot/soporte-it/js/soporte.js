@@ -4,19 +4,85 @@ let isAdmin = false;
 let currentChatTicketId = null;
 let chatSubscription = null;
 
+// Failsafe initialization for Supabase client
+function ensureSupabaseConnected() {
+  if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+    try {
+      if (typeof supabase !== 'undefined' && typeof supabase.createClient === 'function') {
+        const _dec = (str) => { try { return atob(str); } catch (e) { return ""; } };
+        const DEFAULT_URL = _dec("aHR0cHM6Ly93a3Fnc3ByZ3p0cXhtb3ZvamV3dS5zdXBhYmFzZS5jbw==");
+        const DEFAULT_KEY = _dec("c2JfcHVibGlzaGFibGVfTXE2bUV4NXFTSXh2Nm12dF9ETmFFd19OVGVVSUZQdg==");
+        const url = localStorage.getItem('recim_db_url') || DEFAULT_URL;
+        const key = localStorage.getItem('recim_db_key') || DEFAULT_KEY;
+        window.supabaseClient = supabase.createClient(url, key);
+        window.isSupabaseActive = true;
+      }
+    } catch (e) {
+      console.warn("⚠️ Error en respaldo de conexión Supabase en soporte.js:", e);
+    }
+  }
+}
+// Helper fallback for userKey in soporte.js
+if (typeof userKey !== 'function') {
+  window.userKey = function(baseKey) {
+    try {
+      const sessionStr = localStorage.getItem('recim_session');
+      if (sessionStr) {
+        const u = JSON.parse(sessionStr);
+        if (u && u.accountId) {
+          const scope = u.familyId ? `family_${u.familyId}` : u.accountId;
+          return `${baseKey}_${scope}`;
+        }
+      }
+    } catch (e) {
+      console.error('Error in userKey fallback:', e);
+    }
+    return baseKey;
+  };
+}
+
+// Animated Toast Notification System for Soporte IT
+if (typeof showToast !== 'function') {
+  window.showToast = function(message, type = 'success', duration = 3500) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      document.body.appendChild(container);
+    }
+    try {
+      if (navigator.vibrate) {
+        if (type === 'error') navigator.vibrate([30, 50, 30]);
+        else if (type === 'warning') navigator.vibrate([25]);
+        else navigator.vibrate([15]);
+      }
+    } catch (_) {}
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+
+    let icon = '🔔';
+    if (type === 'success') icon = '✅';
+    else if (type === 'error') icon = '❌';
+    else if (type === 'warning') icon = '⚠️';
+    else if (type === 'info') icon = 'ℹ️';
+
+    toast.innerHTML = `<span style="font-size:1.15rem; flex-shrink:0;">${icon}</span><span style="flex:1;">${message}</span>`;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-10px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  };
+}
+
 function cleanUserName(name) {
   if (!name) return '';
   return name.split(' | ')[0].trim();
 }
-const COLOR_THEMES = [
-  { id: 'green', label: 'Verde', primary: '#22c55e', dark: '#16a34a', glow: 'rgba(34, 197, 94, 0.2)' },
-  { id: 'blue', label: 'Azul', primary: '#3b82f6', dark: '#2563eb', glow: 'rgba(59, 130, 246, 0.2)' },
-  { id: 'purple', label: 'Morado', primary: '#a855f7', dark: '#9333ea', glow: 'rgba(168, 85, 247, 0.2)' },
-  { id: 'orange', label: 'Naranja', primary: '#f97316', dark: '#ea580c', glow: 'rgba(249, 115, 22, 0.2)' },
-  { id: 'rose', label: 'Rosa', primary: '#f43f5e', dark: '#e11d48', glow: 'rgba(244, 63, 94, 0.2)' },
-  { id: 'slate', label: 'Gris Oscuro', primary: '#64748b', dark: '#475569', glow: 'rgba(100, 116, 139, 0.2)' }
-];
-
 // --- Funciones para el Visor de Imágenes ---
 function openImageFullscreen(url) {
   document.getElementById('image-viewer-img').src = url;
@@ -39,11 +105,13 @@ function closeImageViewer() {
 // Esperar a que el DOM cargue y supabase esté listo
 document.addEventListener('DOMContentLoaded', async () => {
   applyTheme();
+  if (typeof translateSupportITPage === 'function') translateSupportITPage();
+
   // Verificar sesión
   const sessionStr = localStorage.getItem('recim_session');
   if (!sessionStr) {
-    alert("Debes iniciar sesión para acceder al Soporte IT.");
-    window.location.href = "../index.html";
+    showToast(typeof t === 'function' ? t('sup.ticket_alert_login') : "Debes iniciar sesión para acceder al Soporte IT.", 'warning');
+    setTimeout(() => { window.location.href = "../index.html"; }, 1500);
     return;
   }
   
@@ -65,6 +133,51 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadUsersForDatalist();
 });
 
+function translateSupportITPage() {
+  if (typeof t !== 'function') return;
+  
+  try {
+    const selectors = [
+      { sel: 'header .btn-secondary', key: 'sup.back', prop: 'innerHTML' },
+      { sel: 'header .topbar-title', key: 'sup.title', prop: 'innerHTML' },
+      { sel: '#loading-state p', key: 'sup.verifying', prop: 'innerHTML' },
+      { sel: '#user-view .section-title', key: 'sup.report_title', prop: 'innerHTML' },
+      { sel: '#ticket-module option[value=""]', key: 'sup.select_module', prop: 'innerHTML' },
+      { sel: '#ticket-desc', key: 'sup.desc_ph', prop: 'placeholder' },
+      { sel: '#btn-submit-ticket span', key: 'sup.submit_btn', prop: 'innerHTML' },
+      { sel: '#user-view .card:nth-child(2) .section-title', key: 'sup.my_tickets', prop: 'innerHTML' },
+      { sel: '#my-tickets-list p', key: 'sup.loading_tickets', prop: 'innerHTML' },
+      { sel: '#admin-view .section-title', key: 'sup.admin_title', prop: 'innerHTML' },
+      { sel: '#admin-view button.btn-secondary', key: 'sup.refresh_btn', prop: 'innerHTML' },
+      { sel: '#admin-tickets-list p', key: 'sup.admin_loading', prop: 'innerHTML' },
+      { sel: '#chat-title', key: 'sup.title', prop: 'innerHTML' },
+      { sel: '#btn-close-ticket', key: 'sup.close_ticket', prop: 'innerHTML' },
+      { sel: '#chat-messages p', key: 'sup.chat_conn', prop: 'innerHTML' },
+      { sel: '#image-preview-container button', key: 'btn.cancel', prop: 'innerHTML', prefix: '✕ ' },
+      { sel: '#chat-form button:nth-of-type(1)', key: 'sup.attach_img', prop: 'title' },
+      { sel: '#chat-input', key: 'sup.write_msg_ph', prop: 'placeholder' },
+      { sel: '#btn-send-msg', key: 'sup.send_title', prop: 'title' }
+    ];
+
+    selectors.forEach(item => {
+      const el = document.querySelector(item.sel);
+      if (el) {
+        let txt = t(item.key);
+        if (item.prefix) txt = item.prefix + txt;
+        el[item.prop] = txt;
+      }
+    });
+
+    const labels = document.querySelectorAll('#user-view .form-label');
+    const labelKeys = ['sup.user_lbl', 'sup.module_lbl', 'sup.date_lbl', 'sup.spec_lbl'];
+    labels.forEach((el, idx) => {
+      if (labelKeys[idx]) el.innerHTML = t(labelKeys[idx]);
+    });
+  } catch(e) {
+    console.error("Error translating Support IT page:", e);
+  }
+}
+
 // ==========================================
 // PERSONALIZACIÓN
 // ==========================================
@@ -84,7 +197,8 @@ function applyTheme() {
     
     // Aplicar color
     if (settings.colorTheme) {
-      const theme = COLOR_THEMES.find(t => t.id === settings.colorTheme);
+      const themesList = typeof COLOR_THEMES !== 'undefined' ? COLOR_THEMES : (window.COLOR_THEMES || []);
+      const theme = themesList.find(t => t.id === settings.colorTheme);
       if (theme) {
         const root = document.documentElement;
         root.style.setProperty('--clr-primary', theme.primary);
@@ -139,13 +253,19 @@ async function submitTicket(e) {
   const descVal = document.getElementById('ticket-desc').value;
 
   if(!isSupabaseActive || !supabaseClient) {
-    alert("Error de conexión a la base de datos.");
+    showToast("⚠️ Error de conexión a la base de datos.", 'error');
     btn.disabled = false;
     spinner.classList.add('hidden');
     return;
   }
 
   try {
+    ensureSupabaseConnected();
+    if (!supabaseClient) {
+      showToast("❌ Error de conexión: No se pudo conectar con Supabase. Verifica tu internet.", 'error');
+      return;
+    }
+
     const selectedReporterValue = document.getElementById('ticket-user').value;
     
     // Find if it's a collaborator or the user
@@ -162,28 +282,45 @@ async function submitTicket(e) {
       formattedUserName = `${cleanUserName(session.name)} | Empresa: ${companyName} (${companyId}) | Cuenta Principal`;
     }
 
-    const { data, error } = await supabaseClient
+    const ticketPayload = {
+      user_email: session.email, // Keep in reporter's dashboard
+      user_name: formattedUserName,
+      module: moduleVal,
+      issue_date: dateVal,
+      description: descVal,
+      status: 'open'
+    };
+
+    // Generar UUID en cliente para compatibilidad universal con Supabase
+    if (window.crypto && window.crypto.randomUUID) {
+      ticketPayload.id = window.crypto.randomUUID();
+    }
+
+    let { data, error } = await supabaseClient
       .from('support_tickets')
-      .insert([
-        {
-          user_email: session.email, // Keep in reporter's dashboard
-          user_name: formattedUserName,
-          module: moduleVal,
-          issue_date: dateVal,
-          description: descVal,
-          status: 'open'
-        }
-      ]);
+      .insert([ticketPayload]);
+
+    // Reintento sin ID de cliente si falla por restricciones de UUID del servidor
+    if (error && ticketPayload.id) {
+      console.warn("⚠️ Reintentando inserción en Supabase sin ID de cliente...", error);
+      delete ticketPayload.id;
+      const retryRes = await supabaseClient
+        .from('support_tickets')
+        .insert([ticketPayload]);
+      error = retryRes.error;
+      data = retryRes.data;
+    }
 
     if (error) throw error;
 
-    alert("Reclamo enviado correctamente. El equipo de soporte se pondrá en contacto pronto.");
+    showToast("✅ Reclamo enviado correctamente. El equipo de soporte se pondrá en contacto pronto.", 'success', 4000);
     document.getElementById('ticket-form').reset();
     document.getElementById('ticket-user').value = session.email;
     loadMyTickets();
   } catch (err) {
     console.error("Error al enviar reclamo:", err);
-    alert("Ocurrió un error. Verifica que la tabla 'support_tickets' exista en Supabase.");
+    const detail = err ? (err.message || err.details || JSON.stringify(err)) : '';
+    showToast(`❌ Error al enviar el reclamo: ${detail}`, 'error', 5000);
   } finally {
     btn.disabled = false;
     spinner.classList.add('hidden');
@@ -311,6 +448,7 @@ window.deleteTicket = async function(id) {
   try {
     const { error } = await supabaseClient.from('support_tickets').delete().eq('id', id);
     if(error) throw error;
+    showToast("🗑️ Ticket eliminado con éxito", 'success');
     // Recargar tickets
     if (isAdmin) {
       loadAllTickets();
@@ -319,7 +457,7 @@ window.deleteTicket = async function(id) {
     }
   } catch (err) {
     console.error("Error al borrar ticket:", err);
-    alert("Hubo un error al eliminar el ticket.");
+    showToast("❌ Hubo un error al eliminar el ticket.", 'error');
   }
 };
 
@@ -368,7 +506,7 @@ async function closeTicket() {
       .delete()
       .eq('id', currentChatTicketId);
 
-    alert("Ticket cerrado correctamente.");
+    showToast("✅ Ticket cerrado correctamente.", 'success');
     closeChat();
     
     // Refrescar la lista de tickets
@@ -379,7 +517,7 @@ async function closeTicket() {
     }
   } catch (err) {
     console.error("Error al cerrar ticket:", err);
-    alert("Hubo un error al cerrar el ticket.");
+    showToast("❌ Hubo un error al cerrar el ticket.", 'error');
   }
 }
 
@@ -553,7 +691,7 @@ async function sendChatMessage(e) {
     // Let the real-time subscription handle adding it to the UI
   } catch (err) {
     console.error("Error enviando mensaje:", err);
-    alert("No se pudo enviar el mensaje.");
+    showToast("❌ No se pudo enviar el mensaje.", 'error');
   } finally {
     btn.disabled = false;
     spinner.classList.add('hidden');

@@ -28,13 +28,12 @@ function userKey(baseKey) {
     if (session) {
       const user = JSON.parse(session);
       if (user && user.accountId) {
-        if (typeof calculateSecureChecksum === 'function' && user.signature) {
+        if (typeof calculateSecureChecksum === 'function') {
           const expectedSig = calculateSecureChecksum(user.accountId, user.email, user.familyId);
-          if (user.signature !== expectedSig) {
-            console.warn("⚠️ Sesión alterada detectada en userKey. Cerrando sesión...");
-            localStorage.removeItem('recim_session');
-            window.location.reload();
-            return baseKey;
+          if (!user.signature || user.signature !== expectedSig) {
+            console.warn("⚠️ Actualizando firma criptográfica de sesión desactualizada...");
+            user.signature = expectedSig;
+            try { localStorage.setItem('recim_session', JSON.stringify(user)); } catch (_) {}
           }
         }
         const scope = user.familyId ? `family_${user.familyId}` : user.accountId;

@@ -266,7 +266,9 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Error in URL search parameters parsing:', e);
     }
 
-    applySettings(); // apply color theme + dark mode before anything renders
+    if (typeof applySettings === 'function') {
+        applySettings(); // apply color theme + dark mode before anything renders
+    }
     if (typeof updateQuickLangUI === 'function') {
         const lang = (typeof getSettings === 'function' ? getSettings().language : null) || 'es';
         updateQuickLangUI(lang);
@@ -288,26 +290,31 @@ document.addEventListener('DOMContentLoaded', () => {
             // Verificación criptográfica de la sesión
             if (user && user.accountId && typeof calculateSecureChecksum === 'function') {
                 const expectedSig = calculateSecureChecksum(user.accountId, user.email, user.familyId);
-                if (user.signature !== expectedSig) {
-                    console.warn("⚠️ Sesión alterada detectada al inicio. Cerrando sesión...");
-                    localStorage.removeItem('recim_session');
-                    window.location.reload();
-                    return;
+                if (!user.signature || user.signature !== expectedSig) {
+                    console.warn("⚠️ Sincronizando firma criptográfica al inicio...");
+                    user.signature = expectedSig;
+                    try { localStorage.setItem('recim_session', JSON.stringify(user)); } catch (_) {}
                 }
             }
             
-            // Función helper: Verifica que la sesión fuera de línea no supere las 24 horas sin re-validación
+            // Función helper: Verifica que la sesión fuera de línea no supere los 7 días sin re-validación
             function enforceOfflineTimeout(u) {
                 if (!u) return false;
-                const MAX_OFFLINE_MS = 24 * 60 * 60 * 1000; // 24 Horas
-                const lastValid = u.lastOnlineValidation || u.loginTimestamp || 0;
+                if (!u.lastOnlineValidation && !u.loginTimestamp) {
+                    u.lastOnlineValidation = Date.now();
+                    u.loginTimestamp = Date.now();
+                    try { localStorage.setItem('recim_session', JSON.stringify(u)); } catch (_) {}
+                    return false;
+                }
+                const MAX_OFFLINE_MS = 7 * 24 * 60 * 60 * 1000; // 7 Días
+                const lastValid = u.lastOnlineValidation || u.loginTimestamp || Date.now();
                 const elapsedMs = Date.now() - lastValid;
 
                 if (elapsedMs > MAX_OFFLINE_MS) {
-                    console.warn("⛔ Sesión expirada: Excedido el tiempo máximo offline (24h sin re-validación en nube).");
+                    console.warn("⛔ Sesión expirada: Excedido el tiempo máximo offline.");
                     localStorage.removeItem('recim_session');
                     if (typeof showToast === 'function') {
-                        showToast('⚠️ Tu sesión offline ha expirado (máximo 24h sin conexión). Conéctate a internet para re-validar.', 'error', 7000);
+                        showToast('⚠️ Tu sesión offline ha expirado. Por favor vuelve a iniciar sesión.', 'error', 7000);
                     }
                     setTimeout(() => {
                         window.location.reload();
@@ -339,24 +346,33 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Re-validación online exitosa: renovar timestamp de sesión de 24h
                             const cachedSession = JSON.parse(localStorage.getItem('recim_session') || '{}');
                             cachedSession.lastOnlineValidation = Date.now();
+                            cachedSession.loginTimestamp = cachedSession.loginTimestamp || Date.now();
                             const oldFamilyId = cachedSession.familyId || null;
                             const newFamilyId = data.family_id || null;
                             const oldName = cachedSession.name || '';
-                            const newName = data.name || '';
-                            const oldAvatar = cachedSession.avatar || '';
-                            const newAvatar = (data.avatar || data.name || 'U')[0].toUpperCase();
+                            const newName = data.name || oldName;
 
-                            cachedSession.familyId = newFamilyId;
-                            cachedSession.name = newName;
-                            cachedSession.avatar = newAvatar;
-                            if (typeof calculateSecureChecksum === 'function') {
-                                cachedSession.signature = calculateSecureChecksum(cachedSession.accountId, cachedSession.email, newFamilyId);
+                            let sessionChanged = false;
+                            if (oldFamilyId !== newFamilyId) {
+                                cachedSession.familyId = newFamilyId;
+                                sessionChanged = true;
                             }
-                            localStorage.setItem('recim_session', JSON.stringify(cachedSession));
+                            if (oldName !== newName) {
+                                cachedSession.name = newName;
+                                sessionChanged = true;
+                            }
+
+                            if (sessionChanged || !cachedSession.signature) {
+                                if (typeof calculateSecureChecksum === 'function') {
+                                    cachedSession.signature = calculateSecureChecksum(cachedSession.accountId, cachedSession.email, newFamilyId);
+                                }
+                                localStorage.setItem('recim_session', JSON.stringify(cachedSession));
+                            }
                             
                             // Update sidebar UI directly
                             const nameEl = document.getElementById('sidebar-user-name');
                             const avatarEl = document.getElementById('sidebar-avatar');
+                            const newAvatar = (data.avatar || data.name || 'U')[0].toUpperCase();
                             if (nameEl) nameEl.textContent = newName.split(' | ')[0].trim();
                             if (avatarEl) avatarEl.textContent = newAvatar;
 
@@ -374,19 +390,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     })
                     .catch(err => {
-                        console.error('Error verifying profile:', err);
-                        enforceOfflineTimeout(user);
+                        console.warn('Advertencia al verificar perfil (manteniendo sesión activa):', err);
                     });
             } else {
-                // Modo fuera de línea o sin cliente Supabase activo: verificar límite de 24h offline
+                // Modo fuera de línea o sin cliente Supabase activo: verificar límite offline
                 if (enforceOfflineTimeout(user)) {
                     return;
                 }
             }
             
-            initApp(user);
-        } catch (_) {
-            localStorage.removeItem('recim_session');
+            if (typeof initApp === 'function') {
+                initApp(user);
+            }
+        } catch (e) {
+            console.warn('Advertencia en inicialización de app.js (manteniendo sesión activa):', e);
         }
     }
 

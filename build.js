@@ -40,7 +40,7 @@ targets.forEach(target => {
             }
         });
 
-        const dirsToCopy = ['js', 'css'];
+        const dirsToCopy = ['js', 'css', 'soporte-it'];
         dirsToCopy.forEach(dir => {
             if (fs.existsSync(dir)) {
                 copyDir(dir, path.join(target, dir));

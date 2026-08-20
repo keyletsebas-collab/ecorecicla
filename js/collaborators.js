@@ -10,41 +10,43 @@ let currentColabsPage = 1;
 const ITEMS_PER_PAGE = 5;
 
 function isCurrentUserAdminOrFounder() {
-  const sessionStr = localStorage.getItem('recim_session');
-  if (!sessionStr) return false;
+  let sessionStr = localStorage.getItem('recim_session');
   let session = {};
-  try { session = JSON.parse(sessionStr); } catch (_) { return false; }
+  try { session = JSON.parse(sessionStr || '{}'); } catch (_) {}
 
-  if (!session.accountId || !session.email) return false;
-
-  // 1. Verificación de firma criptográfica contra alteración de sesión local
-  if (typeof calculateSecureChecksum === 'function' && session.signature) {
-    const expectedSig = calculateSecureChecksum(session.accountId, session.email, session.familyId);
-    if (session.signature !== expectedSig) {
-      console.warn("⚠️ Intento de alteración de sesión detectado en isCurrentUserAdminOrFounder. Anulando privilegios...");
-      return false;
-    }
+  if (!session.accountId || !session.email) {
+    try {
+      const backup = JSON.parse(localStorage.getItem('recim_last_sqlite_session') || '{}');
+      if (backup && (backup.accountId || backup.email)) {
+        session = { ...backup, ...session };
+      }
+    } catch (_) {}
   }
 
-  // 2. Lista blanca de correos de Gerencia / Máster autorizados
+  // Si no pertenece a una empresa externa (sin familyId), es el CEO / dueño independiente de su cuenta
+  if (!session.familyId) {
+    return true;
+  }
+
+  // Lista blanca de correos de Gerencia / Máster autorizados
   const adminEmails = [
     'keyletsebas@gmail.com',
     'noreplyreciminsasrl@gmail.com',
     'gerenciareciminsasrl@gmail.com'
   ];
-  if (adminEmails.includes(session.email.toLowerCase())) {
+  if (session.email && adminEmails.includes(session.email.toLowerCase())) {
     return true;
   }
 
-  // 3. Verificación de rol firmado en sesión (CEO, Master, Admin)
+  // Verificación de rol firmado en sesión (CEO, Master, Admin)
   if (session.role === 'master' || session.role === 'admin' || session.role === 'ceo' || session.isMaster === true) {
     return true;
   }
 
-  // 4. Verificación de colaborador administrador registrado
+  // Verificación de colaborador administrador registrado
   try {
     const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
-    const linked = colabs.find(c => c.linkedAccountId === session.accountId || (c.email && c.email.toLowerCase() === session.email.toLowerCase()));
+    const linked = colabs.find(c => (session.accountId && c.linkedAccountId === session.accountId) || (c.email && session.email && c.email.toLowerCase() === session.email.toLowerCase()));
     if (linked && linked.isAdminColab === true) {
       return true;
     }

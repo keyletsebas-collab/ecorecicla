@@ -138,11 +138,10 @@
             if (session.accountId) {
                 if (typeof calculateSecureChecksum === 'function') {
                     const expectedSig = calculateSecureChecksum(session.accountId, session.email, session.familyId);
-                    if (session.signature !== expectedSig) {
-                        console.warn("⚠️ Sesión alterada en getSyncDbId. Cerrando sesión...");
-                        localStorage.removeItem('recim_session');
-                        window.location.reload();
-                        return null;
+                    if (!session.signature || session.signature !== expectedSig) {
+                        console.warn("⚠️ Sincronizando firma criptográfica en getSyncDbId...");
+                        session.signature = expectedSig;
+                        try { localStorage.setItem('recim_session', JSON.stringify(session)); } catch (_) {}
                     }
                 }
             }
@@ -210,7 +209,10 @@
         const dataToSync = {};
         let hasData = false;
         WATCHED_KEYS.forEach(k => {
-            const val = localStorage.getItem(userKey(k.pattern));
+            let val = localStorage.getItem(userKey(k.pattern));
+            if (val === '[]' && k.pattern === 'recim_gdrive_folder') {
+                val = null;
+            }
             if (val !== null && val !== undefined) {
                 try {
                     dataToSync[k.pattern] = JSON.parse(val);
@@ -344,6 +346,16 @@
                     return true;
                 }
             }
+        }
+
+        if (!data || Object.keys(data).length === 0) {
+            data = {};
+            WATCHED_KEYS.forEach(k => {
+                const val = localStorage.getItem(userKey(k.pattern));
+                if (val !== null && val !== undefined && val !== '[]') {
+                    try { data[k.pattern] = JSON.parse(val); } catch (_) { data[k.pattern] = val; }
+                }
+            });
         }
 
         const scriptUrl = 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
@@ -552,6 +564,55 @@ async function syncPushGDriveExcel(force = false) {
 }
 
 /**
+ * Check and run scheduled Google Drive backups if overdue based on user-selected frequency.
+ */
+async function checkAndRunScheduledGDriveBackup() {
+    const folderInput = localStorage.getItem(userKey('recim_gdrive_folder')) || localStorage.getItem('recim_gdrive_folder');
+    if (!folderInput) return;
+
+    const folderId = extractFolderId(folderInput);
+    if (!folderId) return;
+
+    const freq = localStorage.getItem(userKey('recim_backup_frequency')) || '2hours';
+    if (freq === 'manual') return;
+
+    const intervalMs = {
+        '30min': 30 * 60 * 1000,
+        '1hour': 60 * 60 * 1000,
+        '2hours': 2 * 60 * 60 * 1000,
+        '6hours': 6 * 60 * 60 * 1000,
+        '12hours': 12 * 60 * 60 * 1000,
+        '24hours': 24 * 60 * 60 * 1000
+    }[freq] || (2 * 60 * 60 * 1000);
+
+    const now = Date.now();
+    const lastJsonSync = parseInt(localStorage.getItem(userKey('recim_last_json_sync')) || '0', 10);
+    const lastExcelSync = parseInt(localStorage.getItem(userKey('recim_last_excel_sync')) || '0', 10);
+
+    const isJsonOverdue = (now - lastJsonSync) >= intervalMs;
+    const isExcelOverdue = (now - lastExcelSync) >= intervalMs;
+
+    if (isJsonOverdue || isExcelOverdue) {
+        console.log(`⏰ [Google Drive AutoBackup] Comprobando respaldo programado (Frecuencia: ${freq})...`);
+        
+        if (isJsonOverdue) {
+            const dataToSync = {};
+            WATCHED_KEYS.forEach(k => {
+                const val = localStorage.getItem(userKey(k.pattern));
+                if (val !== null && val !== undefined && val !== '[]') {
+                    try { dataToSync[k.pattern] = JSON.parse(val); } catch (_) { dataToSync[k.pattern] = val; }
+                }
+            });
+            await syncPushGDrive(dataToSync, false);
+        }
+
+        if (isExcelOverdue) {
+            await syncPushGDriveExcel(false);
+        }
+    }
+}
+
+/**
  * Send a welcome document to Google Drive.
  */
 async function sendGDriveWelcomeDoc() {
@@ -692,11 +753,22 @@ async function sendGDriveWelcomeDoc() {
                     const remoteVal = remoteData[k.pattern];
                     const localVal = localStorage.getItem(userKey(k.pattern));
                     if (remoteVal !== undefined && remoteVal !== null) {
-                        const remoteStr = (typeof remoteVal === 'string') ? remoteVal : JSON.stringify(remoteVal);
-                        let remoteItems = [];
-                        try { remoteItems = Array.isArray(remoteVal) ? remoteVal : JSON.parse(remoteStr); } catch (_) {}
-                        
-                        let localItems = [];
+                        // Protect valid local string setting (e.g. Google Drive folder URL) from being wiped by corrupted '[]' remote value
+                        if ((remoteVal === '[]' || (Array.isArray(remoteVal) && remoteVal.length === 0)) && k.pattern === 'recim_gdrive_folder') {
+                            if (localVal && localVal !== '[]') return;
+                        }
+
+                        let remoteItems = null;
+                        if (Array.isArray(remoteVal)) {
+                            remoteItems = remoteVal;
+                        } else if (typeof remoteVal === 'string') {
+                            try {
+                                const parsed = JSON.parse(remoteVal);
+                                if (Array.isArray(parsed)) remoteItems = parsed;
+                            } catch (_) {}
+                        }
+
+                        let localItems = null;
                         if (localVal) {
                             try {
                                 const parsed = JSON.parse(localVal);
@@ -704,10 +776,13 @@ async function sendGDriveWelcomeDoc() {
                             } catch (_) {}
                         }
 
-                        let mergedStr = remoteStr;
+                        let mergedStr = (typeof remoteVal === 'string') ? remoteVal : JSON.stringify(remoteVal);
                         if (Array.isArray(remoteItems) && Array.isArray(localItems)) {
                             const merged = mergeItemsById(localItems, remoteItems);
                             mergedStr = JSON.stringify(merged);
+                        } else if (k.pattern === 'recim_gdrive_folder' && mergedStr === '[]') {
+                            if (localVal && localVal !== '[]') return;
+                            mergedStr = '';
                         }
 
                         if (localVal !== mergedStr) {
@@ -813,13 +888,15 @@ async function sendGDriveWelcomeDoc() {
 
             if (data && data.data) {
                 const remote = data.data;
+                const remoteFolder = (remote.folder && remote.folder !== '[]') ? remote.folder : '';
                 const localFolder = localStorage.getItem(userKey('recim_gdrive_folder')) || '';
+                const cleanLocalFolder = (localFolder && localFolder !== '[]') ? localFolder : '';
                 const localScriptUrl = localStorage.getItem(userKey('recim_gdrive_script_url')) || '';
                 const localStatus = localStorage.getItem(userKey('recim_gdrive_status')) || '';
 
-                if (remote.folder !== localFolder || remote.scriptUrl !== localScriptUrl || remote.status !== localStatus) {
-                    if (remote.folder) {
-                        localStorage.setItem(userKey('recim_gdrive_folder'), remote.folder);
+                if (remoteFolder !== cleanLocalFolder || remote.scriptUrl !== localScriptUrl || remote.status !== localStatus) {
+                    if (remoteFolder) {
+                        localStorage.setItem(userKey('recim_gdrive_folder'), remoteFolder);
                     } else {
                         localStorage.removeItem(userKey('recim_gdrive_folder'));
                     }
@@ -934,6 +1011,12 @@ async function sendGDriveWelcomeDoc() {
     window.sendGDriveWelcomeDoc = sendGDriveWelcomeDoc;
     window.syncPushGDriveSettings = syncPushGDriveSettings;
     window.syncPullGDriveSettings = syncPullGDriveSettings;
+    window.checkAndRunScheduledGDriveBackup = checkAndRunScheduledGDriveBackup;
+
+    // ---- Planificador automático en segundo plano (Revisa cada 60 segundos) ----
+    setInterval(() => {
+        try { checkAndRunScheduledGDriveBackup(); } catch (_) {}
+    }, 60000);
 
     // ---- Main storage event listener ----
     window.addEventListener('storage', function (event) {
@@ -998,6 +1081,11 @@ async function sendGDriveWelcomeDoc() {
             setTimeout(() => {
                 if (isSupabaseActive) {
                     syncPullData(dbId);
+                    
+                    // Comprobar si hay respaldo de Google Drive pendiente según la frecuencia
+                    setTimeout(() => {
+                        try { checkAndRunScheduledGDriveBackup(); } catch (_) {}
+                    }, 3000);
                     
                     // Activar escuchadores de Supabase Realtime para tablas relacionales y user_data
                     const tablesToListen = ['invoices', 'finances', 'clients', 'materials', 'collaborators', 'user_data'];

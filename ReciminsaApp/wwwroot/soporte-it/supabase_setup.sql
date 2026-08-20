@@ -2,9 +2,11 @@
 /* Copia y pega este código en el "SQL Editor" de tu panel de Supabase y ejecútalo. */
 /* Esto creará las tablas necesarias para el módulo de Soporte IT y el Chat. */
 
-/* 1. Crear tabla de tickets (reclamos) */
+/* 1. Crear extensión y tabla de tickets (reclamos) */
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS public.support_tickets (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_email TEXT NOT NULL,
     user_name TEXT,
     module TEXT NOT NULL,
@@ -17,14 +19,15 @@ CREATE TABLE IF NOT EXISTS public.support_tickets (
 /* Habilitar RLS para tickets */
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 
-/* Políticas de seguridad para tickets (permitir lectura y escritura a todos temporalmente) */
+/* Políticas de seguridad para tickets */
+DROP POLICY IF EXISTS "Permitir acceso publico a tickets" ON public.support_tickets;
 CREATE POLICY "Permitir acceso publico a tickets" 
 ON public.support_tickets FOR ALL USING (true);
 
 
 /* 2. Crear tabla de mensajes de chat */
 CREATE TABLE IF NOT EXISTS public.support_chats (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     ticket_id UUID REFERENCES public.support_tickets(id) ON DELETE CASCADE,
     sender_email TEXT NOT NULL,
     sender_name TEXT,
@@ -38,6 +41,7 @@ CREATE TABLE IF NOT EXISTS public.support_chats (
 ALTER TABLE public.support_chats ENABLE ROW LEVEL SECURITY;
 
 /* Políticas de seguridad para chats */
+DROP POLICY IF EXISTS "Permitir acceso publico a chats" ON public.support_chats;
 CREATE POLICY "Permitir acceso publico a chats" 
 ON public.support_chats FOR ALL USING (true);
 

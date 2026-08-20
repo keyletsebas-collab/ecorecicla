@@ -86,14 +86,29 @@ function applyColorTheme(themeId, save = true) {
 // =============================================
 
 function renderSettingsPage(container) {
-  const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+  let session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+  if (!session.accountId || !session.email) {
+    try {
+      const backup = JSON.parse(localStorage.getItem('recim_last_sqlite_session') || '{}');
+      if (backup && (backup.accountId || backup.email)) {
+        session = { ...backup, ...session };
+        localStorage.setItem('recim_session', JSON.stringify(session));
+      }
+    } catch (_) {}
+  }
   const settings = getSettings();
   const currentLang = settings.language || 'es';
   const currentTheme = settings.colorTheme || 'green';
   const darkMode = settings.darkMode !== false;
   const currentCur = settings.currency || 'usd';
-  const gdriveFolderVal = localStorage.getItem(userKey('recim_gdrive_folder')) || '';
-  const gdriveScriptVal = localStorage.getItem(userKey('recim_gdrive_script_url')) || '';
+  let rawFolderVal = localStorage.getItem(userKey('recim_gdrive_folder')) || localStorage.getItem('recim_gdrive_folder') || '';
+  if (rawFolderVal === '[]' || rawFolderVal === 'null' || rawFolderVal === 'undefined') {
+    rawFolderVal = '';
+    localStorage.removeItem(userKey('recim_gdrive_folder'));
+    localStorage.removeItem('recim_gdrive_folder');
+  }
+  const gdriveFolderVal = rawFolderVal;
+  const gdriveScriptVal = localStorage.getItem(userKey('recim_gdrive_script_url')) || localStorage.getItem('recim_gdrive_script_url') || '';
 
   container.innerHTML = `
     <div class="page-header">
@@ -400,8 +415,8 @@ function renderSettingsPage(container) {
       <div class="card card--elevated settings-section" style="grid-column: span 2;">
         <h3 class="settings-section-title">🛠️ Soporte IT</h3>
         <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">¿Tienes algún problema con la aplicación? Contáctanos para recibir ayuda.</p>
-        <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #10b981, #059669);" onclick="window.location.href='soporte-it/index.html'">
-          Acceder a Soporte IT
+        <button class="btn-primary" style="width:100%; justify-content:center; padding: 14px 20px; font-size: 0.95rem; font-weight:700; border-radius: 12px; border:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35); transition: all 0.25s ease; cursor:pointer;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 22px rgba(16, 185, 129, 0.45)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.35)'" onclick="window.location.href='soporte-it/index.html'">
+          🎧 Acceder a Soporte IT
         </button>
       </div>
 
@@ -609,6 +624,9 @@ function handleGDriveFrequencyChange(selectEl) {
   if (typeof window.syncPushData === 'function') {
     window.syncPushData();
   }
+  if (typeof window.checkAndRunScheduledGDriveBackup === 'function') {
+    window.checkAndRunScheduledGDriveBackup();
+  }
 }
 window.handleGDriveFrequencyChange = handleGDriveFrequencyChange;
 
@@ -743,6 +761,9 @@ function saveGDriveAdvancedSettings() {
     showToast('⏱️ Frecuencia de respaldo guardada correctamente', 'success');
     if (typeof window.syncPushData === 'function') {
       window.syncPushData();
+    }
+    if (typeof window.checkAndRunScheduledGDriveBackup === 'function') {
+      window.checkAndRunScheduledGDriveBackup();
     }
   }
   closeGDriveAdvancedModal();
