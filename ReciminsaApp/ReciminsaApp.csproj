@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <TargetFrameworks>net10.0-android36.0</TargetFrameworks>
-        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0;net9.0-windows10.0.19041.0</TargetFrameworks>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net10.0-android36.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+        <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('windows'))">net10.0-android36.0</TargetFrameworks>
 
         <OutputType>Exe</OutputType>
         <RootNamespace>ReciminsaApp</RootNamespace>
@@ -27,8 +27,8 @@
         <ApplicationId>com.companyname.reciminsaapp</ApplicationId>
 
         <!-- Versions -->
-        <ApplicationDisplayVersion>1.16.1</ApplicationDisplayVersion>
-        <ApplicationVersion>4</ApplicationVersion>
+        <ApplicationDisplayVersion>1.17.0</ApplicationDisplayVersion>
+        <ApplicationVersion>5</ApplicationVersion>
 
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.2</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">14.0</SupportedOSPlatformVersion>

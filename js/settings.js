@@ -711,6 +711,7 @@ function openGDriveAdvancedModal() {
           </p>
 
           <select id="modal-gdrive-frequency" class="form-input" style="width: 100%; font-size: 0.85rem; padding: 9px 12px; cursor: pointer;">
+            <option value="1min" ${currentFreq === '1min' ? 'selected' : ''}>⏱️ Cada 1 Minuto</option>
             <option value="30min" ${currentFreq === '30min' ? 'selected' : ''}>⏱️ Cada 30 Minutos</option>
             <option value="1hour" ${currentFreq === '1hour' ? 'selected' : ''}>⏱️ Cada 1 Hora</option>
             <option value="2hours" ${currentFreq === '2hours' ? 'selected' : ''}>⏱️ Cada 2 Horas (Recomendado)</option>
@@ -2217,6 +2218,7 @@ function openAdvancedSettingsModal() {
           </p>
           
           <select id="adv-gdrive-frequency" class="form-input" style="width: 100%; font-size: 0.85rem; padding: 9px 12px; cursor: pointer;" onchange="handleGDriveFrequencyChange(this)">
+            <option value="1min" ${localStorage.getItem(userKey('recim_backup_frequency')) === '1min' ? 'selected' : ''}>⏱️ Cada 1 Minuto</option>
             <option value="30min" ${localStorage.getItem(userKey('recim_backup_frequency')) === '30min' ? 'selected' : ''}>⏱️ Cada 30 Minutos</option>
             <option value="1hour" ${localStorage.getItem(userKey('recim_backup_frequency')) === '1hour' ? 'selected' : ''}>⏱️ Cada 1 Hora</option>
             <option value="2hours" ${(!localStorage.getItem(userKey('recim_backup_frequency')) || localStorage.getItem(userKey('recim_backup_frequency')) === '2hours') ? 'selected' : ''}>⏱️ Cada 2 Horas (Recomendado)</option>

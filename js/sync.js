@@ -330,6 +330,7 @@
                 return true;
             }
             const intervalMs = {
+                '1min': 60 * 1000,
                 '30min': 30 * 60 * 1000,
                 '1hour': 60 * 60 * 1000,
                 '2hours': 2 * 60 * 60 * 1000,
@@ -404,7 +405,7 @@ async function syncPushGDriveExcel(force = false) {
         return false;
     }
 
-    const folderInput = localStorage.getItem(userKey('recim_gdrive_folder'));
+    const folderInput = localStorage.getItem(userKey('recim_gdrive_folder')) || localStorage.getItem('recim_gdrive_folder');
     if (!folderInput) return false;
 
     const folderId = extractFolderId(folderInput);
@@ -413,12 +414,13 @@ async function syncPushGDriveExcel(force = false) {
     // Check dynamic rate limit if not forced
     const now = Date.now();
     if (!force) {
-        const freq = localStorage.getItem(userKey('recim_backup_frequency')) || '2hours';
+        const freq = localStorage.getItem(userKey('recim_backup_frequency')) || localStorage.getItem('recim_backup_frequency') || '2hours';
         if (freq === 'manual') {
             console.log("⏳ Google Drive Excel: Modo manual activo, omitiendo auto-envío.");
             return true;
         }
         const intervalMs = {
+            '1min': 60 * 1000,
             '30min': 30 * 60 * 1000,
             '1hour': 60 * 60 * 1000,
             '2hours': 2 * 60 * 60 * 1000,
@@ -427,10 +429,10 @@ async function syncPushGDriveExcel(force = false) {
             '24hours': 24 * 60 * 60 * 1000
         }[freq] || (2 * 60 * 60 * 1000);
 
-        const lastSync = localStorage.getItem(userKey('recim_last_excel_sync'));
+        const lastSync = localStorage.getItem(userKey('recim_last_excel_sync')) || localStorage.getItem('recim_last_excel_sync');
         if (lastSync) {
             const elapsed = now - parseInt(lastSync, 10);
-            if (elapsed < intervalMs) {
+            if (elapsed < (intervalMs - 1000)) {
                 console.log(`⏳ Google Drive Excel: Omitiendo auto-envío (frecuencia ${freq} activa).`);
                 return true;
             }
@@ -526,41 +528,44 @@ async function syncPushGDriveExcel(force = false) {
         }
     ];
 
-    let allSuccess = true;
-    for (const fileInfo of excelFiles) {
+    const secToken = typeof APP_SECURITY_TOKEN !== 'undefined' ? APP_SECURITY_TOKEN : 'sb_publishable_Mq6mEx5qSIxv6mvt_DNaEw_NTeUIFPv';
+
+    const uploadPromises = excelFiles.map(async (fileInfo) => {
         try {
             const bodyPayload = JSON.stringify({
-                appToken: APP_SECURITY_TOKEN,
+                appToken: secToken,
                 action: 'excel',
                 folderId: folderId,
                 fileName: fileInfo.fileName,
                 base64Content: fileInfo.base64Content
             });
-            try {
-                await fetch(scriptUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: bodyPayload
-                });
-            } catch (corsErr) {
-                await fetch(scriptUrl, {
+            await fetch(scriptUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: bodyPayload
+            }).catch(corsErr => {
+                return fetch(scriptUrl, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: bodyPayload
                 }).catch(() => {});
-            }
+            });
             console.log(`☁️ Google Drive: Excel enviado → ${fileInfo.fileName}`);
+            return true;
         } catch (err) {
             console.error(`Google Drive Excel Push Error (${fileInfo.fileName}):`, err);
-            allSuccess = false;
+            return false;
         }
-    }
+    });
 
-    if (allSuccess) {
+    const results = await Promise.all(uploadPromises);
+    const anySuccess = results.some(r => r === true);
+    if (anySuccess) {
         localStorage.setItem(userKey('recim_last_excel_sync'), now.toString());
+        localStorage.setItem('recim_last_excel_sync', now.toString());
     }
-    return allSuccess;
+    return anySuccess;
 }
 
 /**
@@ -573,10 +578,11 @@ async function checkAndRunScheduledGDriveBackup() {
     const folderId = extractFolderId(folderInput);
     if (!folderId) return;
 
-    const freq = localStorage.getItem(userKey('recim_backup_frequency')) || '2hours';
+    const freq = localStorage.getItem(userKey('recim_backup_frequency')) || localStorage.getItem('recim_backup_frequency') || '2hours';
     if (freq === 'manual') return;
 
     const intervalMs = {
+        '1min': 60 * 1000,
         '30min': 30 * 60 * 1000,
         '1hour': 60 * 60 * 1000,
         '2hours': 2 * 60 * 60 * 1000,
@@ -586,15 +592,16 @@ async function checkAndRunScheduledGDriveBackup() {
     }[freq] || (2 * 60 * 60 * 1000);
 
     const now = Date.now();
-    const lastJsonSync = parseInt(localStorage.getItem(userKey('recim_last_json_sync')) || '0', 10);
-    const lastExcelSync = parseInt(localStorage.getItem(userKey('recim_last_excel_sync')) || '0', 10);
+    const lastJsonSync = parseInt(localStorage.getItem(userKey('recim_last_json_sync')) || localStorage.getItem('recim_last_json_sync') || '0', 10);
+    const lastExcelSync = parseInt(localStorage.getItem(userKey('recim_last_excel_sync')) || localStorage.getItem('recim_last_excel_sync') || '0', 10);
 
-    const isJsonOverdue = (now - lastJsonSync) >= intervalMs;
-    const isExcelOverdue = (now - lastExcelSync) >= intervalMs;
+    const isJsonOverdue = (now - lastJsonSync) >= (intervalMs - 1000);
+    const isExcelOverdue = (now - lastExcelSync) >= (intervalMs - 1000);
 
     if (isJsonOverdue || isExcelOverdue) {
-        console.log(`⏰ [Google Drive AutoBackup] Comprobando respaldo programado (Frecuencia: ${freq})...`);
+        console.log(`⏰ [Google Drive AutoBackup] Ejecutando respaldos programados (Frecuencia: ${freq})...`);
         
+        const tasks = [];
         if (isJsonOverdue) {
             const dataToSync = {};
             WATCHED_KEYS.forEach(k => {
@@ -603,12 +610,14 @@ async function checkAndRunScheduledGDriveBackup() {
                     try { dataToSync[k.pattern] = JSON.parse(val); } catch (_) { dataToSync[k.pattern] = val; }
                 }
             });
-            await syncPushGDrive(dataToSync, false);
+            tasks.push(syncPushGDrive(dataToSync, false));
         }
 
         if (isExcelOverdue) {
-            await syncPushGDriveExcel(false);
+            tasks.push(syncPushGDriveExcel(false));
         }
+
+        await Promise.all(tasks);
     }
 }
 
@@ -1013,10 +1022,10 @@ async function sendGDriveWelcomeDoc() {
     window.syncPullGDriveSettings = syncPullGDriveSettings;
     window.checkAndRunScheduledGDriveBackup = checkAndRunScheduledGDriveBackup;
 
-    // ---- Planificador automático en segundo plano (Revisa cada 60 segundos) ----
+    // ---- Planificador automático en segundo plano (Revisa cada 15 segundos) ----
     setInterval(() => {
         try { checkAndRunScheduledGDriveBackup(); } catch (_) {}
-    }, 60000);
+    }, 15000);
 
     // ---- Main storage event listener ----
     window.addEventListener('storage', function (event) {
