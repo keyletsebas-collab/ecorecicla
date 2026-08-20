@@ -1,10 +1,10 @@
 [Setup]
-AppName=Reciminsaapp
-AppVersion=1.17.0
-DefaultDirName={autopf}\Reciminsaapp
-DefaultGroupName=Reciminsaapp
+AppName=Reciminsa
+AppVersion=1.16.0
+DefaultDirName={autopf}\Reciminsa
+DefaultGroupName=Reciminsa
 OutputDir=.
-OutputBaseFilename=Reciminsaapp_pc_Setup
+OutputBaseFilename=reciminsaapp_pc_Setup
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64
@@ -13,18 +13,18 @@ SetupIconFile=ReciminsaApp\Resources\AppIcon\appicon.ico
 
 [Files]
 Source: "ReciminsaApp\bin\Release\net10.0-windows10.0.19041.0\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "runtimes\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall skipifmissing
+Source: "runtimes\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
-Name: "{group}\Reciminsaapp"; Filename: "{app}\Reciminsa.exe"
-Name: "{autodesktop}\Reciminsaapp"; Filename: "{app}\Reciminsa.exe"; Tasks: desktopicon
+Name: "{group}\Reciminsa App"; Filename: "{app}\ReciminsaApp.exe"
+Name: "{autodesktop}\Reciminsa App"; Filename: "{app}\ReciminsaApp.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; GroupDescription: "Iconos adicionales:"; Flags: unchecked
 
 [Run]
 Filename: "{tmp}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Instalando Microsoft WebView2 Runtime..."; Flags: runascurrentuser; Check: IsWebView2RuntimeNeeded
-Filename: "{app}\Reciminsa.exe"; Description: "Ejecutar Reciminsaapp"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\ReciminsaApp.exe"; Description: "Ejecutar Reciminsa App"; Flags: nowait postinstall skipifsilent
 
 [Code]
 function IsWebView2RuntimeNeeded(): boolean;

@@ -119,18 +119,18 @@ if ($LASTEXITCODE -ne 0) {
 
 # 7. Despliegue del Instalador al Escritorio / Instaladores
 Write-Host "`n[Paso 6/6] Copiando instalador generado..." -ForegroundColor Yellow
-$setupFile = Join-Path $PSScriptRoot "Reciminsaapp_pc_Setup.exe"
+$setupFile = Join-Path $PSScriptRoot "reciminsaapp_pc_Setup.exe"
 if (Test-Path $setupFile) {
     $userDesktopFolder = Join-Path $env:USERPROFILE "Desktop\instaladores rcapp"
     if (-not (Test-Path $userDesktopFolder)) {
         New-Item -ItemType Directory -Path $userDesktopFolder -Force | Out-Null
     }
-    $destInstaller = Join-Path $userDesktopFolder "Instalar_Reciminsaapp_Windows.exe"
+    $destInstaller = Join-Path $userDesktopFolder "Instalar_Reciminsa_Windows.exe"
     Copy-Item -Path $setupFile -Destination $destInstaller -Force
     Write-Host "🎉 ¡PROCESO COMPLETADO CON ÉXITO!" -ForegroundColor Green
     Write-Host "📦 Instalador generado en:" -ForegroundColor Green
     Write-Host "   -> $setupFile" -ForegroundColor Cyan
     Write-Host "   -> $destInstaller" -ForegroundColor Cyan
 } else {
-    Write-Host "⚠️ El instalador Reciminsaapp_pc_Setup.exe no se encontró en la raíz." -ForegroundColor Yellow
+    Write-Host "⚠️ El instalador reciminsaapp_pc_Setup.exe no se encontró en la raíz." -ForegroundColor Yellow
 }
