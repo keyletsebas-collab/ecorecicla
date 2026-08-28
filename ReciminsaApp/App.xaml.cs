@@ -1,4 +1,8 @@
 #nullable enable
+using System;
+using Microsoft.Maui;
+using Microsoft.Maui.Controls;
+
 namespace ReciminsaApp;
 
 public partial class App : Application

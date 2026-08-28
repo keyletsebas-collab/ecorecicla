@@ -406,17 +406,25 @@ function renderSingleInvoiceCard(inv) {
         </tr>`).join('');
   }
 
+  const regDateDisplay = formatDateTime(inv.createdAt || inv.date);
+
   let detailRows = '';
   if (isIngreso || isEgreso) {
     detailRows = `
       <div style="margin-bottom:12px;">
         <p style="margin: 4px 0;"><b>${t('lbl.concept')}:</b> ${inv.concept || '—'}</p>
         <p style="margin: 4px 0;"><b>${t('lbl.category')}:</b> ${inv.category || t('hist.category_general')}</p>
+        <p style="margin: 4px 0;"><b>📅 ${t('hist.created')}:</b> <span style="font-weight:600; color:var(--clr-primary-light);">${regDateDisplay}</span></p>
         ${inv.notes ? `<p style="margin: 4px 0;"><b>${t('lbl.notes')}:</b> ${inv.notes}</p>` : ''}
       </div>
     `;
   } else if (isBasica) {
-    detailRows = `<p><b>${t('hist.client')}</b> ${inv.client || '—'}</p>`;
+    detailRows = `
+      <div style="margin-bottom:12px;">
+        <p style="margin: 4px 0;"><b>${t('hist.client')}:</b> ${inv.client || '—'}</p>
+        <p style="margin: 4px 0;"><b>📅 ${t('hist.created')}:</b> <span style="font-weight:600; color:var(--clr-primary-light);">${regDateDisplay}</span></p>
+      </div>
+    `;
   } else {
     detailRows = `
       <div class="form-row" style="margin-bottom:12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -424,6 +432,7 @@ function renderSingleInvoiceCard(inv) {
         <p style="margin:0;"><b>${t('hist.nit')}</b> ${inv.nit || '—'}</p>
         <p style="margin:0;"><b>${t('hist.contact')}</b> ${inv.contact || '—'}</p>
         <p style="margin:0;"><b>${t('hist.address')}</b> ${inv.address || '—'}</p>
+        <p style="margin:0; grid-column: 1 / -1;"><b>📅 ${t('hist.created')}:</b> <span style="font-weight:600; color:var(--clr-primary-light);">${regDateDisplay}</span></p>
       </div>`;
   }
 
@@ -470,7 +479,9 @@ function renderSingleInvoiceCard(inv) {
   }
 
   const cardTitle = (isIngreso || isEgreso) ? (inv.concept) : (inv.id);
-  let cardMeta = (isIngreso || isEgreso) ? (`Finanzas &bull; Categoría: ${inv.category || 'General'}`) : (`${inv.client || inv.company || '—'} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}`);
+  let cardMeta = (isIngreso || isEgreso) 
+    ? (`Finanzas &bull; Categoría: ${inv.category || 'General'} &bull; 📅 ${t('hist.created')} ${regDateDisplay}`) 
+    : (`${inv.client || inv.company || '—'} &bull; 📅 ${t('hist.created')} ${regDateDisplay}`);
   if (inv.collaborator) {
     cardMeta += ` &bull; 👤 Colaborador: ${inv.collaborator}`;
   }

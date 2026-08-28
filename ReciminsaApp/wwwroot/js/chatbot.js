@@ -88,81 +88,81 @@ function forwardPassNeuralNetwork(tokens) {
 // RECIBOT KNOWLEDGE BASE & SCENARIOS DATASET
 // ==========================================================================
 const CHATBOT_QA_REPOSITORY = [
-  // SALUDOS Y CONVERSACIÓN ABIERTA
-  {
-    keywords: ['hola', 'buenas', 'saludos', 'que tal', 'buenos dias', 'buenas tardes', 'buenas noches'],
-    question: '¡Hola! ¿En qué te puedo ayudar hoy?',
-    answer: '¡Hola! Soy **ReciBot** 🤖, el asistente inteligente de **Reciminsa App**.<br>' +
+    // SALUDOS Y CONVERSACIÓN ABIERTA
+    {
+        keywords: ['hola', 'buenas', 'saludos', 'que tal', 'buenos dias', 'buenas tardes', 'buenas noches'],
+        question: '¡Hola! ¿En qué te puedo ayudar hoy?',
+        answer: '¡Hola! Soy **ReciBot** 🤖, el asistente inteligente de **Reciminsa App**.<br>' +
             'Puedo ayudarte con bitácoras, familias de materiales, reportes DGII, finanzas en tiempo real, diagnósticos de conexión, conversión de peso o realizar cálculos de margen por ti.<br><br>' +
             '¿En qué tema deseas ayuda hoy?'
-  },
-  {
-    keywords: ['gracias', 'excelente', 'perfecto', 'muchas gracias', 'genial', 'ok', 'entendido'],
-    question: 'De nada',
-    answer: '¡Con mucho gusto! 😊 Estoy aquí para asistirte en todo lo que necesites para optimizar la gestión de tu empresa de reciclaje.'
-  },
-  {
-    keywords: ['quien', 'eres', 'nombre', 'recibot', 'asistente', 'ia', 'bot', 'creador'],
-    question: '¿Quién eres y qué puedes hacer?',
-    answer: 'Soy **ReciBot** 🤖, la Inteligencia Artificial integrada en **Reciminsa App**.<br>' +
+    },
+    {
+        keywords: ['gracias', 'excelente', 'perfecto', 'muchas gracias', 'genial', 'ok', 'entendido'],
+        question: 'De nada',
+        answer: '¡Con mucho gusto! 😊 Estoy aquí para asistirte en todo lo que necesites para optimizar la gestión de tu empresa de reciclaje.'
+    },
+    {
+        keywords: ['quien', 'eres', 'nombre', 'recibot', 'asistente', 'ia', 'bot', 'creador'],
+        question: '¿Quién eres y qué puedes hacer?',
+        answer: 'Soy **ReciBot** 🤖, la Inteligencia Artificial integrada en **Reciminsa App**.<br>' +
             'Conozco toda la plataforma a nivel técnico y operativo, puedo realizar diagnósticos en tiempo real, calcular operaciones financieras y guiarte paso a paso por cualquier módulo.'
-  },
+    },
 
-  // ESCENARIO 1: BITÁCORAS & RECOGIDAS
-  {
-    keywords: ['crear', 'registrar', 'hacer', 'nueva', 'bitacora', 'bitacoras', 'recogida', 'viaje', 'conductor', 'chofer', 'camion', 'materiales'],
-    question: '¿Cómo registro una bitácora de recogida?',
-    answer: 'Para registrar una **Bitácora de Recogida**:<br>' +
+    // ESCENARIO 1: BITÁCORAS & RECOGIDAS
+    {
+        keywords: ['crear', 'registrar', 'hacer', 'nueva', 'bitacora', 'bitacoras', 'recogida', 'viaje', 'conductor', 'chofer', 'camion', 'materiales'],
+        question: '¿Cómo registro una bitácora de recogida?',
+        answer: 'Para registrar una **Bitácora de Recogida**:<br>' +
             '1. Ve a **Bitácoras** (Menú ➡️ 🚛 Bitácoras de Recogida).<br>' +
             '2. Selecciona **Cliente**, **Camión/Ficha**, **Chofer** y **Fecha**.<br>' +
             '3. Agrega cada material especificando **Cantidad (kg/lb)**, **Precio Compra** y **Precio Venta**.<br>' +
             '4. Revisa los totales y haz clic en **Guardar Bitácora**.'
-  },
-  {
-    keywords: ['ficha', 'camion', 'vehiculo', 'chofer', 'conductor', 'choferes', 'camiones'],
-    question: '¿Cómo asigno el camión y chofer en un viaje?',
-    answer: 'Al crear una Bitácora en el formulario superior:<br>' +
+    },
+    {
+        keywords: ['ficha', 'camion', 'vehiculo', 'chofer', 'conductor', 'choferes', 'camiones'],
+        question: '¿Cómo asigno el camión y chofer en un viaje?',
+        answer: 'Al crear una Bitácora en el formulario superior:<br>' +
             '1. **Ficha / Camión**: Escribe el número o placa del camión.<br>' +
             '2. **Chofer**: Selecciona o ingresa el nombre del conductor asignado.<br>' +
             '3. La información quedará asociada a la bitácora para los reportes de volumen por chofer.'
-  },
+    },
 
-  // ESCENARIO 2: FAMILIAS Y CÓDIGOS DE MATERIALES
-  {
-    keywords: ['familia', 'familias', 'categoria', 'agrupar', 'asociar', 'codigo', 'codigos', 'material', 'materiales'],
-    question: '¿Cómo crear familias de materiales y asociarles códigos?',
-    answer: 'Para organizar tus materiales por **Familias** (ej: Cartón, Plásticos, Metales):<br>' +
+    // ESCENARIO 2: FAMILIAS Y CÓDIGOS DE MATERIALES
+    {
+        keywords: ['familia', 'familias', 'categoria', 'agrupar', 'asociar', 'codigo', 'codigos', 'material', 'materiales'],
+        question: '¿Cómo crear familias de materiales y asociarles códigos?',
+        answer: 'Para organizar tus materiales por **Familias** (ej: Cartón, Plásticos, Metales):<br>' +
             '1. Ve a **Códigos de Materiales** (Menú ➡️ 🏷️ Códigos de Materiales).<br>' +
             '2. En el panel izquierdo, escribe el nombre en **Nueva Familia de Materiales** y haz clic en **Guardar Familia**.<br>' +
             '3. Al crear o editar un código (icono ✏️), selecciona la familia deseada en el desplegable y presiona **✓ Guardar**.<br>' +
             '4. El material quedará agrupado y se sincronizará inmediatamente en la nube.'
-  },
+    },
 
-  // ESCENARIO 3: ESTADÍSTICAS & TRADING
-  {
-    keywords: ['estadistica', 'estadisticas', 'grafico', 'graficos', 'trading', 'analitica', 'balance', 'volumen', 'colaboradores', 'lista'],
-    question: '¿Cómo funcionan los gráficos y listas analíticas de Trading?',
-    answer: 'El panel de **Estadísticas (Trading Style)** incluye 4 visores principales con tablas filtrables:<br>' +
+    // ESCENARIO 3: ESTADÍSTICAS & TRADING
+    {
+        keywords: ['estadistica', 'estadisticas', 'grafico', 'graficos', 'trading', 'analitica', 'balance', 'volumen', 'colaboradores', 'lista'],
+        question: '¿Cómo funcionan los gráficos y listas analíticas de Trading?',
+        answer: 'El panel de **Estadísticas (Trading Style)** incluye 4 visores principales con tablas filtrables:<br>' +
             '1. **📈 Finanzas**: Balance de caja con gráfico y tabla inferior filtrable (Todos, Ingresos, Egresos, Facturas) y badge de Total Neto.<br>' +
             '2. **📦 Volumen por Material**: Barras neón por familia con filtro selector por material individual y badge de **Peso Acumulado**.<br>' +
             '3. **👥 Colaboradores**: Gráfico de actividad de colaboradores.<br>' +
             '4. **🚛 Bitácoras / 🧾 Facturas**: Histórico de volumen mensual con tabla cronológica.'
-  },
-  {
-    keywords: ['filtrar', 'filtro', 'peso', 'acumulado', 'badge', 'especifico', 'material'],
-    question: '¿Cómo filtrar el peso acumulado de un solo material?',
-    answer: 'En **Volumen por Material** (Menú ➡️ 📊 Estadísticas ➡️ 🏷️ Materiales por Familias):<br>' +
+    },
+    {
+        keywords: ['filtrar', 'filtro', 'peso', 'acumulado', 'badge', 'especifico', 'material'],
+        question: '¿Cómo filtrar el peso acumulado de un solo material?',
+        answer: 'En **Volumen por Material** (Menú ➡️ 📊 Estadísticas ➡️ 🏷️ Materiales por Familias):<br>' +
             '1. Selecciona la **Familia** en el desplegable superior.<br>' +
             '2. En la barra de herramientas de la tabla inferior, usa el selector **🌐 Todos los Materiales**.<br>' +
             '3. Elige el material específico.<br>' +
             '4. La tabla filtrará sus pesajes y el badge **`Peso Acumulado`** calculará su total exclusivo.'
-  },
+    },
 
-  // ESCENARIO 4: DGII & COMPROBANTES FISCALES
-  {
-    keywords: ['dgii', 'rnc', 'ncf', 'comprobante', 'fiscal', 'credito', 'b01', 'b02', 'b14', 'b15', 'factura', 'impuesto', 'itbis'],
-    question: '¿Cómo funciona la facturación fiscal con RNC y NCF de la DGII?',
-    answer: 'Al emitir una **Factura de Venta**:<br>' +
+    // ESCENARIO 4: DGII & COMPROBANTES FISCALES
+    {
+        keywords: ['dgii', 'rnc', 'ncf', 'comprobante', 'fiscal', 'credito', 'b01', 'b02', 'b14', 'b15', 'factura', 'impuesto', 'itbis'],
+        question: '¿Cómo funciona la facturación fiscal con RNC y NCF de la DGII?',
+        answer: 'Al emitir una **Factura de Venta**:<br>' +
             '1. Ingresa el **RNC / Cédula** del cliente para validarlo en línea con la DGII.<br>' +
             '2. Selecciona el NCF:<br>' +
             '   - **B01 (Crédito Fiscal)**: Para empresas que deducen ITBIS.<br>' +
@@ -170,120 +170,120 @@ const CHATBOT_QA_REPOSITORY = [
             '   - **B14 (Régimen Especial)**: Exento de ITBIS.<br>' +
             '   - **B15 (Gubernamental)**: Para ventas a instituciones estatales.<br>' +
             '3. El sistema aplicará la tasa de ITBIS (18%) o exenciones según corresponda.'
-  },
+    },
 
-  // ESCENARIO 5: RESPALDO GOOGLE DRIVE & NUBE
-  {
-    keywords: ['google', 'drive', 'respaldo', 'backup', 'script', 'url', 'apps', 'copia', 'nube'],
-    question: '¿Cómo configurar el respaldo automático en Google Drive?',
-    answer: 'Para respaldar tu base de datos en **Google Drive**:<br>' +
+    // ESCENARIO 5: RESPALDO GOOGLE DRIVE & NUBE
+    {
+        keywords: ['google', 'drive', 'respaldo', 'backup', 'script', 'url', 'apps', 'copia', 'nube'],
+        question: '¿Cómo configurar el respaldo automático en Google Drive?',
+        answer: 'Para respaldar tu base de datos en **Google Drive**:<br>' +
             '1. Entra a **Ajustes** (Menú ➡️ ⚙️ Ajustes) ➡️ **Respaldo en Google Drive**.<br>' +
             '2. Pega la URL de tu **Google Apps Script Web App**.<br>' +
             '3. Haz clic en **Probando respaldo...**.<br>' +
             '4. La aplicación guardará copias de seguridad de tus bitácoras e ingresos directamente en tu carpeta de Google Drive.'
-  },
+    },
 
-  // ESCENARIO 6: BIOMETRÍA & SQLITE
-  {
-    keywords: ['biometria', 'huella', 'rostro', 'sqlite', 'inicio', 'rapido', 'login', 'contraseña', 'clave'],
-    question: '¿Cómo funciona el inicio rápido por biometría y SQLite?',
-    answer: 'Reciminsa App integra **SQLite local y Biometría**:<br>' +
+    // ESCENARIO 6: BIOMETRÍA & SQLITE
+    {
+        keywords: ['biometria', 'huella', 'rostro', 'sqlite', 'inicio', 'rapido', 'login', 'contraseña', 'clave'],
+        question: '¿Cómo funciona el inicio rápido por biometría y SQLite?',
+        answer: 'Reciminsa App integra **SQLite local y Biometría**:<br>' +
             '1. Ve a **Ajustes** ➡️ **Seguridad e Inicio Rápido**.<br>' +
             '2. Activa **Inicio de Sesión Rápido (Biometría / SQLite)**.<br>' +
             '3. Tus credenciales se cifrarán localmente permitiéndote acceder de forma segura con tu huella dactilar o reconocimiento facial.'
-  },
+    },
 
-  // ESCENARIO 7: DIAGNÓSTICO DE ERRORES Y CONEXIÓN
-  {
-    keywords: ['error', 'problema', 'fallo', 'conexion', 'sincroniza', 'sincronizacion', 'no carga', 'lento', 'internet', 'offline'],
-    question: '¿Qué hacer si tengo problemas de conexión o sincronización?',
-    answer: 'Pasos de diagnóstico recomendado:<br>' +
+    // ESCENARIO 7: DIAGNÓSTICO DE ERRORES Y CONEXIÓN
+    {
+        keywords: ['error', 'problema', 'fallo', 'conexion', 'sincroniza', 'sincronizacion', 'no carga', 'lento', 'internet', 'offline'],
+        question: '¿Qué hacer si tengo problemas de conexión o sincronización?',
+        answer: 'Pasos de diagnóstico recomendado:<br>' +
             '1. **Comprobar Conexión**: Reciminsa App funciona **offline**; si no hay red, tus datos se guardan localmente y se sincronizarán al reconectar.<br>' +
             '2. **Verificar ID de Empresa**: En **Ajustes**, comprueba que tu código de 10 dígitos coincide con el de tu equipo.<br>' +
             '3. **Forzar Sincronización**: Recarga la aplicación o presiona la tarjeta de sincronización en Ajustes.<br>' +
             '4. Si el inconveniente persiste, presiona el botón de **Soporte TI** abajo.'
-  },
+    },
 
-  // ESCENARIO 8: IMPRESIÓN DE RECIBOS TÉRMICOS & EXPORTACIONES
-  {
-    keywords: ['imprimir', 'impresora', 'ticket', 'recibo', 'termica', 'bluetooth', '80mm', '58mm', 'pdf'],
-    question: '¿Cómo imprimir recibos en impresoras térmicas o guardar PDF?',
-    answer: 'Impresión y exportación en Reciminsa App:<br>' +
+    // ESCENARIO 8: IMPRESIÓN DE RECIBOS TÉRMICOS & EXPORTACIONES
+    {
+        keywords: ['imprimir', 'impresora', 'ticket', 'recibo', 'termica', 'bluetooth', '80mm', '58mm', 'pdf'],
+        question: '¿Cómo imprimir recibos en impresoras térmicas o guardar PDF?',
+        answer: 'Impresión y exportación en Reciminsa App:<br>' +
             '1. Al finalizar una Bitácora o Factura, presiona 🖨️ **Imprimir Recibo**.<br>' +
             '2. Es compatible con impresoras térmicas de **58mm y 80mm** (Bluetooth/USB) y con generadores de PDF estándar.<br>' +
             '3. El formato ajusta automáticamente la marca blanca, RNC y desglose de materiales.'
-  },
+    },
 
-  // ESCENARIO 9: CONFIRMACIONES & NOTIFICACIONES HÁPTICAS
-  {
-    keywords: ['confirmacion', 'confirmaciones', 'borrar', 'eliminar', 'seguridad', 'irreversible', 'limpiar'],
-    question: '¿Por qué hay doble confirmación al borrar datos?',
-    answer: 'Para proteger los registros contables de tu negocio:<br>' +
+    // ESCENARIO 9: CONFIRMACIONES & NOTIFICACIONES HÁPTICAS
+    {
+        keywords: ['confirmacion', 'confirmaciones', 'borrar', 'eliminar', 'seguridad', 'irreversible', 'limpiar'],
+        question: '¿Por qué hay doble confirmación al borrar datos?',
+        answer: 'Para proteger los registros contables de tu negocio:<br>' +
             '1. La limpieza de datos requiere **2 confirmaciones consecutivas de seguridad**.<br>' +
             '2. Deberás aceptar tanto el aviso inicial como la confirmación de acción irreversible.'
-  },
-  {
-    keywords: ['notificacion', 'notificaciones', 'toast', 'vibracion', 'haptico', 'alerta', 'diseño'],
-    question: '¿Cómo funcionan las notificaciones nativas y la vibración háptica?',
-    answer: 'Las alertas de la app son **Glassmorphic Native Toast**:<br>' +
+    },
+    {
+        keywords: ['notificacion', 'notificaciones', 'toast', 'vibracion', 'haptico', 'alerta', 'diseño'],
+        question: '¿Cómo funcionan las notificaciones nativas y la vibración háptica?',
+        answer: 'Las alertas de la app son **Glassmorphic Native Toast**:<br>' +
             '1. Flotan en la parte superior con temporizador visual e icono de estado.<br>' +
             '2. En celulares emiten **respuestas hápticas reales** (`navigator.vibrate`) con secuencias cortas de vibración.'
-  },
+    },
 
-  // ESCENARIO 10: ROLES & SUPERADMIN
-  {
-    keywords: ['superadmin', 'administrador', 'admin', 'fundador', 'permisos', 'rol', 'promover', 'empresa'],
-    question: '¿Cómo funcionan los permisos de Administrador y Superadmin?',
-    answer: 'Niveles de acceso:<br>' +
+    // ESCENARIO 10: ROLES & SUPERADMIN
+    {
+        keywords: ['superadmin', 'administrador', 'admin', 'fundador', 'permisos', 'rol', 'promover', 'empresa'],
+        question: '¿Cómo funcionan los permisos de Administrador y Superadmin?',
+        answer: 'Niveles de acceso:<br>' +
             '- **Fundador / Superadmin**: Gestión total de la empresa, control de miembros, eliminación de cuentas y personalización.<br>' +
             '- **Operador / Colaborador**: Acceso limitado a los módulos habilitados por el administrador.'
-  },
+    },
 
-  // ESCENARIO 11: MARCA BLANCA
-  {
-    keywords: ['marca', 'blanca', 'logo', 'personalizar', 'rnc', 'nombre', 'app', 'empresa'],
-    question: '¿Cómo personalizar la marca blanca de la aplicación?',
-    answer: 'En **Ajustes** ➡️ **Personalización de Marca Blanca**:<br>' +
+    // ESCENARIO 11: MARCA BLANCA
+    {
+        keywords: ['marca', 'blanca', 'logo', 'personalizar', 'rnc', 'nombre', 'app', 'empresa'],
+        question: '¿Cómo personalizar la marca blanca de la aplicación?',
+        answer: 'En **Ajustes** ➡️ **Personalización de Marca Blanca**:<br>' +
             '1. Cambia el **Nombre Comercial de la App**.<br>' +
             '2. Sube tu propio **Logo Empresarial**.<br>' +
             '3. Configura RNC, Teléfono y Dirección para los encabezados impresos.'
-  },
+    },
 
-  // ESCENARIO 12: IMPACTO AMBIENTAL
-  {
-    keywords: ['ecologia', 'medio', 'ambiente', 'arbol', 'agua', 'co2', 'ahorro', 'energia', 'impacto', 'verde', 'calculo', 'calcula', 'ecologico', 'ecologica'],
-    question: '¿Cómo se calcula el impacto ecológico?',
-    answer: 'En el panel **Impacto medioambiental** (Menú ➡️ 🌱 Impacto medioambiental):<br>' +
+    // ESCENARIO 12: IMPACTO AMBIENTAL
+    {
+        keywords: ['ecologia', 'medio', 'ambiente', 'arbol', 'agua', 'co2', 'ahorro', 'energia', 'impacto', 'verde', 'calculo', 'calcula', 'ecologico', 'ecologica'],
+        question: '¿Cómo se calcula el impacto ecológico?',
+        answer: 'En el panel **Impacto medioambiental** (Menú ➡️ 🌱 Impacto medioambiental):<br>' +
             '- **Árboles salvados**: Papel/Cartón (~17 árboles/tonelada).<br>' +
             '- **Agua preservada**: Litros de agua ahorrados.<br>' +
             '- **Energía ahorrada**: Kilovatios-hora (kWh).<br>' +
             '- **CO2 evitado**: Reducción de gases de efecto invernadero.'
-  },
+    },
 
-  // ESCENARIO 13: EXPORTACIÓN EXCEL
-  {
-    keywords: ['excel', 'exportar', 'descargar', 'informe', 'reporte', 'guardar'],
-    question: '¿Cómo exportar reportes a Excel?',
-    answer: 'Puedes descargar reportes Excel:<br>' +
+    // ESCENARIO 13: EXPORTACIÓN EXCEL
+    {
+        keywords: ['excel', 'exportar', 'descargar', 'informe', 'reporte', 'guardar'],
+        question: '¿Cómo exportar reportes a Excel?',
+        answer: 'Puedes descargar reportes Excel:<br>' +
             '1. Desde **Historial** (Menú ➡️ 📑 Historial), presionando 🟢 **Exportar Excel**.<br>' +
             '2. Desde las pestañas de pesajes y finanzas.'
-  }
+    }
 ];
 
 // ==========================================================================
 // ADVANCED FUZZY LEVENSHTEIN & ML SYNONYM NLP ENGINE
 // ==========================================================================
 const SYNONYM_DICTIONARY = {
-  'grafico': ['graficos', 'grafica', 'chart', 'estadistica', 'estadisticas', 'analitica', 'trading', 'balance'],
-  'material': ['materiales', 'codigo', 'codigos', 'familia', 'familias', 'pesaje', 'kilos', 'libras', 'peso'],
-  'factura': ['facturas', 'ncf', 'dgii', 'rnc', 'comprobante', 'venta', 'recibo', 'itbis'],
-  'borrar': ['eliminar', 'quitar', 'limpiar', 'vaciar', 'resetear', 'expulsar'],
-  'respaldo': ['backup', 'drive', 'google', 'copia', 'nube', 'script'],
-  'colaborador': ['empleado', 'trabajador', 'personal', 'chofer', 'auxiliar', 'equipo'],
-  'bitacora': ['recogida', 'viaje', 'camion', 'ficha', 'recoleccion'],
-  'asistente': ['recibot', 'bot', 'ia', 'ayuda', 'soporte'],
-  'error': ['fallo', 'problema', 'conexion', 'lento', 'internet'],
-  'imprimir': ['impresora', 'ticket', 'recibo', 'termica', 'pdf']
+    'grafico': ['graficos', 'grafica', 'chart', 'estadistica', 'estadisticas', 'analitica', 'trading', 'balance'],
+    'material': ['materiales', 'codigo', 'codigos', 'familia', 'familias', 'pesaje', 'kilos', 'libras', 'peso'],
+    'factura': ['facturas', 'ncf', 'dgii', 'rnc', 'comprobante', 'venta', 'recibo', 'itbis'],
+    'borrar': ['eliminar', 'quitar', 'limpiar', 'vaciar', 'resetear', 'expulsar'],
+    'respaldo': ['backup', 'drive', 'google', 'copia', 'nube', 'script'],
+    'colaborador': ['empleado', 'trabajador', 'personal', 'chofer', 'auxiliar', 'equipo'],
+    'bitacora': ['recogida', 'viaje', 'camion', 'ficha', 'recoleccion'],
+    'asistente': ['recibot', 'bot', 'ia', 'ayuda', 'soporte'],
+    'error': ['fallo', 'problema', 'conexion', 'lento', 'internet'],
+    'imprimir': ['impresora', 'ticket', 'recibo', 'termica', 'pdf']
 };
 
 function levenshteinDistance(a, b) {
@@ -339,11 +339,11 @@ function calculateSemanticScore(query, keywords) {
         .replace(/[^a-z0-9]/g, ' ')
         .split(/\s+/)
         .filter(w => w.length > 1);
-    
+
     const tokens = clean(query);
     const queryTokens = expandSynonymsAndFuzzy(tokens);
     if (queryTokens.length === 0) return 0;
-    
+
     // Evaluate Neural Forward Pass Inference
     const neuralScore = forwardPassNeuralNetwork(queryTokens);
 
@@ -448,7 +448,7 @@ function initChatbot() {
     addWelcomeMessage();
 }
 
-window.sendQuickPrompt = function(promptText) {
+window.sendQuickPrompt = function (promptText) {
     const input = document.getElementById('chatbot-input');
     if (input) {
         input.value = promptText;
@@ -460,9 +460,9 @@ window.sendQuickPrompt = function(promptText) {
 function toggleChatbot() {
     const chatWindow = document.getElementById('chatbot-window');
     if (!chatWindow) return;
-    
+
     chatWindow.classList.toggle('open');
-    
+
     if (chatWindow.classList.contains('open')) {
         const input = document.getElementById('chatbot-input');
         if (input) input.focus();
@@ -501,7 +501,7 @@ function appendMessage(sender, text) {
 
     const messageBubble = document.createElement('div');
     messageBubble.className = `chatbot-msg chatbot-msg--${sender}`;
-    
+
     if (cleanText.includes('<button') || cleanText.includes('<div') || cleanText.includes('<strong>') || cleanText.includes('<p>') || cleanText.includes('<br>')) {
         messageBubble.innerHTML = cleanText;
     } else {
@@ -512,7 +512,7 @@ function appendMessage(sender, text) {
             .replace(/`(.*?)`/g, '<code>$1</code>');
         messageBubble.innerHTML = formatted;
     }
-    
+
     messagesContainer.appendChild(messageBubble);
     chatbotHistory.push({ sender, text: cleanText });
     scrollToBottom();
@@ -562,31 +562,173 @@ async function handleChatSubmit(e) {
 }
 
 // ==========================================================================
+// GLOBAL SEARCH ENGINE (ReciBot Search)
+// ==========================================================================
+function parseSearchIntent(message) {
+    const lower = message.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    // Detect search intent
+    const searchPatterns = [
+        /^(?:busca|buscar|encuentra|encontrar|search|localiza|localizar|dame|mostrar|muestra|show)\s+(.+)/i,
+        /^(?:quien es|que es|donde esta|donde queda)\s+(.+)/i
+    ];
+
+    let searchTerm = null;
+    for (const pattern of searchPatterns) {
+        const match = lower.match(pattern);
+        if (match) { searchTerm = match[1].trim(); break; }
+    }
+    if (!searchTerm) return null;
+
+    // Determine search category
+    let category = 'all';
+    const categoryMap = {
+        cliente: 'clients', clientes: 'clients', empresa: 'clients', empresas: 'clients', proveedor: 'clients',
+        factura: 'invoices', facturas: 'invoices', bitacora: 'invoices', bitacoras: 'invoices', registro: 'invoices',
+        material: 'materials', materiales: 'materials', codigo: 'materials', codigos: 'materials'
+    };
+
+    for (const [kw, cat] of Object.entries(categoryMap)) {
+        if (searchTerm.startsWith(kw + ' ') || searchTerm.startsWith(kw + 's ')) {
+            category = cat;
+            searchTerm = searchTerm.replace(new RegExp('^' + kw + 's?\\s*', 'i'), '').trim();
+            break;
+        }
+    }
+
+    if (!searchTerm || searchTerm.length < 2) return null;
+
+    const termNorm = searchTerm.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    let results = [];
+
+    // --- Search Clients ---
+    if (category === 'all' || category === 'clients') {
+        try {
+            const clients = typeof getClients === 'function' ? getClients() : [];
+            const matched = clients.filter(c => {
+                const name = (c.name || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                const nit = (c.nit || '').toLowerCase();
+                const addr = (c.address || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                return name.includes(termNorm) || nit.includes(termNorm) || addr.includes(termNorm);
+            });
+            matched.forEach(c => results.push({
+                type: '👥', category: 'Cliente',
+                title: c.name,
+                detail: `RNC: ${c.nit || 'N/A'} | ${c.type === 'empresa' ? '🏢 Empresa' : '👤 Local'} | ${c.email || 'Sin email'}`,
+                action: `navigate('clientes')`
+            }));
+        } catch (_) { }
+    }
+
+    // --- Search Invoices/Bitácoras ---
+    if (category === 'all' || category === 'invoices') {
+        try {
+            const invoices = typeof getAllInvoices === 'function' ? getAllInvoices() : [];
+            const isDateSearch = /^\d{4}-\d{2}-\d{2}$/.test(searchTerm) || ['hoy', 'ayer', 'esta semana', 'este mes'].includes(termNorm);
+
+            let dateFilter = null;
+            const now = new Date();
+            if (termNorm === 'hoy') dateFilter = now.toISOString().split('T')[0];
+            else if (termNorm === 'ayer') { const y = new Date(now); y.setDate(y.getDate() - 1); dateFilter = y.toISOString().split('T')[0]; }
+            else if (/^\d{4}-\d{2}-\d{2}$/.test(searchTerm)) dateFilter = searchTerm;
+
+            const matched = invoices.filter(inv => {
+                if (dateFilter) {
+                    const invDate = (inv.date || inv.fecha || '').split('T')[0];
+                    return invDate === dateFilter;
+                }
+                const client = (inv.clientName || inv.client || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                const id = (inv.id || '').toLowerCase();
+                const ncf = (inv.ncf || '').toLowerCase();
+                return client.includes(termNorm) || id.includes(termNorm) || ncf.includes(termNorm);
+            }).slice(0, 8);
+
+            matched.forEach(inv => {
+                const cur = typeof getCurrency === 'function' ? getCurrency() : { symbol: 'RD$' };
+                const total = (inv.total || inv.totalCompra || 0);
+                results.push({
+                    type: '🧾', category: 'Bitácora/Factura',
+                    title: `${inv.clientName || inv.client || 'Sin cliente'} — ${inv.date || inv.fecha || ''}`,
+                    detail: `ID: ${inv.id || 'N/A'} | Total: ${cur.symbol} ${parseFloat(total).toLocaleString('es-DO', { minimumFractionDigits: 2 })} | Items: ${(inv.items || []).length}`,
+                    action: `navigate('historial')`
+                });
+            });
+        } catch (_) { }
+    }
+
+    // --- Search Materials ---
+    if (category === 'all' || category === 'materials') {
+        try {
+            const codes = typeof getCustomCodes === 'function' ? getCustomCodes() : [];
+            const families = typeof getMaterialFamilies === 'function' ? getMaterialFamilies() : [];
+            const matched = codes.filter(c => {
+                const name = (c.name || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                const code = (c.code || '').toLowerCase();
+                return name.includes(termNorm) || code.includes(termNorm);
+            });
+            matched.forEach(c => {
+                const fam = families.find(f => f.id === c.familyId);
+                const cur = typeof getCurrency === 'function' ? getCurrency() : { symbol: 'RD$' };
+                results.push({
+                    type: '🏷️', category: 'Material',
+                    title: `${c.code} — ${c.name}`,
+                    detail: `Compra: ${cur.symbol}${c.priceBuy || 0} | Venta: ${cur.symbol}${c.priceSell || 0} | Familia: ${fam ? fam.name : 'Sin asignar'}`,
+                    action: `navigate('codigos')`
+                });
+            });
+        } catch (_) { }
+    }
+
+    // --- Format Results ---
+    if (results.length === 0) {
+        return `🔎 No se encontraron resultados para "<strong>${searchTerm}</strong>".<br><br>` +
+            `💡 <em>Intenta con: "busca cliente [nombre]", "busca material [código]", "facturas de hoy"</em>`;
+    }
+
+    let html = `🔎 <strong>${results.length} resultado(s)</strong> para "<em>${searchTerm}</em>":<br><br>`;
+    results.slice(0, 10).forEach(r => {
+        html += `<div style="background:rgba(0,255,255,0.05); border:1px solid rgba(0,255,255,0.15); border-radius:8px; padding:8px 10px; margin-bottom:6px;">` +
+            `<div style="font-weight:bold; font-size:0.85rem;">${r.type} ${r.title}</div>` +
+            `<div style="font-size:0.75rem; color:#8899aa; margin-top:2px;">${r.detail}</div>` +
+            `<button onclick="${r.action}" style="margin-top:4px; background:rgba(0,255,204,0.15); color:#00ffcc; border:1px solid rgba(0,255,204,0.3); padding:2px 10px; border-radius:6px; font-size:0.7rem; cursor:pointer;">Ir a ${r.category} →</button>` +
+            `</div>`;
+    });
+    if (results.length > 10) html += `<em style="font-size:0.75rem; color:#667;">... y ${results.length - 10} más</em>`;
+
+    return html;
+}
+
+// ==========================================================================
 // ADVANCED SCENARIO, MATH, PROFIT MARGIN & HEALTH CHECK ENGINE
 // ==========================================================================
 function parseAdvancedScenarios(message) {
     const lower = message.toLowerCase();
+
+    // 0. GLOBAL SEARCH
+    const searchResult = parseSearchIntent(message);
+    if (searchResult) return searchResult;
 
     // 1. HEALTH CHECK / SALUD DE LA APP
     if (lower.includes('health check') || lower.includes('salud app') || lower.includes('estado de la app') || lower.includes('diagnostico general') || lower.includes('salud de la app')) {
         const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
         const storageUsage = Math.round((JSON.stringify(localStorage).length / 1024));
         const onlineStatus = (typeof navigator !== 'undefined' && navigator.onLine) ? '🟢 Online (Conectado)' : '🟡 Offline (Modo Local Activo)';
-        
+
         let clientCount = 0;
         let invoiceCount = 0;
         try {
             if (typeof getClients === 'function') clientCount = getClients().length;
             if (typeof getAllInvoices === 'function') invoiceCount = getAllInvoices().length;
-        } catch (_) {}
+        } catch (_) { }
 
         return `🩺 **Diagnóstico de Salud de Reciminsa App**:<br>` +
-               `- Estado de Red: **${onlineStatus}**<br>` +
-               `- Usuario Activo: **${session.name || 'Invitado'}** (Rol: ${session.role || 'Admin'})<br>` +
-               `- ID Empresa: **${session.familyId || 'Base Local'}**<br>` +
-               `- Almacenamiento Local Utilizado: **${storageUsage} KB**<br>` +
-               `- Registros en Caché: **${invoiceCount}** Bitácoras, **${clientCount}** Clientes<br>` +
-               `- Estado del Sistema: **🟢 100% Funcional y Sincronizado**`;
+            `- Estado de Red: **${onlineStatus}**<br>` +
+            `- Usuario Activo: **${session.name || 'Invitado'}** (Rol: ${session.role || 'Admin'})<br>` +
+            `- ID Empresa: **${session.familyId || 'Base Local'}**<br>` +
+            `- Almacenamiento Local Utilizado: **${storageUsage} KB**<br>` +
+            `- Registros en Caché: **${invoiceCount}** Bitácoras, **${clientCount}** Clientes<br>` +
+            `- Estado del Sistema: **🟢 100% Funcional y Sincronizado**`;
     }
 
     // 2. PROFIT MARGIN CALCULATOR ("compra a 10 y venta a 18" or "compra 12 venta 20")
@@ -600,11 +742,11 @@ function parseAdvancedScenarios(message) {
             const tonProfit = profit * 1000;
 
             return `📈 **Calculadora de Margen y Rentabilidad**:<br>` +
-                   `- Precio Compra: **RD$ ${buy.toFixed(2)} /kg**<br>` +
-                   `- Precio Venta: **RD$ ${sell.toFixed(2)} /kg**<br>` +
-                   `- Ganancia Bruta: **<span style="color:#00ffcc;">RD$ ${profit.toFixed(2)} /kg</span>**<br>` +
-                   `- Margen de Ganancia: **<span style="color:#00ffcc;">${marginPct.toFixed(1)}%</span>**<br>` +
-                   `- Utilidad por Tonelada (1,000 kg): **RD$ ${tonProfit.toLocaleString('es-DO', {minimumFractionDigits:2})}**`;
+                `- Precio Compra: **RD$ ${buy.toFixed(2)} /kg**<br>` +
+                `- Precio Venta: **RD$ ${sell.toFixed(2)} /kg**<br>` +
+                `- Ganancia Bruta: **<span style="color:#00ffcc;">RD$ ${profit.toFixed(2)} /kg</span>**<br>` +
+                `- Margen de Ganancia: **<span style="color:#00ffcc;">${marginPct.toFixed(1)}%</span>**<br>` +
+                `- Utilidad por Tonelada (1,000 kg): **RD$ ${tonProfit.toLocaleString('es-DO', { minimumFractionDigits: 2 })}**`;
         }
     }
 
@@ -630,8 +772,8 @@ function parseAdvancedScenarios(message) {
 
         if (res > 0) {
             return `秤 **Conversión de Unidades de Peso**:<br>` +
-                   `- Cantidad original: **${val.toLocaleString()} ${from}**<br>` +
-                   `- Conversión exacta: **<span style="color:#00ffcc; font-size:1.05rem; font-weight:bold;">${res.toLocaleString('es-DO', {maximumFractionDigits:2})} ${unitLabel}</span>**`;
+                `- Cantidad original: **${val.toLocaleString()} ${from}**<br>` +
+                `- Conversión exacta: **<span style="color:#00ffcc; font-size:1.05rem; font-weight:bold;">${res.toLocaleString('es-DO', { maximumFractionDigits: 2 })} ${unitLabel}</span>**`;
         }
     }
 
@@ -642,9 +784,9 @@ function parseAdvancedScenarios(message) {
         const price = parseFloat(mathMatch[2]);
         const total = weight * price;
         return `🧮 **Simulación de Cálculo Realizada**:<br>` +
-               `- Cantidad: **${weight.toLocaleString()} kg/lb**<br>` +
-               `- Precio unitario: **RD$ ${price.toFixed(2)}**<br>` +
-               `- Total Estimado: **<span style="color:#00ffcc; font-size:1.05rem; font-weight:bold;">RD$ ${total.toLocaleString('es-DO', {minimumFractionDigits:2})}</span>**`;
+            `- Cantidad: **${weight.toLocaleString()} kg/lb**<br>` +
+            `- Precio unitario: **RD$ ${price.toFixed(2)}**<br>` +
+            `- Total Estimado: **<span style="color:#00ffcc; font-size:1.05rem; font-weight:bold;">RD$ ${total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</span>**`;
     }
 
     // 5. LIVE MATERIAL AUDIT ("auditar materiales", "revisar codigos", "analizar datos")
@@ -654,17 +796,17 @@ function parseAdvancedScenarios(message) {
         try {
             if (typeof getCustomCodes === 'function') codes = getCustomCodes();
             if (typeof getMaterialFamilies === 'function') families = getMaterialFamilies();
-        } catch (_) {}
+        } catch (_) { }
 
         const unassigned = codes.filter(c => !c.familyId);
         const zeroPrice = codes.filter(c => (!c.priceBuy || c.priceBuy === 0) && (!c.priceSell || c.priceSell === 0));
 
         return `🔍 **Auditoría de Base de Datos en Tiempo Real**:<br>` +
-               `- Total de Códigos Registrados: **${codes.length}**<br>` +
-               `- Total de Familias Creadas: **${families.length}**<br>` +
-               `- Materiales sin Familia asignada: **${unassigned.length}** ${unassigned.length > 0 ? '⚠️' : '✅'}<br>` +
-               `- Materiales con Precio $0.00: **${zeroPrice.length}** ${zeroPrice.length > 0 ? 'ℹ️' : '✅'}<br><br>` +
-               (unassigned.length > 0 ? `*Recomendación: Asigna una familia a tus códigos en **Códigos de Materiales** para habilitar los gráficos de Trading por Familia.*` : `*¡Tu base de datos de materiales está óptimamente estructurada!*`);
+            `- Total de Códigos Registrados: **${codes.length}**<br>` +
+            `- Total de Familias Creadas: **${families.length}**<br>` +
+            `- Materiales sin Familia asignada: **${unassigned.length}** ${unassigned.length > 0 ? '⚠️' : '✅'}<br>` +
+            `- Materiales con Precio $0.00: **${zeroPrice.length}** ${zeroPrice.length > 0 ? 'ℹ️' : '✅'}<br><br>` +
+            (unassigned.length > 0 ? `*Recomendación: Asigna una familia a tus códigos en **Códigos de Materiales** para habilitar los gráficos de Trading por Familia.*` : `*¡Tu base de datos de materiales está óptimamente estructurada!*`);
     }
 
     return null;
@@ -698,7 +840,7 @@ async function getChatbotResponse(userMessage) {
             colaboradores: '🤝 Colaboradores'
         };
         return `Navegando a **${pageLabels[navPage]}**... ➡️<br>` +
-               `Ruta manual: Menú lateral ➡️ **${pageLabels[navPage]}** ➡️ 👇 [NAVIGATE:${navPage}]`;
+            `Ruta manual: Menú lateral ➡️ **${pageLabels[navPage]}** ➡️ 👇 [NAVIGATE:${navPage}]`;
     }
 
     // 3. Gather Live Session Context
@@ -726,7 +868,7 @@ async function getChatbotResponse(userMessage) {
     let incomes = [];
     let expenses = [];
     let collaborators = [];
-    
+
     try {
         if (typeof getClients === 'function') clients = getClients();
         if (typeof getAllInvoices === 'function') invoices = getAllInvoices();
@@ -783,13 +925,13 @@ async function getChatbotResponse(userMessage) {
     }
 
     if (lower.includes('ingreso') || lower.includes('egreso') || lower.includes('gasto') || lower.includes('balance') || lower.includes('ganancia') || lower.includes('caja')) {
-        const totalIncomes = incomes.reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
-        const totalExpenses = expenses.reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+        const totalIncomes = incomes.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+        const totalExpenses = expenses.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
         const netBalance = totalIncomes - totalExpenses;
         return `**Resumen de Flujo de Caja en Tiempo Real**:<br>` +
-               `- Ingresos totales: **RD$ ${totalIncomes.toLocaleString('es-DO', {minimumFractionDigits:2})}**<br>` +
-               `- Egresos totales: **RD$ ${totalExpenses.toLocaleString('es-DO', {minimumFractionDigits:2})}**<br>` +
-               `- Balance Neto: **<span style="color:${netBalance >= 0 ? '#00ffcc' : '#ff4444'};">RD$ ${netBalance.toLocaleString('es-DO', {minimumFractionDigits:2})}</span>**`;
+            `- Ingresos totales: **RD$ ${totalIncomes.toLocaleString('es-DO', { minimumFractionDigits: 2 })}**<br>` +
+            `- Egresos totales: **RD$ ${totalExpenses.toLocaleString('es-DO', { minimumFractionDigits: 2 })}**<br>` +
+            `- Balance Neto: **<span style="color:${netBalance >= 0 ? '#00ffcc' : '#ff4444'};">RD$ ${netBalance.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</span>**`;
     }
 
     // QUERY REMOTE API IF CONFIGURED
@@ -803,8 +945,8 @@ Eres ReciBot, el asistente inteligente oficial de Reciminsa App.
 - Usuario activo: ${myName}
 - Conteo de Materiales: ${codes.length} | Familias: ${families.length}
 - Registros de Bitácoras: ${invoices.length}
-- Total Ingresos: RD$ ${incomes.reduce((s,i) => s + (parseFloat(i.amount)||0), 0)}
-- Total Egresos: RD$ ${expenses.reduce((s,i) => s + (parseFloat(i.amount)||0), 0)}
+- Total Ingresos: RD$ ${incomes.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)}
+- Total Egresos: RD$ ${expenses.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)}
 
 Consulta del usuario: ${userMessage}
 `;
@@ -843,6 +985,6 @@ Consulta del usuario: ${userMessage}
 
     // FALLBACK DISPATCH TO IT SUPPORT
     return `Lo siento, no he localizado una respuesta exacta para esa consulta. 🤖🔧<br><br>` +
-           `Puedes comunicarte directamente con nuestro equipo de Soporte Técnico TI clicando en el siguiente botón:<br><br>` +
-           `<button class="btn-primary" style="margin-top:8px; width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; font-weight:bold; font-size:0.85rem;" onclick="window.open('mailto:soporte@reciminsa.com?subject=Soporte%20TI%20-%20Reciminsa%20App')">📧 Contactar Soporte TI</button>`;
+        `Puedes comunicarte directamente con nuestro equipo de Soporte Técnico TI clicando en el siguiente botón:<br><br>` +
+        `<button class="btn-primary" style="margin-top:8px; width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; font-weight:bold; font-size:0.85rem;" onclick="window.open('mailto:soporte@reciminsa.com?subject=Soporte%20TI%20-%20Reciminsa%20App')">📧 Contactar Soporte TI</button>`;
 }

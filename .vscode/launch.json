@@ -2,22 +2,28 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "ReciminsaApp (Windows)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/ReciminsaApp/bin/Debug/net10.0-windows10.0.19041.0/win-x64/ReciminsaApp.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/ReciminsaApp",
-            "preLaunchTask": "build"
-        },
-        {
-            "name": ".NET MAUI (Meteor)",
+            "name": "📱 .NET MAUI 10 (Android - Meteor)",
             "type": "dotnet-meteor.debugger",
             "request": "launch",
-            "preLaunchTask": "build"
+            "preLaunchTask": "build-maui-android-10"
         },
         {
-            "name": "Electron Main",
+            "name": "🚀 .NET MAUI 10 (Meteor General)",
+            "type": "dotnet-meteor.debugger",
+            "request": "launch",
+            "preLaunchTask": "build-maui-android-10"
+        },
+        {
+            "name": "🖥️ ReciminsaApp .NET 10 (Windows)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/ReciminsaApp/bin/Debug/net10.0-windows10.0.19041.0/win-x64/Reciminsa.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/ReciminsaApp",
+            "preLaunchTask": "build-maui-windows-10"
+        },
+        {
+            "name": "⚡ Electron Main",
             "type": "node",
             "request": "launch",
             "cwd": "${workspaceFolder}",

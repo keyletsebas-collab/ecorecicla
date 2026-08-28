@@ -2,6 +2,20 @@
     "java.configuration.updateBuildConfiguration": "interactive",
     "dotnet.sdk.dotnetPath": "/usr/bin/dotnet",
     "omnisharp.dotnetPath": "/usr/bin/dotnet",
+    "omnisharp.useModernNet": true,
     "omnisharp.enableMsBuildLoadProjectsOnDemand": false,
-    "dotnet.defaultTargetFramework": "net10.0-android36.0"
+    "dotnet.defaultTargetFramework": "net10.0-android36.0",
+    "dotnet.defaultSolution": "ecorecicla.sln",
+    "csharp-dev-tools.solutionViewer.selectedWorkspaceSolutions": [
+        "ecorecicla.sln",
+        "ecorecicla.slnx"
+    ],
+    "gradle.customIncludes": [
+        "android"
+    ],
+    "python.testing.pytestArgs": [
+        "ReciminsaApp"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

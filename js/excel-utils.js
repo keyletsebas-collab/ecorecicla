@@ -403,8 +403,30 @@ function exportSelectedDataToExcel(selection = {}) {
         const wb = XLSX.utils.book_new();
         let sheetsAdded = 0;
 
+        // --- Filter helpers ---
+        const dateFrom = selection.dateFrom || '';
+        const dateTo = selection.dateTo || '';
+        const clientId = selection.clientId || '';
+
+        function matchesDateFilter(item) {
+            if (!dateFrom && !dateTo) return true;
+            const d = (item.date || item.fecha || '').split('T')[0];
+            if (!d) return true; // include items without date
+            if (dateFrom && d < dateFrom) return false;
+            if (dateTo && d > dateTo) return false;
+            return true;
+        }
+        function matchesClientFilter(item) {
+            if (!clientId) return true;
+            return (item.clientId === clientId || item.client_id === clientId);
+        }
+        function applyFilters(arr) {
+            return arr.filter(item => matchesDateFilter(item) && matchesClientFilter(item));
+        }
+
         if (selection.invoices) {
-            const invs = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
+            let invs = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
+            invs = applyFilters(invs);
             if (invs.length) {
                 const s = buildInvoiceSheet(invs);
                 XLSX.utils.book_append_sheet(wb, formatAndStyleWorksheet(XLSX.utils.aoa_to_sheet(s.data)), s.name);
@@ -412,9 +434,12 @@ function exportSelectedDataToExcel(selection = {}) {
             }
         }
         if (selection.income || selection.expenses || selection.invoices) {
-            const ings = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
-            const egs = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
-            const invs = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
+            let ings = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
+            let egs = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
+            let invs = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
+            ings = applyFilters(ings);
+            egs = applyFilters(egs);
+            invs = applyFilters(invs);
             if (ings.length || egs.length || invs.length) {
                 const s = buildCombinedFinanceSheet(ings, egs, invs);
                 XLSX.utils.book_append_sheet(wb, formatAndStyleWorksheet(XLSX.utils.aoa_to_sheet(s.data)), s.name);
@@ -429,8 +454,9 @@ function exportSelectedDataToExcel(selection = {}) {
             }
         }
 
-        if (sheetsAdded === 0) return showToast('⚠️ No hay datos para exportar en las categorías seleccionadas', 'warning');
-        downloadExcel(wb, `Reciminsa_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+        if (sheetsAdded === 0) return showToast('⚠️ No hay datos para exportar en el rango seleccionado', 'warning');
+        const suffix = dateFrom && dateTo ? `_${dateFrom}_a_${dateTo}` : '';
+        downloadExcel(wb, `Reciminsa_Export${suffix}_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (err) {
         console.error(err);
         showToast('❌ Error al exportar datos', 'error');

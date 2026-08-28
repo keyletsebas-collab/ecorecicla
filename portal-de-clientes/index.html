@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal de Cliente | EcoRecicla</title>
+<meta name="description" content="Portal de cliente con historial de transacciones, desglose de materiales y certificado de impacto ecológico.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: data: blob:; img-src 'self' data: https: http: blob:;">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="portal.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♻️</text></svg>">
+</head>
+<body>
+
+<!-- ========== CODE ENTRY SCREEN ========== -->
+<div id="code-screen" class="code-screen">
+  <div class="code-card">
+    <div class="code-logo">♻️</div>
+    <h1 class="code-title">Portal de Cliente</h1>
+    <p class="code-subtitle">Ingresa tu código de cliente para ver tu historial y certificado ecológico.</p>
+
+    <div class="code-input-group">
+      <input type="text" id="portal-code-input"
+             class="code-input"
+             placeholder="RC-XXXX-XXXX"
+             maxlength="12"
+             autocomplete="off"
+             spellcheck="false"
+             autofocus>
+      <button id="btn-access-portal" class="code-btn" onclick="accessPortal()">
+        Acceder al Portal
+      </button>
+    </div>
+
+    <div id="code-error" class="code-error" style="display:none;">
+      <span>⚠️ Código no encontrado. Verifica tu código e intenta de nuevo.</span>
+    </div>
+
+    <p class="code-hint">Tu código fue proporcionado por la empresa recicladora. Tiene el formato <strong>RC-XXXX-XXXX</strong>.</p>
+    <div style="margin-top:14px; padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+      <p style="font-size:0.65rem; color:var(--text-muted); margin:0;">📱 ID de dispositivo: <span id="device-id-display" style="font-family:monospace; color:var(--primary-light); letter-spacing:0.5px;">cargando...</span></p>
+    </div>
+
+    <!-- Session History -->
+    <div class="history-section">
+      <button class="history-toggle" id="btn-toggle-history" onclick="toggleHistory()">
+        📋 Historial de Sesiones
+      </button>
+      <div id="history-panel" class="history-panel" style="display:none;">
+        <div id="history-list" class="history-list"></div>
+        <div id="history-actions" class="history-actions" style="display:none;">
+          <button class="history-clear-btn" onclick="clearAllHistory()">🗑 Eliminar todo el historial</button>
+        </div>
+        <p id="history-empty" class="history-empty" style="display:none;">No hay sesiones anteriores.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========== PORTAL CONTENT ========== -->
+<div id="portal-root" class="container" style="display:none;"></div>
+
+<script src="portal.js"></script>
+</body>
+</html>

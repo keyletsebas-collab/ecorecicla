@@ -1,0 +1,10 @@
+{
+  "MsBuild": {
+    "Solution": "ecorecicla.sln",
+    "LoadProjectsOnDemand": false,
+    "EnablePackageRestore": true
+  },
+  "RoslynExtensionsOptions": {
+    "EnableDecompilationSupport": true
+  }
+}

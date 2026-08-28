@@ -1225,6 +1225,19 @@ function showExcelExportModal() {
   // Check if modal already exists
   if (document.getElementById('xls-export-modal')) return;
 
+  // Build client dropdown options
+  let clientOptions = `<option value="">Todos los clientes</option>`;
+  try {
+    const clients = typeof getClients === 'function' ? getClients() : [];
+    clients.forEach(c => {
+      clientOptions += `<option value="${c.id}">${c.name}${c.nit ? ' (' + c.nit + ')' : ''}</option>`;
+    });
+  } catch (_) {}
+
+  // Default date range: last 30 days
+  const today = new Date().toISOString().split('T')[0];
+  const thirtyDaysAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+
   const modalOverlay = document.createElement('div');
   modalOverlay.id = 'xls-export-modal';
   modalOverlay.className = 'modal-overlay';
@@ -1233,14 +1246,44 @@ function showExcelExportModal() {
   modalOverlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">${t('xls.modal_title')}</h3>
+        <h3 class="modal-title">📊 ${t('xls.modal_title')}</h3>
         <button class="modal-close" onclick="closeExcelExportModal()">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 0.9rem; color: var(--clr-text-secondary); margin-bottom: 16px;">
           ${t('xls.select_info')}
         </p>
+
+        <!-- Date Range Filters -->
+        <div style="background:var(--clr-surface-2); padding:12px; border-radius:var(--r-md); border:1px solid var(--clr-border); margin-bottom:14px;">
+          <h4 style="margin:0 0 8px 0; font-size:0.85rem; color:var(--clr-primary-light);">📅 Rango de Fechas</h4>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <div>
+              <label style="font-size:0.75rem; color:var(--clr-text-muted);">Desde</label>
+              <input type="date" id="xls-date-from" class="form-input" value="${thirtyDaysAgo}" style="padding:6px 8px; font-size:0.82rem;" />
+            </div>
+            <div>
+              <label style="font-size:0.75rem; color:var(--clr-text-muted);">Hasta</label>
+              <input type="date" id="xls-date-to" class="form-input" value="${today}" style="padding:6px 8px; font-size:0.82rem;" />
+            </div>
+          </div>
+          <div style="margin-top:6px;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--clr-text-muted); cursor:pointer;">
+              <input type="checkbox" id="xls-no-date-filter" onchange="document.getElementById('xls-date-from').disabled=this.checked; document.getElementById('xls-date-to').disabled=this.checked;" style="accent-color:var(--clr-primary);" />
+              Exportar todo (sin filtro de fecha)
+            </label>
+          </div>
+        </div>
+
+        <!-- Client Filter -->
+        <div style="background:var(--clr-surface-2); padding:12px; border-radius:var(--r-md); border:1px solid var(--clr-border); margin-bottom:14px;">
+          <h4 style="margin:0 0 8px 0; font-size:0.85rem; color:var(--clr-primary-light);">👥 Filtrar por Cliente</h4>
+          <select id="xls-client-filter" class="form-select" style="padding:6px 8px; font-size:0.82rem;">
+            ${clientOptions}
+          </select>
+        </div>
         
+        <!-- Data Categories -->
         <div class="xls-checklist">
           <label class="xls-item xls-all-toggle">
             <input type="checkbox" id="xls-cb-all" onchange="toggleAllExcelCheckboxes(this.checked)" checked />
@@ -1270,7 +1313,7 @@ function showExcelExportModal() {
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeExcelExportModal()">${t('btn.cancel')}</button>
-        <button class="btn-primary" onclick="handleExcelExport()">${t('xls.generate_btn')}</button>
+        <button class="btn-primary" onclick="handleExcelExport()">📊 ${t('xls.generate_btn')}</button>
       </div>
     </div>
   `;
@@ -1301,6 +1344,14 @@ function handleExcelExport() {
     showToast('⚠️ Selecciona al menos una categoría', 'warning');
     return;
   }
+
+  // Gather filters
+  const noDateFilter = document.getElementById('xls-no-date-filter')?.checked;
+  if (!noDateFilter) {
+    selection.dateFrom = document.getElementById('xls-date-from')?.value || '';
+    selection.dateTo = document.getElementById('xls-date-to')?.value || '';
+  }
+  selection.clientId = document.getElementById('xls-client-filter')?.value || '';
 
   // Call the function in excel-utils.js
   if (typeof exportSelectedDataToExcel === 'function') {
@@ -2227,6 +2278,23 @@ function openAdvancedSettingsModal() {
           </select>
         </div>
 
+        <!-- OPCIÓN 4: CENTRO DE CONTROL DEL CELULAR -->
+        <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 16px; border: 1px solid var(--clr-border);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+            <div>
+              <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; color: var(--clr-text-main);">
+                📱 Centro de Control
+              </h4>
+              <p style="margin: 0; font-size: 0.82rem; color: var(--clr-text-muted); line-height: 1.4;">
+                Accede a las opciones del Centro de Control de tu dispositivo para configurar accesos rápidos a egresos, ingresos y otras herramientas.
+              </p>
+            </div>
+          </div>
+          <button class="btn-primary" style="width: 100%; justify-content: center; font-weight: 600; margin-top: 10px; background: linear-gradient(135deg, #3b82f6, #1d4ed8);" onclick="openControlCenterModal()">
+            📱 Abrir Centro de Control
+          </button>
+        </div>
+
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeAdvancedSettingsModal()">Cerrar</button>
@@ -2481,6 +2549,326 @@ async function generateAndShowQuickLoginCode() {
     updateCodeDisplay();
   }, 1000);
 }
+
+// =============================================
+// SECCIÓN: CENTRO DE CONTROL DEL DISPOSITIVO
+// =============================================
+
+function openControlCenterModal() {
+  if (document.getElementById('control-center-modal')) return;
+
+  const storageKey = (typeof userKey === 'function') ? userKey('recim_control_center_finances') : 'recim_control_center_finances';
+  const isFinancesEnabled = localStorage.getItem(storageKey) === 'true';
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'control-center-modal';
+  modalOverlay.className = 'modal-overlay';
+  modalOverlay.style.zIndex = '9999';
+  modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeControlCenterModal(); };
+
+  modalOverlay.innerHTML = `
+    <div class="modal" style="max-width: 540px; width: 92%;">
+      <div class="modal-header">
+        <h3 class="modal-title">📱 Centro de Control</h3>
+        <button class="modal-close" onclick="closeControlCenterModal()">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <p style="margin:0; font-size:0.83rem; color:var(--clr-text-muted); line-height:1.4;">
+          Personaliza los botones y accesos rápidos disponibles en el panel de control de tu celular o dispositivo.
+        </p>
+
+        <!-- OPCIÓN 1: EGRESOS, INGRESOS (ACTIVABLE) -->
+        <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 16px; border: 1px solid var(--clr-border);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+            <div>
+              <h4 style="margin: 0 0 4px 0; font-size: 0.98rem; font-weight: 600; color: var(--clr-text-main);">
+                💸 Egresos, Ingresos
+              </h4>
+              <p style="margin: 0; font-size: 0.8rem; color: var(--clr-text-muted); line-height: 1.4;">
+                Crea un botón en el centro de control del celular que te pregunta si registrarás un ingreso o egreso y permite guardarlo directamente sin necesidad de entrar a la app.
+              </p>
+            </div>
+            <span id="cc-finances-badge" class="badge" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 6px; font-weight: 700; text-transform: uppercase; white-space: nowrap; ${isFinancesEnabled ? 'background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e;' : 'background: var(--clr-surface-2); color: var(--clr-text-muted); border: 1px solid var(--clr-border);'}">
+              ${isFinancesEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
+            </span>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+            <button id="cc-finances-toggle-btn" class="${isFinancesEnabled ? 'btn-secondary' : 'btn-primary'}" style="flex: 1; min-width: 160px; justify-content: center; font-weight: 600; ${isFinancesEnabled ? 'color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,0.08);' : 'background: linear-gradient(135deg, #22c55e, #15803d);'}" onclick="toggleControlCenterFinances()">
+              ${isFinancesEnabled ? '🚫 Desactivar Botón' : '⚡ Activar en Centro de Control'}
+            </button>
+            <button class="btn-secondary" style="justify-content: center; font-weight: 600; white-space: nowrap;" onclick="openQuickTransactionModal()">
+              ⚡ Probar Módulo Rápido
+            </button>
+          </div>
+        </div>
+
+        <!-- OPCIONES PRÓXIMAMENTE -->
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+          <h4 style="margin: 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--clr-text-muted);">
+            🚀 Próximas Funciones
+          </h4>
+
+          <!-- PRÓXIMAMENTE 1: ACCESO DIRECTO A VENTAS -->
+          <div style="background: var(--clr-surface-2); opacity: 0.85; border-radius: var(--r-md); padding: 12px 14px; border: 1px dashed var(--clr-border); display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+            <div>
+              <div style="font-weight: 600; font-size: 0.88rem; color: var(--clr-text-main);">🛍️ Acceso Directo a Ventas</div>
+              <div style="font-size: 0.76rem; color: var(--clr-text-muted);">Módulo flotante de ventas express para recibos inmediatos.</div>
+            </div>
+            <span class="badge" style="font-size: 0.68rem; padding: 3px 8px; border-radius: 4px; background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid #eab308; font-weight: 700; white-space: nowrap;">PRÓXIMAMENTE</span>
+          </div>
+
+          <!-- PRÓXIMAMENTE 2: ESTADÍSTICAS FLOTANTES -->
+          <div style="background: var(--clr-surface-2); opacity: 0.85; border-radius: var(--r-md); padding: 12px 14px; border: 1px dashed var(--clr-border); display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+            <div>
+              <div style="font-weight: 600; font-size: 0.88rem; color: var(--clr-text-main);">📊 Estadísticas Flotantes</div>
+              <div style="font-size: 0.76rem; color: var(--clr-text-muted);">Widget con resumen en tiempo real de ingresos y egresos netos.</div>
+            </div>
+            <span class="badge" style="font-size: 0.68rem; padding: 3px 8px; border-radius: 4px; background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid #eab308; font-weight: 700; white-space: nowrap;">PRÓXIMAMENTE</span>
+          </div>
+
+          <!-- MENSAJE: MÁS MÓDULOS PRONTO -->
+          <div style="background: var(--clr-surface-2); border-radius: var(--r-md); padding: 10px 14px; border: 1px dashed var(--clr-border); text-align: center; font-size: 0.82rem; color: var(--clr-text-muted); font-weight: 600;">
+            ✨ (más módulos pronto)
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeControlCenterModal()">Cerrar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+}
+
+function closeControlCenterModal() {
+  const modal = document.getElementById('control-center-modal');
+  if (modal) modal.remove();
+}
+
+function toggleControlCenterFinances() {
+  const storageKey = (typeof userKey === 'function') ? userKey('recim_control_center_finances') : 'recim_control_center_finances';
+  const current = localStorage.getItem(storageKey) === 'true';
+  const nextState = !current;
+  localStorage.setItem(storageKey, nextState ? 'true' : 'false');
+
+  // Notify Android native layer if available
+  if (window.AndroidNative && typeof window.AndroidNative.SetControlCenterTileEnabled === 'function') {
+    try {
+      window.AndroidNative.SetControlCenterTileEnabled(nextState);
+    } catch(e) {
+      console.warn("Error notificando a AndroidNative:", e);
+    }
+  }
+
+  showToast(nextState ? '✅ Botón "Egresos, Ingresos" activado en Centro de Control' : 'ℹ️ Botón desactivado del Centro de Control', 'success');
+
+  // Refresh modal UI
+  closeControlCenterModal();
+  openControlCenterModal();
+}
+
+// =============================================
+// MÓDULO RÁPIDO: REGISTRO DE INGRESOS Y EGRESOS
+// =============================================
+
+function openQuickTransactionModal(initialType = 'egreso') {
+  let existingModal = document.getElementById('quick-transaction-modal');
+  if (existingModal) existingModal.remove();
+
+  let selectedType = initialType; // 'ingreso' or 'egreso'
+
+  // Obtener nombre o correo de la cuenta activa
+  let accountDisplayName = 'Cuenta Principal';
+  try {
+    let session = JSON.parse(localStorage.getItem('recim_session') || '{}');
+    if (!session.email) {
+      const backup = JSON.parse(localStorage.getItem('recim_last_sqlite_session') || '{}');
+      if (backup) session = { ...backup, ...session };
+    }
+    accountDisplayName = session.name || session.email || session.accountName || session.user_metadata?.full_name || 'Cuenta Principal';
+  } catch (_) {}
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'quick-transaction-modal';
+  modalOverlay.className = 'modal-overlay';
+  modalOverlay.style.zIndex = '99999';
+  modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeQuickTransactionModal(); };
+
+  function renderFormContent() {
+    const isIncome = selectedType === 'ingreso';
+    const categories = isIncome 
+      ? ['Materiales', 'Empresarial', 'Otros']
+      : ['Operación', 'Transporte', 'Salarios', 'Mantenimiento', 'Servicios', 'Otros'];
+
+    const catOptionsHtml = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    return `
+      <div class="modal" style="max-width: 480px; width: 92%; border: 2px solid ${isIncome ? '#22c55e' : '#ef4444'}; background: var(--clr-surface-1);">
+        <div class="modal-header" style="border-bottom: 1px solid var(--clr-border);">
+          <h3 class="modal-title" style="display:flex; align-items:center; gap:8px;">
+            ${isIncome ? '📈 Registrar Ingreso Rápido' : '📉 Registrar Egreso Rápido'}
+          </h3>
+          <button class="modal-close" onclick="closeQuickTransactionModal()">✕</button>
+        </div>
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; padding-top:16px;">
+
+          <!-- INDICADOR DE CUENTA ACTIVA -->
+          <div style="background: var(--clr-surface-3); border-radius: var(--r-md); padding: 10px 12px; border: 1px solid var(--clr-border); display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.82rem;">
+            <span style="color: var(--clr-text-muted); font-weight: 500;">👤 Registrando en la cuenta:</span>
+            <span style="font-weight: 700; color: ${isIncome ? '#22c55e' : '#ef4444'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="${accountDisplayName}">
+              ${accountDisplayName}
+            </span>
+          </div>
+
+          <!-- TABS DE SELECCIÓN: INGRESO vs EGRESO -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:var(--clr-surface-3); padding:4px; border-radius:var(--r-md); border:1px solid var(--clr-border);">
+            <button type="button" id="qt-tab-ingreso" style="padding:10px; border:none; border-radius:6px; font-weight:700; font-size:0.9rem; cursor:pointer; transition:all 0.2s ease; display:flex; align-items:center; justify-content:center; gap:6px; ${isIncome ? 'background:#22c55e; color:#fff; box-shadow:0 2px 8px rgba(34,197,94,0.3);' : 'background:transparent; color:var(--clr-text-muted);'}" onclick="switchQuickTransactionType('ingreso')">
+              📈 Ingreso
+            </button>
+            <button type="button" id="qt-tab-egreso" style="padding:10px; border:none; border-radius:6px; font-weight:700; font-size:0.9rem; cursor:pointer; transition:all 0.2s ease; display:flex; align-items:center; justify-content:center; gap:6px; ${!isIncome ? 'background:#ef4444; color:#fff; box-shadow:0 2px 8px rgba(239,68,68,0.3);' : 'background:transparent; color:var(--clr-text-muted);'}" onclick="switchQuickTransactionType('egreso')">
+              📉 Egreso
+            </button>
+          </div>
+
+          <form onsubmit="handleQuickTransactionSubmit(event)" style="display:flex; flex-direction:column; gap:12px;">
+            <input type="hidden" id="qt-type" value="${selectedType}" />
+
+            <!-- MONTO -->
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:600; font-size:0.85rem;">💵 Monto (${(typeof getCurrency === 'function') ? getCurrency().code : 'DOP'}) *</label>
+              <input id="qt-amount" type="number" step="0.01" min="0.01" class="form-input" placeholder="0.00" required style="font-size:1.2rem; font-weight:700; padding:10px 12px;" autofocus />
+            </div>
+
+            <!-- CONCEPTO -->
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:600; font-size:0.85rem;">📝 Concepto / Descripción *</label>
+              <input id="qt-concept" type="text" class="form-input" placeholder="${isIncome ? 'Ej. Venta de reciclaje' : 'Ej. Pago de combustible'}" required style="font-size:0.9rem;" />
+            </div>
+
+            <!-- CATEGORÍA -->
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:600; font-size:0.85rem;">🏷️ Categoría</label>
+              <select id="qt-category" class="form-input" style="font-size:0.9rem; cursor:pointer;">
+                ${catOptionsHtml}
+              </select>
+            </div>
+
+            <!-- NOTAS (OPCIONAL) -->
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:600; font-size:0.85rem;">📌 Notas adicionales (opcional)</label>
+              <input id="qt-notes" type="text" class="form-input" placeholder="Detalles extra..." style="font-size:0.85rem;" />
+            </div>
+
+            <p id="qt-error" class="auth-error hidden" style="font-size:0.8rem; margin:0;"></p>
+
+            <!-- ACCIONES -->
+            <div style="display:flex; gap:10px; margin-top:8px;">
+              <button type="button" class="btn-secondary" style="flex:1; justify-content:center; font-weight:600;" onclick="closeQuickTransactionModal()">Cancelar</button>
+              <button type="submit" class="btn-primary" style="flex:1.5; justify-content:center; font-weight:700; background:${isIncome ? 'linear-gradient(135deg, #22c55e, #15803d)' : 'linear-gradient(135deg, #ef4444, #b91c1c)'};">
+                💾 Registrar ${isIncome ? 'Ingreso' : 'Egreso'}
+              </button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    `;
+  }
+
+  modalOverlay.innerHTML = renderFormContent();
+  document.body.appendChild(modalOverlay);
+
+  setTimeout(() => {
+    const amtInput = document.getElementById('qt-amount');
+    if (amtInput) amtInput.focus();
+  }, 100);
+}
+
+function closeQuickTransactionModal() {
+  const modal = document.getElementById('quick-transaction-modal');
+  if (modal) modal.remove();
+}
+
+function switchQuickTransactionType(type) {
+  openQuickTransactionModal(type);
+}
+
+function handleQuickTransactionSubmit(e) {
+  e.preventDefault();
+  const type = document.getElementById('qt-type').value;
+  const amount = parseFloat(document.getElementById('qt-amount').value);
+  const concept = document.getElementById('qt-concept').value.trim();
+  const category = document.getElementById('qt-category').value;
+  const notes = document.getElementById('qt-notes').value.trim();
+  const errorEl = document.getElementById('qt-error');
+
+  if (isNaN(amount) || amount <= 0) {
+    if (errorEl) { errorEl.textContent = 'Por favor ingresa un monto válido mayor a 0.'; errorEl.classList.remove('hidden'); }
+    return;
+  }
+  if (!concept) {
+    if (errorEl) { errorEl.textContent = 'El concepto es obligatorio.'; errorEl.classList.remove('hidden'); }
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+
+  if (typeof addFinanceEntry === 'function') {
+    addFinanceEntry(type, {
+      concept,
+      amount,
+      date: today,
+      category,
+      notes
+    });
+  } else {
+    const baseKey = type === 'ingreso' ? 'recim_ingresos' : 'recim_egresos';
+    const storageKey = (typeof userKey === 'function') ? userKey(baseKey) : baseKey;
+    const list = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    const newEntry = {
+      id: `${type.toUpperCase().slice(0, 3)}-${Date.now()}`,
+      currency: (typeof getCurrency === 'function') ? getCurrency().code : 'DOP',
+      concept,
+      amount,
+      date: today,
+      category,
+      notes,
+      createdAt: new Date().toISOString()
+    };
+    list.unshift(newEntry);
+    localStorage.setItem(storageKey, JSON.stringify(list));
+  }
+
+  showToast(type === 'ingreso' ? '✅ Ingreso registrado exitosamente' : '✅ Egreso registrado exitosamente', 'success');
+  closeQuickTransactionModal();
+
+  if (typeof currentPage !== 'undefined' && (currentPage === 'ingresos' || currentPage === 'egresos' || currentPage === 'historial')) {
+    if (typeof navigate === 'function') navigate(currentPage);
+  }
+}
+
+// Export functions to window
+window.openControlCenterModal = openControlCenterModal;
+window.closeControlCenterModal = closeControlCenterModal;
+window.toggleControlCenterFinances = toggleControlCenterFinances;
+window.openQuickTransactionModal = openQuickTransactionModal;
+window.closeQuickTransactionModal = closeQuickTransactionModal;
+window.switchQuickTransactionType = switchQuickTransactionType;
+window.handleQuickTransactionSubmit = handleQuickTransactionSubmit;
+
+// Automatic listener for quick_transaction intent / URL search parameter
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'quick_transaction') {
+      openQuickTransactionModal(params.get('type') || 'egreso');
+    }
+  } catch(e) {}
+});
+
 
 
 

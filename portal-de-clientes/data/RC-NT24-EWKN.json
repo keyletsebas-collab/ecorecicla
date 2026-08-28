@@ -1,0 +1,132 @@
+{
+  "client": {
+    "name": "Pro partes",
+    "nit": "",
+    "type": "local",
+    "email": ""
+  },
+  "company": {
+    "name": "RECIMINSA SRL",
+    "rnc": ""
+  },
+  "invoices": [
+    {
+      "id": "BIT-1787403206236",
+      "date": "2026-08-05",
+      "type": "basica",
+      "items": [
+        {
+          "id": 1787403206236.3784,
+          "qty": 380,
+          "icon": "♻️",
+          "name": "Carton OCC",
+          "peso": 380,
+          "unit": "kg",
+          "matId": "mat-1783787892358",
+          "balance": 1710,
+          "priceBuy": 0,
+          "priceSell": 4.5,
+          "totalVenta": 1710,
+          "totalCompra": 0
+        }
+      ],
+      "notes": "",
+      "client": "Pro partes",
+      "balance": 1710,
+      "clientId": "cli-1787398333038",
+      "typeName": "Bitácora",
+      "createdAt": "2026-08-22T12:53:26.236Z",
+      "totalVenta": 1710,
+      "totalCompra": 0,
+      "collaborator": ""
+    },
+    {
+      "id": "BIT-1787398374484",
+      "date": "2026-08-21",
+      "type": "basica",
+      "items": [
+        {
+          "id": 1787398374484.289,
+          "qty": 350,
+          "icon": "♻️",
+          "name": "Carton OCC",
+          "peso": 350,
+          "unit": "kg",
+          "matId": "mat-1783787892358",
+          "balance": 1575,
+          "priceBuy": 0,
+          "priceSell": 4.5,
+          "totalVenta": 1575,
+          "totalCompra": 0
+        }
+      ],
+      "notes": "",
+      "client": "Pro partes",
+      "balance": 1575,
+      "clientId": "cli-1787398333038",
+      "typeName": "Bitácora",
+      "createdAt": "2026-08-22T11:32:54.484Z",
+      "totalVenta": 1575,
+      "totalCompra": 0,
+      "collaborator": ""
+    },
+    {
+      "id": "BIT-1785465586210",
+      "date": "2026-06-05",
+      "type": "basica",
+      "items": [
+        {
+          "id": 1785465586210.6006,
+          "qty": 450,
+          "icon": "♻️",
+          "name": "Carton OCC",
+          "peso": 450,
+          "unit": "kg",
+          "matId": "mat-1783787892358",
+          "balance": 2025,
+          "priceBuy": 0,
+          "priceSell": 4.5,
+          "totalVenta": 2025,
+          "totalCompra": 0
+        }
+      ],
+      "notes": "",
+      "client": "Pro partes",
+      "balance": 2025,
+      "clientId": "",
+      "typeName": "Bitácora",
+      "createdAt": "2026-07-31T02:39:46.210Z",
+      "totalVenta": 2025,
+      "totalCompra": 0,
+      "collaborator": ""
+    }
+  ],
+  "materials": [
+    {
+      "name": "Carton OCC",
+      "qty": 1180,
+      "peso": 1180,
+      "total": 0
+    }
+  ],
+  "ecoStats": {
+    "paperWeight": 0,
+    "plasticWeight": 0,
+    "glassWeight": 0,
+    "metalWeight": 0,
+    "otherWeight": 1180,
+    "totalWeight": 1180,
+    "treesSaved": 0,
+    "waterSaved": 1180,
+    "energySaved": 1770,
+    "co2Avoided": 1180,
+    "oilSaved": 0
+  },
+  "currency": {
+    "id": "dop",
+    "symbol": "RD$",
+    "code": "DOP",
+    "label": "🇩🇴 Peso Dominicano (DOP)"
+  },
+  "generatedDate": "27 de agosto de 2026"
+}

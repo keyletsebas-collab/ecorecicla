@@ -1,0 +1,33 @@
+{
+  "client": {
+    "name": "RECIMINSA SRL",
+    "nit": "133250233",
+    "type": "local"
+  },
+  "company": {
+    "name": "RECIMINSA SRL",
+    "rnc": ""
+  },
+  "invoices": [],
+  "materials": [],
+  "ecoStats": {
+    "paperWeight": 0,
+    "plasticWeight": 0,
+    "glassWeight": 0,
+    "metalWeight": 0,
+    "otherWeight": 0,
+    "totalWeight": 0,
+    "treesSaved": 0,
+    "waterSaved": 0,
+    "energySaved": 0,
+    "co2Avoided": 0,
+    "oilSaved": 0
+  },
+  "currency": {
+    "id": "dop",
+    "symbol": "RD$",
+    "code": "DOP",
+    "label": "🇩🇴 Peso Dominicano (DOP)"
+  },
+  "generatedDate": "27 de agosto de 2026"
+}

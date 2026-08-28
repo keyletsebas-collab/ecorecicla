@@ -6,7 +6,7 @@ namespace ReciminsaApp;
 
 public partial class MainPage : ContentPage
 {
-    private const string CurrentVersion = "v1.16.0";
+    private const string CurrentVersion = "v1.17.0";
     // Nota: Reemplaza esta URL con la ruta final donde alojes tu version.json (puede ser un Bucket público en Supabase o Github)
     private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json";
     private static readonly JsonSerializerOptions CachedJsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -42,7 +42,8 @@ public partial class MainPage : ContentPage
     private async void BlazorWebView_BlazorWebViewInitialized(object? sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
     {
 #if ANDROID
-        e.WebView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(), "AndroidNative");
+        e.WebView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(e.WebView), "AndroidNative");
+        Platforms.Android.NotificationInterface.RegisterWebView(e.WebView);
         try
         {
             e.WebView.ClearCache(true);

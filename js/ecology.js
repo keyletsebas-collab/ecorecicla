@@ -233,17 +233,31 @@ function renderEcoClientCards(clientList) {
     return;
   }
 
+  const registeredClients = typeof getClients === 'function' ? getClients() : [];
+
   container.innerHTML = filtered.map(c => {
     const isEmp = c.type === 'empresa';
     const totalTons = (c.stats.totalWeight / 1000).toFixed(2);
+    const isRegistered = registeredClients.some(rc => (rc.name || '').trim().toLowerCase() === (c.name || '').trim().toLowerCase());
     
     return `
-      <div class="card card--elevated eco-client-card" style="display:flex; flex-direction:column; justify-content:space-between; padding: 16px; border-top: 4px solid ${isEmp ? '#047857' : '#3b82f6'}; position:relative; background: var(--clr-surface-1);">
+      <div class="card card--elevated eco-client-card" style="display:flex; flex-direction:column; justify-content:space-between; padding: 16px; border-top: 4px solid ${isEmp ? '#047857' : '#3b82f6'}; position:relative; background: var(--clr-surface-1); cursor: pointer;" onclick="openEcoClientDetailsModal('${escapeHTMLString(c.name)}', '${escapeHTMLString(c.nit || '')}', '${c.type}')">
         <div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; flex-wrap:wrap; gap:4px;">
-            <span style="background:${isEmp ? 'rgba(4,120,87,0.15)' : 'rgba(59,130,246,0.15)'}; color:${isEmp ? '#047857' : '#3b82f6'}; font-weight:800; font-size:0.68rem; padding: 3px 9px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">
-              ${isEmp ? '🏢 EMPRESA' : '👤 PERSONA'}
-            </span>
+            <div style="display:flex; gap: 4px; align-items:center;">
+              <span style="background:${isEmp ? 'rgba(4,120,87,0.15)' : 'rgba(59,130,246,0.15)'}; color:${isEmp ? '#047857' : '#3b82f6'}; font-weight:800; font-size:0.68rem; padding: 3px 9px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">
+                ${isEmp ? '🏢 EMPRESA' : '👤 PERSONA'}
+              </span>
+              ${isRegistered ? `
+                <span style="background:rgba(16,185,129,0.15); color:#10b981; font-weight:800; font-size:0.65rem; padding: 3px 7px; border-radius: 10px;" title="Registrado en el directorio de clientes">
+                  ✓ Registrado
+                </span>
+              ` : `
+                <span style="background:rgba(245,158,11,0.15); color:#d97706; font-weight:800; font-size:0.65rem; padding: 3px 7px; border-radius: 10px;" title="No registrado en clientes. Haz clic para crearlo.">
+                  ➕ No Registrado
+                </span>
+              `}
+            </div>
             <span style="font-size:0.72rem; color:var(--clr-primary); font-weight:700; background:var(--clr-surface-3); padding:2px 8px; border-radius:6px; font-family: monospace;" title="Código de Validación del Diploma">
               🔑 ${c.certCode}
             </span>
@@ -265,9 +279,16 @@ function renderEcoClientCards(clientList) {
           </div>
         </div>
 
-        <button class="btn-primary" onclick="generateEcoImpactPDFEngine({ clientName: '${escapeHTMLString(c.name)}', certCode: '${c.certCode}' })" style="width:100%; justify-content:center; gap:6px; background: linear-gradient(135deg, #10b981, #059669); border-color:#059669; font-weight:700; padding: 8px 12px; font-size: 0.82rem; border-radius: var(--r-md); cursor: pointer;">
-          📜 Generar Diploma PDF
-        </button>
+        <div style="display:flex; gap: 8px; margin-top:8px;" onclick="event.stopPropagation();">
+          ${!isRegistered ? `
+            <button class="btn-secondary" onclick="event.stopPropagation(); openEcoClientDetailsModal('${escapeHTMLString(c.name)}', '${escapeHTMLString(c.nit || '')}', '${c.type}')" style="flex:1; justify-content:center; gap:4px; font-weight:700; padding: 8px 10px; font-size: 0.78rem; border-radius: var(--r-md); cursor: pointer;">
+              ➕ Crear Cliente
+            </button>
+          ` : ''}
+          <button class="btn-primary" onclick="event.stopPropagation(); generateEcoImpactPDFEngine({ clientName: '${escapeHTMLString(c.name)}', certCode: '${c.certCode}' })" style="flex:1; justify-content:center; gap:6px; background: linear-gradient(135deg, #10b981, #059669); border-color:#059669; font-weight:700; padding: 8px 12px; font-size: 0.82rem; border-radius: var(--r-md); cursor: pointer;">
+            📜 Diploma PDF
+          </button>
+        </div>
       </div>
     `;
   }).join('');
@@ -844,4 +865,172 @@ function generateEcoCertificatePDF() {
     }
   }
 }
+
+// =============================================
+// MODAL DE DETALLE Y REGISTRO DE CLIENTES DESDE IMPACTO AMBIENTAL
+// =============================================
+function openEcoClientDetailsModal(clientName, clientNit = '', clientType = 'persona') {
+  closeEcoClientDetailsModal();
+
+  const registeredClients = typeof getClients === 'function' ? getClients() : [];
+  const existingClient = registeredClients.find(rc => (rc.name || '').trim().toLowerCase() === (clientName || '').trim().toLowerCase());
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'eco-client-modal-overlay';
+  modalOverlay.className = 'modal-overlay';
+  modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeEcoClientDetailsModal(); };
+
+  let modalBodyContent = '';
+
+  if (existingClient) {
+    // EL CLIENTE YA EXISTE EN EL DIRECTORIO: El formulario NO aparece
+    modalBodyContent = `
+      <div class="modal" style="max-width: 500px; width: 90%;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 class="modal-title" style="margin:0; font-size:1.1rem; display:flex; align-items:center; gap:8px;">
+            <span>👤 ${escapeHTMLString(existingClient.name)}</span>
+          </h3>
+          <button class="modal-close" onclick="closeEcoClientDetailsModal()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--clr-text-muted);">✕</button>
+        </div>
+        
+        <div class="modal-body" style="padding:16px 0; display:flex; flex-direction:column; gap:14px;">
+          <div style="background: rgba(16, 185, 129, 0.12); border-left: 4px solid #10b981; padding: 12px; border-radius: 6px; font-size: 0.85rem; color: var(--clr-text-main);">
+            <strong style="color:#059669; display:block; margin-bottom:2px;">✓ Cliente ya registrado</strong>
+            <span style="font-size:0.78rem; color:var(--clr-text-secondary);">Este cliente se encuentra guardado formalmente en el apartado de Clientes.</span>
+          </div>
+
+          <div style="background: var(--clr-surface-2); padding: 14px; border-radius: 8px; border: 1px solid var(--clr-border); display:flex; flex-direction:column; gap:8px; font-size:0.85rem;">
+            <div><strong>Nombre:</strong> ${escapeHTMLString(existingClient.name)}</div>
+            <div><strong>Tipo:</strong> ${existingClient.type === 'empresa' ? '🏢 Empresa' : '👤 Persona'}</div>
+            <div><strong>RNC / Cédula:</strong> ${escapeHTMLString(existingClient.nit || 'No especificado')}</div>
+            <div><strong>Correo Electrónico:</strong> ${escapeHTMLString(existingClient.email || 'No especificado')}</div>
+            <div><strong>Dirección:</strong> ${escapeHTMLString(existingClient.address || 'No especificada')}</div>
+            <div><strong>Teléfono:</strong> ${escapeHTMLString(existingClient.contact || 'No especificado')}</div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; padding-top:12px; border-top:1px solid var(--clr-border);">
+          <button class="btn-secondary" onclick="closeEcoClientDetailsModal()">Cerrar</button>
+        </div>
+      </div>
+    `;
+  } else {
+    // EL CLIENTE NO EXISTE: Aparece el formulario para RNC, Correo, Dirección y Teléfono
+    modalBodyContent = `
+      <div class="modal" style="max-width: 520px; width: 90%;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 class="modal-title" style="margin:0; font-size:1.1rem; display:flex; align-items:center; gap:8px;">
+            <span>➕ Registrar Cliente en Directorio</span>
+          </h3>
+          <button class="modal-close" onclick="closeEcoClientDetailsModal()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--clr-text-muted);">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding:16px 0; display:flex; flex-direction:column; gap:14px;">
+          <div style="background: rgba(245, 158, 11, 0.12); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 6px; font-size: 0.85rem; color: var(--clr-text-main);">
+            <strong style="color:#d97706; display:block; margin-bottom:2px;">⚠️ Cliente no registrado en el directorio</strong>
+            <span style="font-size:0.78rem; color:var(--clr-text-secondary);">
+              Este cliente proviene de bitácoras o facturas. Completa el RNC, correo, dirección y teléfono para crearlo en el apartado de Clientes:
+            </span>
+          </div>
+
+          <form id="eco-client-form" onsubmit="event.preventDefault(); submitEcoClientRegistration();" style="display:flex; flex-direction:column; gap:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:0.8rem;">Nombre del Cliente</label>
+              <input id="eco-modal-name" type="text" class="form-input" value="${escapeHTMLString(clientName)}" required />
+            </div>
+
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:0.8rem;">Tipo de Registro</label>
+              <select id="eco-modal-type" class="form-select">
+                <option value="persona" ${clientType === 'persona' ? 'selected' : ''}>👤 Persona (Particular)</option>
+                <option value="empresa" ${clientType === 'empresa' ? 'selected' : ''}>🏢 Empresa (Corporativo)</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:0.8rem;">RNC / Cédula / NIT</label>
+              <input id="eco-modal-nit" type="text" class="form-input" placeholder="Ej. 131-XXXXX-X" value="${escapeHTMLString(clientNit || '')}" />
+            </div>
+
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:0.8rem;">Correo Electrónico</label>
+              <input id="eco-modal-email" type="email" class="form-input" placeholder="ejemplo@correo.com" />
+            </div>
+
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:0.8rem;">Dirección</label>
+              <input id="eco-modal-address" type="text" class="form-input" placeholder="Ej. Av. 27 de Febrero #10, Santo Domingo" />
+            </div>
+
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:0.8rem;">Teléfono / Contacto</label>
+              <input id="eco-modal-contact" type="text" class="form-input" placeholder="Ej. (809) 555-0199" />
+            </div>
+
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px; padding-top:12px; border-top:1px solid var(--clr-border);">
+              <button type="button" class="btn-outline" onclick="closeEcoClientDetailsModal()">Cancelar</button>
+              <button type="submit" class="btn-primary" style="background:linear-gradient(135deg, #10b981, #059669); border-color:#059669;">💾 Guardar y Crear Cliente</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
+  modalOverlay.innerHTML = modalBodyContent;
+  document.body.appendChild(modalOverlay);
+}
+
+function closeEcoClientDetailsModal() {
+  const overlay = document.getElementById('eco-client-modal-overlay');
+  if (overlay) overlay.remove();
+}
+
+function submitEcoClientRegistration() {
+  const nameEl = document.getElementById('eco-modal-name');
+  const typeEl = document.getElementById('eco-modal-type');
+  const nitEl = document.getElementById('eco-modal-nit');
+  const emailEl = document.getElementById('eco-modal-email');
+  const addressEl = document.getElementById('eco-modal-address');
+  const contactEl = document.getElementById('eco-modal-contact');
+
+  if (!nameEl || !nameEl.value.trim()) {
+    if (typeof showToast === 'function') showToast('❌ Ingresa un nombre para el cliente', 'error');
+    return;
+  }
+
+  const name = nameEl.value.trim();
+  const type = typeEl ? typeEl.value : 'persona';
+  const nit = nitEl ? nitEl.value.trim() : '';
+  const email = emailEl ? emailEl.value.trim() : '';
+  const address = addressEl ? addressEl.value.trim() : '';
+  const contact = contactEl ? contactEl.value.trim() : '';
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (typeof showToast === 'function') showToast('❌ Ingresa un correo electrónico válido (ejemplo@correo.com)', 'error');
+    return;
+  }
+
+  if (typeof addClient === 'function') {
+    addClient(name, nit, address, contact, type, false, email);
+  } else {
+    const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+    clients.push({ id: `cli-${Date.now()}`, name, nit, address, contact, email, type });
+    localStorage.setItem(userKey('recim_clients'), JSON.stringify(clients));
+    if (typeof showToast === 'function') showToast('✅ Cliente creado correctamente', 'success');
+  }
+
+  closeEcoClientDetailsModal();
+
+  // Refrescar lista de Impacto Ambiental
+  const invoices = typeof getAllInvoices === 'function' ? getAllInvoices() : [];
+  const clients = typeof getClients === 'function' ? getClients() : [];
+  window._cachedEcoClients = getEcoClientsList(clients, invoices);
+  renderEcoClientCards(window._cachedEcoClients);
+}
+
+window.openEcoClientDetailsModal = openEcoClientDetailsModal;
+window.closeEcoClientDetailsModal = closeEcoClientDetailsModal;
+window.submitEcoClientRegistration = submitEcoClientRegistration;
+
 

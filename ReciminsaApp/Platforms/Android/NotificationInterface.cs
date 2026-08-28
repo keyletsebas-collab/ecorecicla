@@ -18,6 +18,7 @@ namespace ReciminsaApp.Platforms.Android
     public class NotificationInterface : Java.Lang.Object
     {
         private readonly global::Android.Webkit.WebView? _webView;
+        private static global::Android.Webkit.WebView? s_activeWebView;
 
         public NotificationInterface()
         {
@@ -26,6 +27,44 @@ namespace ReciminsaApp.Platforms.Android
         public NotificationInterface(global::Android.Webkit.WebView webView)
         {
             _webView = webView;
+            s_activeWebView = webView;
+        }
+
+        public static void RegisterWebView(global::Android.Webkit.WebView webView)
+        {
+            s_activeWebView = webView;
+        }
+
+        public static void TriggerQuickTransactionModal()
+        {
+            try
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    s_activeWebView?.EvaluateJavascript("if (typeof window.openQuickTransactionModal === 'function') { window.openQuickTransactionModal('egreso'); }", null);
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error en TriggerQuickTransactionModal: " + ex.Message);
+            }
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("SetControlCenterTileEnabled")]
+        public void SetControlCenterTileEnabled(bool enabled)
+        {
+            try
+            {
+                var context = global::Android.App.Application.Context;
+                var componentName = new global::Android.Content.ComponentName(context, "com.reciminsa.app.QuickFinanceTileService");
+                var state = enabled ? global::Android.Content.PM.ComponentEnabledState.Enabled : global::Android.Content.PM.ComponentEnabledState.Disabled;
+                context.PackageManager?.SetComponentEnabledSetting(componentName, state, global::Android.Content.PM.ComponentEnableOption.DontKillApp);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error en SetControlCenterTileEnabled: " + ex.Message);
+            }
         }
 
         [JavascriptInterface]

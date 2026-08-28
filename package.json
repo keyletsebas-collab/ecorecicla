@@ -1,12 +1,13 @@
 {
   "name": "reciminsaapp",
-  "version": "1.16.1",
+  "version": "1.17.0",
   "author": "Keylet Sebastian",
   "description": "reciminsaapp",
   "main": "main.js",
   "type": "commonjs",
   "scripts": {
     "start": "electron-forge start",
+    "dev": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "build": ""
