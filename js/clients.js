@@ -13,10 +13,10 @@ function saveClients(clients) {
   }
 }
 
-function addClient(name, nit, address, contact, type = 'local', isRst = false) {
+function addClient(name, nit, address, contact, type = 'local', isRst = false, defaultNcf = '') {
   const clients = getClients();
   const id = `cli-${Date.now()}`;
-  clients.push({ id, name, nit, address, contact, type, isRst });
+  clients.push({ id, name, nit, address, contact, type, isRst, defaultNcf: defaultNcf || (type === 'empresa' ? 'B01' : '') });
   saveClients(clients);
   showToast(type === 'empresa' ? '✅ Empresa creada' : (t('toast.cli_add') || '✅ Cliente creado'), 'success');
   return true;
@@ -31,11 +31,11 @@ function deleteClient(id) {
   showToast(isEmp ? '🗑 Empresa eliminada' : (t('toast.cli_del') || '🗑 Cliente eliminado'), 'success');
 }
 
-function updateClient(id, name, nit, address, contact, isRst = false) {
+function updateClient(id, name, nit, address, contact, type = 'local', isRst = false, defaultNcf = '') {
   const clients = getClients();
   const idx = clients.findIndex(c => c.id === id);
   if (idx === -1) return;
-  clients[idx] = { ...clients[idx], name, nit, address, contact, isRst };
+  clients[idx] = { ...clients[idx], name, nit, address, contact, type, isRst, defaultNcf };
   saveClients(clients);
   showToast(t('toast.cli_upd') || '✅ Registro actualizado', 'success');
 }
@@ -70,16 +70,34 @@ function renderClientesPage(container) {
           </div>
 
           <div class="form-group">
-            <label class="form-label" id="lbl-cli-name">Nombre / Razón Social</label>
-            <input id="cli-name" type="text" class="form-input" placeholder="Nombre completo o Razón Social" />
+            <label class="form-label" id="lbl-cli-name">Nombre / Razón Social <span style="color:#ef4444;">*</span></label>
+            <div style="display:flex; gap: 8px;">
+              <input id="cli-name" type="text" class="form-input" placeholder="Nombre completo o Razón Social" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillClientByNameDGII();}" />
+              <button class="btn-secondary" onclick="autoFillClientByNameDGII()" style="margin:0; padding: 0 15px;" title="Buscar RNC en DGII por Nombre" type="button">🔍</button>
+            </div>
           </div>
 
           <div class="form-group">
             <label class="form-label" id="lbl-cli-nit">RNC o Cédula</label>
             <div style="display:flex; gap: 8px;">
-              <input id="cli-nit" type="text" class="form-input" placeholder="Ej: RNC o Cédula" style="flex:1;" />
+              <input id="cli-nit" type="text" class="form-input" placeholder="Ej: RNC o Cédula" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillClientDGII();}" />
               <button class="btn-secondary" onclick="autoFillClientDGII()" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button">🔍</button>
             </div>
+          </div>
+
+          <!-- Secuencia NCF Asignada -->
+          <div class="form-group">
+            <label class="form-label">Secuencia NCF Predeterminada</label>
+            <select id="cli-default-ncf" class="form-select" style="background-color: var(--clr-surface-3);">
+              <option value="">-- Sin secuencia predeterminada --</option>
+              <option value="B01">B01 - Factura de Crédito Fiscal</option>
+              <option value="B02">B02 - Factura de Consumo</option>
+              <option value="B14">B14 - Regímenes Especiales</option>
+              <option value="B15">B15 - Comprobante Gubernamental</option>
+            </select>
+            <small style="display:block; margin-top:4px; font-size:0.75rem; color:var(--clr-text-muted);">
+              ⚡ Se seleccionará automáticamente al crearle una factura para facturar rápido.
+            </small>
           </div>
 
           <div class="form-group" id="cli-rst-container" style="display:none; flex-direction:column; align-items:center; gap:8px; margin: 4px 0;">
@@ -124,6 +142,14 @@ function handleClientTypeChange(type) {
   if (rstContainer) {
     rstContainer.style.display = (type === 'empresa') ? 'flex' : 'none';
   }
+  const ncfSelect = document.getElementById('cli-default-ncf');
+  if (ncfSelect) {
+    if (type === 'empresa' && (!ncfSelect.value || ncfSelect.value === 'B02')) {
+      ncfSelect.value = 'B01';
+    } else if (type === 'local' && (!ncfSelect.value || ncfSelect.value === 'B01')) {
+      ncfSelect.value = 'B02';
+    }
+  }
 }
 window.handleClientTypeChange = handleClientTypeChange;
 
@@ -142,17 +168,18 @@ function renderClientsList(clients) {
           ${isEmp 
             ? '<span class="badge badge--blue" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#3b82f6; color:#fff; text-transform:none;">🏢 Empresa</span>' 
             : '<span class="badge" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#64748b; color:#fff; text-transform:none;">👤 Persona</span>'}
+          ${c.defaultNcf ? `<span class="badge" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid #10b981; text-transform:none;">⚡ NCF: ${c.defaultNcf}</span>` : ''}
           ${c.isRst ? '<span class="badge badge--green" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; text-transform:none;">RST</span>' : ''}
         </div>
         <div style="font-size: 0.8rem; color: var(--clr-text-muted); margin-top: 4px;">
-          ${c.nit ? `<span style="margin-right: 10px;"><b>ID:</b> ${c.nit}</span>` : ''}
+          ${c.nit ? `<span style="margin-right: 10px;"><b>RNC/Cédula:</b> ${c.nit}</span>` : ''}
           ${c.contact ? `<span><b>Contacto:</b> ${c.contact}</span>` : ''}
         </div>
         ${c.address ? `<div style="font-size: 0.8rem; color: var(--clr-text-muted); margin-top: 2px;"><b>Dir:</b> ${c.address}</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;">
         <button class="btn-secondary" style="padding:5px 10px;font-size:0.8rem;"
-                onclick="showEditClientRow('${c.id}', '${c.name.replace(/'/g, "\\'")}', '${(c.nit || '').replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}', '${(c.contact || '').replace(/'/g, "\\'")}', '${c.type || 'local'}', ${c.isRst || false})">
+                onclick="showEditClientRow('${c.id}', '${c.name.replace(/'/g, "\\'")}', '${(c.nit || '').replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}', '${(c.contact || '').replace(/'/g, "\\'")}', '${c.type || 'local'}', ${c.isRst || false}, '${c.defaultNcf || ''}')">
           ✏️
         </button>
         <button class="btn-danger" style="padding:5px 10px;font-size:0.8rem;"
@@ -165,7 +192,7 @@ function renderClientsList(clients) {
 }
 
 // ---- Inline edit row ----
-function showEditClientRow(id, currentName, currentNit, currentAddress, currentContact, currentType = 'local', isRst = false) {
+function showEditClientRow(id, currentName, currentNit, currentAddress, currentContact, currentType = 'local', isRst = false, currentDefaultNcf = '') {
   const row = document.getElementById(`cli-row-${id}`);
   if (!row) return;
 
@@ -178,11 +205,25 @@ function showEditClientRow(id, currentName, currentNit, currentAddress, currentC
         </select>
       </div>
 
-      <input id="edit-cli-name-${id}" type="text" class="form-input" value="${currentName}" placeholder="Nombre / Razón Social" />
+      <div style="display:flex; gap: 8px;">
+        <input id="edit-cli-name-${id}" type="text" class="form-input" value="${currentName}" placeholder="Nombre / Razón Social" style="flex:1;" />
+        <button class="btn-secondary" onclick="autoFillEditClientByNameDGII('${id}')" style="margin:0; padding: 0 15px;" title="Buscar RNC por Nombre en DGII" type="button">🔍</button>
+      </div>
       
       <div style="display:flex; gap: 8px;">
         <input id="edit-cli-nit-${id}" type="text" class="form-input" value="${currentNit}" placeholder="RNC / Cédula" style="flex:1;" />
-        <button class="btn-secondary" onclick="autoFillEditClientDGII('${id}')" style="margin:0; padding: 0 15px;" title="Buscar en DGII" type="button">🔍</button>
+        <button class="btn-secondary" onclick="autoFillEditClientDGII('${id}')" style="margin:0; padding: 0 15px;" title="Buscar en DGII por RNC" type="button">🔍</button>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" style="font-size:0.78rem;">Secuencia NCF Predeterminada</label>
+        <select id="edit-cli-default-ncf-${id}" class="form-select" style="background-color: var(--clr-surface-3); font-size:0.85rem;">
+          <option value="" ${!currentDefaultNcf ? 'selected' : ''}>-- Sin secuencia predeterminada --</option>
+          <option value="B01" ${currentDefaultNcf === 'B01' ? 'selected' : ''}>B01 - Factura de Crédito Fiscal</option>
+          <option value="B02" ${currentDefaultNcf === 'B02' ? 'selected' : ''}>B02 - Factura de Consumo</option>
+          <option value="B14" ${currentDefaultNcf === 'B14' ? 'selected' : ''}>B14 - Regímenes Especiales</option>
+          <option value="B15" ${currentDefaultNcf === 'B15' ? 'selected' : ''}>B15 - Comprobante Gubernamental</option>
+        </select>
       </div>
       
       <div id="edit-cli-rst-container-${id}" style="display:${currentType === 'empresa' ? 'flex' : 'none'}; align-items:center; gap:8px; margin: 4px 0;">
@@ -210,6 +251,7 @@ function saveEditClientRow(id) {
   const addressEl = document.getElementById(`edit-cli-address-${id}`);
   const contactEl = document.getElementById(`edit-cli-contact-${id}`);
   const rstEl = document.getElementById(`edit-cli-rst-${id}`);
+  const defaultNcfEl = document.getElementById(`edit-cli-default-ncf-${id}`);
   
   const type = typeEl?.value || 'local';
   const name = nameEl?.value.trim() || '';
@@ -217,13 +259,14 @@ function saveEditClientRow(id) {
   const address = addressEl?.value.trim() || '';
   const contact = contactEl?.value.trim() || '';
   const isRst = rstEl ? rstEl.checked : false;
+  const defaultNcf = defaultNcfEl?.value || '';
 
   if (!name) { showToast(t('err.fill_fields') || '❌ Completa los campos requeridos', 'error'); return; }
 
   const clients = getClients();
   const idx = clients.findIndex(c => c.id === id);
   if (idx !== -1) {
-    clients[idx] = { ...clients[idx], name, nit, address, contact, type, isRst };
+    clients[idx] = { ...clients[idx], name, nit, address, contact, type, isRst, defaultNcf };
     saveClients(clients);
     showToast(t('toast.cli_upd') || '✅ Registro actualizado', 'success');
   }
@@ -243,16 +286,18 @@ function handleAddClient() {
   const contact = document.getElementById('cli-contact').value.trim();
   const rstEl = document.getElementById('cli-rst');
   const isRst = rstEl ? rstEl.checked : false;
+  const defaultNcf = document.getElementById('cli-default-ncf')?.value || '';
 
   if (!name) { showToast(t('err.fill_fields') || '❌ Completa los campos requeridos', 'error'); return; }
   
-  if (addClient(name, nit, address, contact, type, isRst)) {
+  if (addClient(name, nit, address, contact, type, isRst, defaultNcf)) {
     document.getElementById('cli-name').value = '';
     document.getElementById('cli-nit').value = '';
     document.getElementById('cli-address').value = '';
     document.getElementById('cli-contact').value = '';
     if (rstEl) rstEl.checked = false;
     document.getElementById('cli-type').value = 'local';
+    document.getElementById('cli-default-ncf').value = '';
     handleClientTypeChange('local');
     refreshClientsList();
   }
@@ -276,30 +321,136 @@ function refreshClientsList() {
 }
 
 // ---- DGII Lookup Helpers ----
-async function autoFillClientDGII() {
-  const nitEl = document.getElementById('cli-nit');
-  if (!nitEl) return;
-  const val = nitEl.value.trim();
+
+/**
+ * Busca el RNC de una empresa por su nombre o razón social en la DGII.
+ */
+async function autoFillClientByNameDGII() {
+  const nameEl = document.getElementById('cli-name');
+  if (!nameEl) return;
+  const val = nameEl.value.trim();
   if (!val) {
-    showToast('Ingresa un RNC o Cédula primero', 'warning');
+    showToast('Ingresa un nombre o razón social para buscar en la DGII', 'warning');
     return;
   }
+
+  const results = await searchDGIICompanies(val);
+  if (!results || results.length === 0) return;
+
+  if (results.length === 1) {
+    applyDGIICompanyToClientForm(results[0]);
+  } else {
+    openDGIICompanyPickerModal(results, (selected) => {
+      applyDGIICompanyToClientForm(selected);
+    });
+  }
+}
+
+function applyDGIICompanyToClientForm(data) {
+  const nameEl = document.getElementById('cli-name');
+  const nitEl = document.getElementById('cli-nit');
+  const typeEl = document.getElementById('cli-type');
+  const rstEl = document.getElementById('cli-rst');
+  const ncfEl = document.getElementById('cli-default-ncf');
+
+  if (nameEl) nameEl.value = data.name;
+  if (nitEl) nitEl.value = data.rnc;
+  if (typeEl) {
+    typeEl.value = 'empresa';
+    handleClientTypeChange('empresa');
+  }
+  if (rstEl) rstEl.checked = !!data.isRST;
+  if (ncfEl) ncfEl.value = 'B01'; // Empresa Crédito Fiscal por defecto
+
+  showToast(`✅ Empresa vinculada: ${data.rnc} (${data.name})`, 'success');
+}
+
+/**
+ * Busca por nombre en modo edición
+ */
+async function autoFillEditClientByNameDGII(id) {
+  const nameEl = document.getElementById(`edit-cli-name-${id}`);
+  if (!nameEl) return;
+  const val = nameEl.value.trim();
+  if (!val) {
+    showToast('Ingresa un nombre para buscar en la DGII', 'warning');
+    return;
+  }
+
+  const results = await searchDGIICompanies(val);
+  if (!results || results.length === 0) return;
+
+  if (results.length === 1) {
+    applyDGIICompanyToEditClientRow(id, results[0]);
+  } else {
+    openDGIICompanyPickerModal(results, (selected) => {
+      applyDGIICompanyToEditClientRow(id, selected);
+    });
+  }
+}
+
+function applyDGIICompanyToEditClientRow(id, data) {
+  const nameEl = document.getElementById(`edit-cli-name-${id}`);
+  const nitEl = document.getElementById(`edit-cli-nit-${id}`);
+  const typeEl = document.getElementById(`edit-cli-type-${id}`);
+  const rstEl = document.getElementById(`edit-cli-rst-${id}`);
+  const ncfEl = document.getElementById(`edit-cli-default-ncf-${id}`);
+  const rstContainer = document.getElementById(`edit-cli-rst-container-${id}`);
+
+  if (nameEl) nameEl.value = data.name;
+  if (nitEl) nitEl.value = data.rnc;
+  if (typeEl) {
+    typeEl.value = 'empresa';
+    if (rstContainer) rstContainer.style.display = 'flex';
+  }
+  if (rstEl) rstEl.checked = !!data.isRST;
+  if (ncfEl) ncfEl.value = 'B01';
+
+  showToast(`✅ Empresa vinculada: ${data.rnc} (${data.name})`, 'success');
+}
+
+async function autoFillClientDGII() {
+  const nitEl = document.getElementById('cli-nit');
+  const nameEl = document.getElementById('cli-name');
+  if (!nitEl) return;
+  const val = nitEl.value.trim();
+
+  // Si no hay RNC pero hay nombre, buscar por nombre automáticamente
+  if (!val) {
+    if (nameEl && nameEl.value.trim()) {
+      autoFillClientByNameDGII();
+      return;
+    }
+    showToast('Ingresa un RNC o nombre de empresa primero', 'warning');
+    return;
+  }
+
   const data = await fetchDGIIData(val);
   if (data) {
     if (data.rnc) {
       nitEl.value = data.rnc;
     }
-    const nameEl = document.getElementById('cli-name');
     if (nameEl) nameEl.value = data.name;
     const rstEl = document.getElementById('cli-rst');
     if (rstEl) rstEl.checked = !!data.isRST;
     
+    // Autoasignar tipo empresa y secuencia B01 si es RNC de 9 dígitos
+    const cleanId = (data.rnc || val).replace(/\D/g, '');
+    if (cleanId.length === 9) {
+      const typeEl = document.getElementById('cli-type');
+      if (typeEl) {
+        typeEl.value = 'empresa';
+        handleClientTypeChange('empresa');
+      }
+      const ncfEl = document.getElementById('cli-default-ncf');
+      if (ncfEl && !ncfEl.value) ncfEl.value = 'B01';
+    }
+
     const addrEl = document.getElementById('cli-address');
     const contactEl = document.getElementById('cli-contact');
     
     const clients = getClients();
-    const rncToFind = (data.rnc || val).replace(/\D/g, '');
-    const localClient = clients.find(c => c.nit && c.nit.replace(/\D/g, '') === rncToFind);
+    const localClient = clients.find(c => c.nit && c.nit.replace(/\D/g, '') === cleanId);
     
     if (localClient) {
       if (addrEl) addrEl.value = localClient.address || '';
@@ -313,22 +464,40 @@ async function autoFillClientDGII() {
 
 async function autoFillEditClientDGII(id) {
   const nitEl = document.getElementById(`edit-cli-nit-${id}`);
+  const nameEl = document.getElementById(`edit-cli-name-${id}`);
   if (!nitEl) return;
   const val = nitEl.value.trim();
+
   if (!val) {
-    showToast('Ingresa un RNC o Cédula primero', 'warning');
+    if (nameEl && nameEl.value.trim()) {
+      autoFillEditClientByNameDGII(id);
+      return;
+    }
+    showToast('Ingresa un RNC o nombre de empresa primero', 'warning');
     return;
   }
+
   const data = await fetchDGIIData(val);
   if (data) {
     if (data.rnc) {
       nitEl.value = data.rnc;
     }
-    const nameEl = document.getElementById(`edit-cli-name-${id}`);
     if (nameEl) nameEl.value = data.name;
     const rstEl = document.getElementById(`edit-cli-rst-${id}`);
     if (rstEl) rstEl.checked = !!data.isRST;
     
+    const cleanId = (data.rnc || val).replace(/\D/g, '');
+    if (cleanId.length === 9) {
+      const typeEl = document.getElementById(`edit-cli-type-${id}`);
+      if (typeEl) {
+        typeEl.value = 'empresa';
+        const rstContainer = document.getElementById(`edit-cli-rst-container-${id}`);
+        if (rstContainer) rstContainer.style.display = 'flex';
+      }
+      const ncfEl = document.getElementById(`edit-cli-default-ncf-${id}`);
+      if (ncfEl && !ncfEl.value) ncfEl.value = 'B01';
+    }
+
     const addrEl = document.getElementById(`edit-cli-address-${id}`);
     const contactEl = document.getElementById(`edit-cli-contact-${id}`);
     
@@ -345,3 +514,14 @@ async function autoFillEditClientDGII(id) {
     }
   }
 }
+
+window.autoFillClientByNameDGII = autoFillClientByNameDGII;
+window.autoFillEditClientByNameDGII = autoFillEditClientByNameDGII;
+window.autoFillClientDGII = autoFillClientDGII;
+window.autoFillEditClientDGII = autoFillEditClientDGII;
+window.renderClientesPage = renderClientesPage;
+window.handleAddClient = handleAddClient;
+window.handleDeleteClient = handleDeleteClient;
+window.showEditClientRow = showEditClientRow;
+window.saveEditClientRow = saveEditClientRow;
+window.cancelEditClientRow = cancelEditClientRow;

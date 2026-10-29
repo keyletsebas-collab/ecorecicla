@@ -359,11 +359,11 @@ function generateEcoImpactPDFEngine(options = {}) {
     // PUENTE NATIVO WINDOWS / MAUI WEBVIEW2
     if (window.chrome && window.chrome.webview) {
         try {
-            window.chrome.webview.postMessage(JSON.stringify({
+            NativeBridge.post({
                 action: 'download',
                 filename: filename,
                 data: base64Data
-            }));
+            });
             if (typeof showToast === 'function') showToast('✅ Certificado enviado a descargas', 'success');
             if (onSuccess) onSuccess(doc.output('blob'));
             return;

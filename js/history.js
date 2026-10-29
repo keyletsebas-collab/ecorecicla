@@ -361,9 +361,6 @@ function renderSingleInvoiceCard(inv) {
   if (isBasica) {
     badge = `<span class="badge badge--green">${t('hist.badge_log')}</span>`;
     icon = '🚛';
-  } else if (isLocal) {
-    badge = `<span class="badge badge--blue">${t('hist.badge_local')}</span>`;
-    icon = '🏠';
   } else if (isIngreso) {
     badge = `<span class="badge badge--green">${t('hist.badge_income')}</span>`;
     icon = '💰';
@@ -371,8 +368,44 @@ function renderSingleInvoiceCard(inv) {
     badge = `<span class="badge badge--red">${t('hist.badge_expense')}</span>`;
     icon = '💸';
   } else {
-    badge = `<span class="badge badge--yellow">${t('hist.badge_biz')}</span>`;
-    icon = '🏢';
+    // Facturas de venta con comprobante o estándar
+    let detectedType = inv.ncfType || '';
+    if (!detectedType && inv.ncf && typeof inv.ncf === 'string') {
+      const match = inv.ncf.match(/^([BE]\d{2})/);
+      if (match) detectedType = match[1];
+    }
+
+    if (detectedType === 'B01' || detectedType === 'E31') {
+      badge = `<span class="badge badge--yellow" style="font-weight:600;">${detectedType} - Crédito Fiscal</span>`;
+      icon = '🏢';
+    } else if (detectedType === 'B02' || detectedType === 'E32') {
+      badge = `<span class="badge badge--blue" style="font-weight:600;">${detectedType} - Consumidor Final</span>`;
+      icon = '🏠';
+    } else if (detectedType === 'B03' || detectedType === 'E33') {
+      badge = `<span class="badge badge--red" style="font-weight:600;">${detectedType} - Nota Débito</span>`;
+      icon = '📈';
+    } else if (detectedType === 'B04' || detectedType === 'E34') {
+      badge = `<span class="badge badge--orange" style="font-weight:600;">${detectedType} - Nota Crédito</span>`;
+      icon = '📉';
+    } else if (detectedType === 'B14' || detectedType === 'E44') {
+      badge = `<span class="badge badge--purple" style="font-weight:600;">${detectedType} - Reg. Especial</span>`;
+      icon = '⚖️';
+    } else if (detectedType === 'B15' || detectedType === 'E45') {
+      badge = `<span class="badge badge--orange" style="font-weight:600;">${detectedType} - Gubernamental</span>`;
+      icon = '🏛️';
+    } else if (detectedType) {
+      badge = `<span class="badge badge--blue" style="font-weight:600;">${detectedType} - ${inv.typeName || 'Comprobante'}</span>`;
+      icon = '📄';
+    } else if (inv.typeName && inv.typeName.toLowerCase() !== 'factura estándar') {
+      badge = `<span class="badge badge--blue" style="font-weight:600;">${inv.typeName}</span>`;
+      icon = '📄';
+    } else if (isLocal) {
+      badge = `<span class="badge badge--blue">${t('hist.badge_local')}</span>`;
+      icon = '🏠';
+    } else {
+      badge = `<span class="badge badge--yellow">${t('hist.badge_biz')}</span>`;
+      icon = '🏢';
+    }
   }
 
   let itemRows = '';
@@ -416,14 +449,73 @@ function renderSingleInvoiceCard(inv) {
       </div>
     `;
   } else if (isBasica) {
-    detailRows = `<p><b>${t('hist.client')}</b> ${inv.client || '—'}</p>`;
-  } else {
+    const payMap = {
+      'Efectivo': '💵 Efectivo',
+      'Transferencia': '🏦 Transferencia Bancaria',
+      'Cheque': '📜 Cheque',
+      'Crédito': '⏳ Crédito'
+    };
+    const paymentDisplay = payMap[inv.payMethod] || payMap[inv.paymentMethod] || (inv.payMethod || inv.paymentMethod || '💵 Efectivo');
+    const colabDisplay = inv.collaborator ? `👤 ${inv.collaborator}` : '— (No asignado)';
+
     detailRows = `
-      <div class="form-row" style="margin-bottom:12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <p style="margin:0;"><b>${t('hist.company')}</b> ${inv.company || '—'}</p>
-        <p style="margin:0;"><b>${t('hist.nit')}</b> ${inv.nit || '—'}</p>
-        <p style="margin:0;"><b>${t('hist.contact')}</b> ${inv.contact || '—'}</p>
-        <p style="margin:0;"><b>${t('hist.address')}</b> ${inv.address || '—'}</p>
+      <div class="form-row" style="margin-bottom:12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; background: rgba(255,255,255,0.02); padding: 12px; border-radius: var(--r-sm); border: 1px solid var(--clr-border);">
+        <p style="margin:0;"><b>${t('hist.client')}:</b> ${inv.client || '—'}</p>
+        ${inv.nit ? `<p style="margin:0;"><b>RNC / Cédula:</b> ${inv.nit}</p>` : ''}
+        ${inv.ncf ? `<p style="margin:0;"><b>NCF:</b> <code style="font-weight:bold; color:var(--clr-primary-light);">${inv.ncf}</code></p>` : ''}
+        <p style="margin:0;"><b>Método de Pago:</b> ${paymentDisplay}</p>
+        <p style="margin:0;"><b>Colaborador:</b> ${colabDisplay}</p>
+      </div>`;
+  } else {
+    // Determinar etiqueta clara y oficial del tipo de comprobante
+    let ncfTypeCode = inv.ncfType || '';
+    if (!ncfTypeCode && inv.ncf && typeof inv.ncf === 'string') {
+      const match = inv.ncf.match(/^([BE]\d{2})/);
+      if (match) ncfTypeCode = match[1];
+    }
+
+    const ncfOfficialNames = {
+      'B01': 'B01 - Factura de Crédito Fiscal',
+      'B02': 'B02 - Factura de Consumo (Consumidor Final)',
+      'B03': 'B03 - Nota de Débito',
+      'B04': 'B04 - Nota de Crédito',
+      'B11': 'B11 - Registro de Proveedores Informales',
+      'B12': 'B12 - Registro Único de Ingresos',
+      'B13': 'B13 - Gastos Menores',
+      'B14': 'B14 - Regímenes Especiales de Tributación',
+      'B15': 'B15 - Comprobante Gubernamental',
+      'B16': 'B16 - Comprobante para Exportaciones',
+      'E31': 'E31 - Factura de Crédito Fiscal Electrónica',
+      'E32': 'E32 - Factura de Consumo Electrónica',
+      'E33': 'E33 - Nota de Débito Electrónica',
+      'E34': 'E34 - Nota de Crédito Electrónica',
+      'E41': 'E41 - Proveedores Informales Electrónico',
+      'E44': 'E44 - Regímenes Especiales Electrónico',
+      'E45': 'E45 - Comprobante Gubernamental Electrónico'
+    };
+
+    let voucherTypeLabel = ncfOfficialNames[ncfTypeCode] || inv.typeName || (inv.ncf ? `Comprobante ${inv.ncf}` : 'Factura Estándar (Sin Comprobante Fiscal)');
+
+    // Método de pago con icono
+    const payMap = {
+      'Efectivo': '💵 Efectivo',
+      'Transferencia': '🏦 Transferencia Bancaria',
+      'Cheque': '📜 Cheque',
+      'Crédito': '⏳ Crédito'
+    };
+    const paymentDisplay = payMap[inv.payMethod] || payMap[inv.paymentMethod] || (inv.payMethod || inv.paymentMethod || '💵 Efectivo');
+    const colabDisplay = inv.collaborator ? `👤 ${inv.collaborator}` : '— (No asignado)';
+
+    detailRows = `
+      <div class="form-row" style="margin-bottom:12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; background: rgba(255,255,255,0.02); padding: 12px; border-radius: var(--r-sm); border: 1px solid var(--clr-border);">
+        <p style="margin:0;"><b>${t('hist.company', 'Empresa / Cliente:')}</b> ${inv.company || inv.client || '—'}</p>
+        <p style="margin:0;"><b>RNC / Cédula:</b> ${inv.nit || '—'}</p>
+        <p style="margin:0;"><b>Tipo de Comprobante:</b> <span class="badge badge--blue" style="font-size:0.82rem; font-weight:700;">${voucherTypeLabel}</span></p>
+        ${inv.ncf ? `<p style="margin:0;"><b>NCF Asignado:</b> <code style="font-weight:bold; color:var(--clr-primary-light); font-size:0.95rem;">${inv.ncf}</code></p>` : '<p style="margin:0;"><b>NCF:</b> <span class="text-muted" style="font-size:0.85rem;">(Sin NCF fiscal)</span></p>'}
+        <p style="margin:0;"><b>Método de Pago:</b> ${paymentDisplay}</p>
+        <p style="margin:0;"><b>Colaborador:</b> ${colabDisplay}</p>
+        <p style="margin:0;"><b>${t('hist.contact', 'Contacto:')}</b> ${inv.contact || '—'}</p>
+        <p style="margin:0; grid-column: 1 / -1;"><b>${t('hist.address', 'Dirección:')}</b> ${inv.address || '—'}</p>
       </div>`;
   }
 
@@ -473,6 +565,9 @@ function renderSingleInvoiceCard(inv) {
   let cardMeta = (isIngreso || isEgreso) ? (`Finanzas &bull; Categoría: ${inv.category || 'General'}`) : (`${inv.client || inv.company || '—'} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}`);
   if (inv.collaborator) {
     cardMeta += ` &bull; 👤 Colaborador: ${inv.collaborator}`;
+  }
+  if (!isIngreso && !isEgreso && (inv.payMethod || inv.paymentMethod)) {
+    cardMeta += ` &bull; 💳 ${inv.payMethod || inv.paymentMethod}`;
   }
   const displayTotal = (isEgreso && inv.total > 0) ? `-${formatMoney(inv.total, inv.currency || 'DOP')}` : ((isIngreso && inv.total > 0) ? `+${formatMoney(inv.total, inv.currency || 'DOP')}` : formatMoney(inv.total, inv.currency || 'DOP'));
   const totalColor = isEgreso ? '#f87171' : (isIngreso ? 'var(--clr-primary-light)' : 'inherit');

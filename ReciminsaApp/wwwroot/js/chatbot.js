@@ -230,12 +230,12 @@ const CHATBOT_QA_REPOSITORY = [
             '2. En celulares emiten **respuestas hápticas reales** (`navigator.vibrate`) con secuencias cortas de vibración.'
   },
 
-  // ESCENARIO 10: ROLES & SUPERADMIN
+  // ESCENARIO 10: ROLES & PERMISOS
   {
-    keywords: ['superadmin', 'administrador', 'admin', 'fundador', 'permisos', 'rol', 'promover', 'empresa'],
-    question: '¿Cómo funcionan los permisos de Administrador y Superadmin?',
+    keywords: ['administrador', 'admin', 'fundador', 'permisos', 'rol', 'promover', 'empresa'],
+    question: '¿Cómo funcionan los permisos de Administrador?',
     answer: 'Niveles de acceso:<br>' +
-            '- **Fundador / Superadmin**: Gestión total de la empresa, control de miembros, eliminación de cuentas y personalización.<br>' +
+            '- **Administrador / Fundador**: Gestión total de la empresa, control de miembros y personalización.<br>' +
             '- **Operador / Colaborador**: Acceso limitado a los módulos habilitados por el administrador.'
   },
 

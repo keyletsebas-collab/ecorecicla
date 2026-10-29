@@ -1,13 +1,14 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:ReciminsaApp"
              x:Class="ReciminsaApp.MainPage">
 
-    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
-        <BlazorWebView.RootComponents>
-            <RootComponent Selector="#app" ComponentType="{x:Type local:Components.Routes}" />
-        </BlazorWebView.RootComponents>
-    </BlazorWebView>
+    <!-- Contenedor nativo de la app web (Resources: wwwroot/index.html).
+         HybridWebView reemplaza a BlazorWebView: no hay componentes Razor. -->
+    <HybridWebView x:Name="hybridWebView"
+                   HybridRoot="wwwroot"
+                   DefaultFile="index.html"
+                   RawMessageReceived="OnRawMessageReceived"
+                   WebViewInitialized="OnWebViewInitialized" />
 
 </ContentPage>

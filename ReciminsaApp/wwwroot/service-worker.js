@@ -3,7 +3,7 @@
 // v14: Upgrade Excel exports with styling, currencies, auto column widths, formulas
 // =============================================
 
-const CACHE_NAME = 'reciminsaap-v25';
+const CACHE_NAME = 'reciminsaap-v26';
 
 const SAME_ORIGIN_ASSETS = [
   './',
@@ -30,6 +30,7 @@ const SAME_ORIGIN_ASSETS = [
   './js/supabase-config.js',
   './js/excel-utils.js',
   './js/pdf-utils.js',
+  './js/native-bridge.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

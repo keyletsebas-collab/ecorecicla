@@ -2,7 +2,7 @@
    SETTINGS.JS – Página de Ajustes de la App
    ============================================= */
 
-const APP_VERSION = 'v1.16.0';
+const APP_VERSION = 'v1.18.0';
 
 function isElectron() {
   return typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.includes('Electron');
@@ -159,7 +159,6 @@ function renderSettingsPage(container) {
           <span class="settings-item-value">${session.provider || '—'}</span>
         </div>
         <div class="settings-item" style="margin-top:12px; flex-direction:column; gap:8px;">
-          <button class="btn-primary" style="display:none; width:100%; justify-content:center; background:linear-gradient(135deg, var(--clr-primary), #10b981);" onclick="if(window.forceOpenPaywall) forceOpenPaywall()">💎 Cambiar Suscripción / Canjear Código</button>
           <button class="btn-danger" style="width:100%;justify-content:center;" onclick="handleLogout()">🚪 Cerrar sesión</button>
         </div>
       </div>
@@ -1564,7 +1563,6 @@ async function handleCreateFamily() {
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   session.familyId = code;
-  session.role = 'ceo';
   if (typeof calculateSecureChecksum === 'function') {
     session.signature = calculateSecureChecksum(session.accountId, session.email, code);
   }
@@ -1710,10 +1708,12 @@ async function handleLeaveFamily() {
 
   const session = JSON.parse(localStorage.getItem('recim_session') || '{}');
   const oldFamilyId = session.familyId;
-  if (!session.accountId) {
-    showToast('⚠️ No hay sesión activa', 'warning');
-    return;
+  session.familyId = null;
+  if (typeof calculateSecureChecksum === 'function') {
+    session.signature = calculateSecureChecksum(session.accountId, session.email, null);
   }
+  localStorage.setItem('recim_session', JSON.stringify(session));
+  localStorage.removeItem(userKey('recim_company_id'));
 
   // 1. Sincronizar salida con la nube (Supabase) PRIMERO
   if (isSupabaseActive && supabaseClient) {

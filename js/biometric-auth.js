@@ -21,13 +21,13 @@ const BiometricAuthManager = {
 
       // Windows WebView2 Bridge
       if (window.chrome && window.chrome.webview && typeof window.chrome.webview.postMessage === 'function') {
-        window.chrome.webview.postMessage(JSON.stringify({
+        NativeBridge.post({
           Action: 'save_user_session',
           AccountId: session.accountId,
           Email: session.email || '',
           Name: session.name || '',
           Data: sessionJson
-        }));
+        });
         console.log("💾 Sesión guardada en SQLite (Windows Native)");
       }
 
@@ -63,7 +63,7 @@ const BiometricAuthManager = {
             resolve(null);
           }
         };
-        window.chrome.webview.postMessage(JSON.stringify({ Action: 'get_user_session' }));
+        NativeBridge.post({ Action: 'get_user_session' });
         setTimeout(async () => {
           const fallback = await BiometricAuthManager._getFallbackSession();
           resolve(fallback);
@@ -96,7 +96,7 @@ const BiometricAuthManager = {
       if (window.AndroidNative && typeof window.AndroidNative.DeleteUserSessionSQLite === 'function') {
         window.AndroidNative.DeleteUserSessionSQLite(accountId);
       } else if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(JSON.stringify({ Action: 'delete_user_session', AccountId: accountId }));
+        NativeBridge.post({ Action: 'delete_user_session', AccountId: accountId });
       }
       await BiometricAuthManager._deleteSessionFromIndexedDB(accountId);
     } catch (e) {
@@ -158,7 +158,7 @@ const BiometricAuthManager = {
             resolve(false);
           }
         };
-        window.chrome.webview.postMessage(JSON.stringify({ Action: 'authenticate_biometric' }));
+        NativeBridge.post({ Action: 'authenticate_biometric' });
         return;
       }
 

@@ -7,7 +7,13 @@
 (function () {
     // Keys that, when changed in another tab, should trigger a re-render
     const WATCHED_KEYS = [
-        { pattern: 'recim_invoices', pages: ['historial'], label: '🧾 Facturas' },
+        { pattern: 'recim_invoices', pages: ['historial', 'facturas'], label: '🧾 Facturas' },
+        { pattern: 'recim_ncf_sequences', pages: ['facturas'], label: '🔢 Secuencias NCF' },
+        { pattern: 'recim_quotes', pages: ['facturas'], label: '📋 Cotizaciones' },
+        { pattern: 'recim_dispatches', pages: ['facturas'], label: '🚚 Despachos' },
+        { pattern: 'recim_returns', pages: ['facturas'], label: '↩️ Devoluciones' },
+        { pattern: 'recim_credit_notes', pages: ['facturas', 'historial'], label: '📄 Notas de Crédito' },
+        { pattern: 'recim_debit_notes', pages: ['facturas', 'historial'], label: '📑 Notas de Débito' },
         { pattern: 'recim_material_codes', pages: ['codigos'], label: '🏷️ Materiales' },
         { pattern: 'recim_material_families', pages: ['codigos'], label: '📁 Familias' },
         { pattern: 'recim_clients', pages: ['clientes'], label: '👥 Clientes' },
@@ -138,10 +144,11 @@
             if (session.accountId) {
                 if (typeof calculateSecureChecksum === 'function') {
                     const expectedSig = calculateSecureChecksum(session.accountId, session.email, session.familyId);
-                    if (!session.signature || session.signature !== expectedSig) {
-                        console.warn("⚠️ Sincronizando firma criptográfica en getSyncDbId...");
+                    if (session.signature !== expectedSig) {
                         session.signature = expectedSig;
-                        try { localStorage.setItem('recim_session', JSON.stringify(session)); } catch (_) {}
+                        try {
+                            localStorage.setItem('recim_session', JSON.stringify(session));
+                        } catch (_) {}
                     }
                 }
             }

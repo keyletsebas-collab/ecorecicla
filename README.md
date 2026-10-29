@@ -1,4 +1,4 @@
-# Reciminsa App (v1.16.0)
+# Reciminsa App (v1.18.0)
 
 Este repositorio contiene el código fuente híbrido y nativo para la aplicación de control de Reciminsa.
 
@@ -8,7 +8,7 @@ Este repositorio contiene el código fuente híbrido y nativo para la aplicació
 
 Dentro del directorio `/rcapp` se encuentran los paquetes listos de la última compilación para distribución rápida:
 1.  **`ReciminsaApp_Android.apk`**: Instalador nativo firmado de Android para teléfonos y tabletas.
-2.  **`Reciminsa_Linux_Patch_v1.16.0.zip`**: Parche de recursos web compilados para actualizaciones rápidas en Linux sin reinstalar.
+2.  **`Reciminsa_Linux_Patch_v1.18.0.zip`**: Parche de recursos web compilados para actualizaciones rápidas en Linux sin reinstalar.
 3.  **`reciminsaapp_linux_src.zip`**: Código fuente de Linux con su estructura limpia listo para empaquetado local.
 
 ---
@@ -16,10 +16,10 @@ Dentro del directorio `/rcapp` se encuentran los paquetes listos de la última c
 ## 🐧 Guía de Linux (Pop!_OS / Ubuntu / Debian)
 
 ### A. Ejecutar el Parche de Actualización Rápida
-Si ya tienes la aplicación instalada y solo deseas actualizar los recursos web a la versión 1.16.0 (incluyendo gráficos y familias de materiales), ejecuta en la raíz del proyecto:
+Si ya tienes la aplicación instalada y solo deseas actualizar los recursos web a la versión 1.18.0 (incluyendo gráficos y familias de materiales), ejecuta en la raíz del proyecto:
 ```bash
 # 1. Descomprimir el parche reemplazando los recursos existentes
-unzip -o rcapp/Reciminsa_Linux_Patch_v1.16.0.zip
+unzip -o rcapp/Reciminsa_Linux_Patch_v1.18.0.zip
 
 # 2. Iniciar la aplicación
 npm start

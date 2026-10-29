@@ -160,8 +160,8 @@ function calculateTicketHeight(invoice, jsPDFConstructor, logoHeight = 0) {
         height += 3.5;
     }
     
-    // Cliente
-    height += 4;
+    // Cliente y datos de pago
+    height += 8;
     height += 4; // Separador
     
     // Encabezado de tabla
@@ -225,12 +225,12 @@ function generateInvoicePDF(invoice, format = null) {
 }
 
 async function proceedWithPDF(invoice, format) {
-    // Normalizar factura básica como consumidor final B02 de forma segura sin mutar el original
+    // Normalizar factura básica de forma segura sin mutar el original (NCF opcional)
     if (invoice.type === 'basica') {
         invoice = {
             ...invoice,
-            ncfType: 'B02',
-            ncf: invoice.ncf || ('B02' + (String(invoice.id || '').replace(/\D/g, '') || '0').padStart(8, '0')),
+            ncfType: invoice.ncfType || '',
+            ncf: invoice.ncf || '',
             taxRate: (invoice.taxRate === undefined || invoice.taxRate === null || invoice.taxRate === 0) ? 18 : invoice.taxRate
         };
     }
@@ -444,6 +444,13 @@ async function proceedWithPDF(invoice, format) {
         // Cliente
         const displayClient = (clientName && clientName !== '--') ? clientName : "Cliente al Contado";
         doc.text(`Cliente: ${displayClient}`, 2, y);
+        y += 3.5;
+
+        const payDisplay = invoice.payMethod || invoice.paymentMethod || 'Efectivo';
+        doc.text(`Pago: ${payDisplay}`, 2, y);
+        if (invoice.collaborator) {
+            doc.text(`Colab: ${invoice.collaborator}`, 78, y, { align: 'right' });
+        }
         y += 4;
 
         // Separador punteado
@@ -750,6 +757,9 @@ async function proceedWithPDF(invoice, format) {
         doc.text(`Contacto: ${clientContact}`, 19, y + 19.5);
 
         doc.text(`Dirección: ${clientAddr}`, 115, y + 14.5);
+        const letterPay = invoice.payMethod || invoice.paymentMethod || 'Efectivo';
+        const letterColab = invoice.collaborator ? `  |  Vendedor: ${invoice.collaborator}` : '';
+        doc.text(`Pago: ${letterPay}${letterColab}`, 115, y + 19.5);
 
         // 3. Tabla de Artículos
         y = 88;
@@ -1086,14 +1096,14 @@ async function proceedWithPDF(invoice, format) {
         }
     }
 
-    // --- PUENTE NATIVO WINDOWS (MAUI WebView2) ---
+    // --- PUENTE NATIVO WINDOWS (MAUI HybridWebView) ---
     if (window.chrome && window.chrome.webview) {
         try {
-            window.chrome.webview.postMessage(JSON.stringify({
+            NativeBridge.post({
                 action: 'download',
                 filename: `Factura_${invoice.id}.pdf`,
                 data: base64Data
-            }));
+            });
             if (typeof showToast === 'function') {
                 showToast('📄 Factura abierta en tu programa predeterminado', 'success');
             }
@@ -1161,3 +1171,492 @@ async function proceedWithPDF(invoice, format) {
         }
     }
 }
+
+// =============================================
+// MOTOR DE ENTREGA UNIVERSAL DE PDF
+// =============================================
+async function deliverGenericPDF(doc, filename, label = 'Documento') {
+    const base64Data = doc.output('datauristring').split(',')[1];
+
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
+        try {
+            const { Filesystem } = window.Capacitor.Plugins;
+            await Filesystem.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: 'DOCUMENTS',
+                recursive: true
+            });
+            if (window.Capacitor.Plugins.Share) {
+                const uriRes = await Filesystem.getUri({ path: filename, directory: 'DOCUMENTS' });
+                await window.Capacitor.Plugins.Share.share({
+                    title: filename,
+                    url: uriRes.uri,
+                    dialogTitle: `Compartir ${label}`
+                });
+            } else if (typeof showToast === 'function') {
+                showToast(`📄 ${label} guardado en Documentos`, 'success');
+            }
+            return;
+        } catch (capErr) {
+            console.warn('Capacitor error:', capErr);
+        }
+    }
+
+    if (window.electronAPI && typeof window.electronAPI.savePDF === 'function') {
+        try {
+            window.electronAPI.savePDF(base64Data, filename);
+            if (typeof showToast === 'function') showToast(`📄 Guardando ${label}...`, 'success');
+            return;
+        } catch (_) {}
+    }
+
+    if (window.chrome && window.chrome.webview) {
+        try {
+            NativeBridge.post({ action: 'download', filename, data: base64Data });
+            if (typeof showToast === 'function') showToast(`📄 ${label} abierto con éxito`, 'success');
+            return;
+        } catch (_) {}
+    }
+
+    try {
+        doc.save(filename);
+        if (typeof showToast === 'function') showToast(`📄 ${label} descargado con éxito`, 'success');
+        return;
+    } catch (_) {
+        const blob = base64ToBlob(base64Data, 'application/pdf');
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
+}
+
+// =============================================
+// PDF: COTIZACIÓN / PRESUPUESTO
+// =============================================
+function generateQuotePDF(quote) {
+    if (!quote) return;
+    const jsPDFConstructor = getJsPDFConstructor();
+    if (!jsPDFConstructor) {
+        showToast('Error: jsPDF no está cargado', 'error');
+        return;
+    }
+
+    const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    const companyLogo = typeof getCachedCompanyLogo === 'function' ? getCachedCompanyLogo() : null;
+    let y = 15;
+
+    // Logo & Emisor
+    if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
+        try { doc.addImage(companyLogo, 'PNG', 15, y, 40, 16); } catch (_) {}
+    }
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(22, 163, 74);
+    doc.text("RECIMINSA SRL", 60, y + 6);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("RNC: 133250233 | Tel: (809) 372-7000", 60, y + 11);
+    doc.text("Email: info@reciminsa.com | Santo Domingo, Rep. Dom.", 60, y + 15);
+
+    // Tarjeta Cotización
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(135, y, 66, 24, 1.5, 1.5, 'FD');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(22, 163, 74);
+    doc.text("COTIZACIÓN COMERCIAL", 168, y + 6, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`No: ${quote.id}`, 140, y + 12);
+    doc.text(`Fecha: ${quote.date}`, 140, y + 16.5);
+    doc.text(`Validez: ${quote.validityDays || 15} días`, 140, y + 21);
+
+    y += 30;
+
+    // Datos Cliente
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(15, y, 186, 18, 1.5, 1.5, 'F');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text("DATOS DEL CLIENTE / PROSPECTO", 19, y + 5);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Cliente: ${quote.client}`, 19, y + 10);
+    doc.text(`RNC / Cédula: ${quote.nit || 'No especificado'}`, 19, y + 14.5);
+    doc.text(`Contacto / Tel: ${quote.contact || '—'}`, 120, y + 10);
+
+    y += 24;
+
+    // Tabla de Ítems
+    doc.setFillColor(22, 163, 74);
+    doc.rect(15, y, 186, 7, 'F');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("DESCRIPCIÓN DEL MATERIAL / SERVICIO", 18, y + 5);
+    doc.text("CANT.", 120, y + 5);
+    doc.text("UNIDAD", 140, y + 5);
+    doc.text("PRECIO", 160, y + 5);
+    doc.text("SUBTOTAL", 180, y + 5);
+
+    y += 7;
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+
+    const items = quote.items || [];
+    items.forEach((item, idx) => {
+        if (idx % 2 === 1) {
+            doc.setFillColor(248, 250, 252);
+            doc.rect(15, y, 186, 6.5, 'F');
+        }
+        doc.text(String(item.desc || '--'), 18, y + 4.5);
+        doc.text(item.isService ? '—' : String(item.qty || 0), 120, y + 4.5);
+        doc.text(item.isService ? 'Servicio' : String(item.unit || 'lb'), 140, y + 4.5);
+        doc.text(formatMoney(item.uprice || 0), 160, y + 4.5);
+        doc.text(formatMoney(item.subtotal || 0), 180, y + 4.5);
+        y += 6.5;
+    });
+
+    // Total
+    y += 4;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, y, 201, y);
+    y += 6;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(22, 163, 74);
+    doc.text(`TOTAL COTIZADO: ${formatMoney(quote.total || 0)}`, 201, y, { align: 'right' });
+
+    // Notas / Términos
+    if (quote.notes) {
+        y += 10;
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text("Términos y Observaciones:", 15, y);
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        const splitNotes = doc.splitTextToSize(quote.notes, 186);
+        doc.text(splitNotes, 15, y + 4.5);
+    }
+
+    // Pie
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text("Reciminsa SRL – Gestión y reciclaje de materiales sostenibles. Gracias por su confianza.", 108, 265, { align: 'center' });
+
+    deliverGenericPDF(doc, `Cotizacion_${quote.id}.pdf`, 'Cotización');
+}
+
+// =============================================
+// PDF: CONDUCE DE DESPACHO Y ENTREGA
+// =============================================
+function generateDispatchPDF(dispatch) {
+    if (!dispatch) return;
+    const jsPDFConstructor = getJsPDFConstructor();
+    if (!jsPDFConstructor) {
+        showToast('Error: jsPDF no está cargado', 'error');
+        return;
+    }
+
+    const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    let y = 15;
+
+    // Header
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(30, 41, 59);
+    doc.text("RECIMINSA SRL", 15, y + 6);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("RNC: 133250233 | Tel: (809) 372-7000 | Santo Domingo, R.D.", 15, y + 11);
+
+    // Tarjeta Conduce
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(125, y, 76, 26, 1.5, 1.5, 'FD');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text("CONDUCE DE DESPACHO", 163, y + 6, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.text(`No. Conduce: ${dispatch.id}`, 130, y + 12);
+    doc.text(`Fecha Salida: ${dispatch.date}`, 130, y + 16.5);
+    doc.text(`Factura Ref: ${dispatch.invoiceRef || 'Sin Factura'}`, 130, y + 21);
+
+    y += 32;
+
+    // Destinatario y Transporte
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(15, y, 186, 24, 1.5, 1.5, 'F');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text("DESTINATARIO Y TRANSPORTE", 19, y + 5);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Destinatario: ${dispatch.destination}`, 19, y + 10);
+    doc.text(`Dirección Entrega: ${dispatch.address}`, 19, y + 14.5);
+    doc.text(`Chofer / Conductor: ${dispatch.driver || '—'} (Cédula: ${dispatch.driverId || '—'})`, 19, y + 19);
+    doc.text(`Vehículo / Placa: ${dispatch.plate || '—'}`, 120, y + 19);
+
+    y += 30;
+
+    // Tabla de Carga
+    doc.setFillColor(51, 65, 85);
+    doc.rect(15, y, 186, 7, 'F');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("DESCRIPCIÓN DEL MATERIAL DESPACHADO", 18, y + 5);
+    doc.text("PESO / CANTIDAD", 120, y + 5);
+    doc.text("UNIDAD", 150, y + 5);
+    doc.text("BULTOS / SACOS", 172, y + 5);
+
+    y += 7;
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+
+    const items = dispatch.items || [];
+    items.forEach((item, idx) => {
+        if (idx % 2 === 1) {
+            doc.setFillColor(248, 250, 252);
+            doc.rect(15, y, 186, 6.5, 'F');
+        }
+        doc.text(String(item.desc || '--'), 18, y + 4.5);
+        doc.text(String(item.qty || 0), 120, y + 4.5);
+        doc.text(String(item.unit || 'lb'), 150, y + 4.5);
+        doc.text(String(item.packages || '—'), 172, y + 4.5);
+        y += 6.5;
+    });
+
+    if (dispatch.notes) {
+        y += 8;
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.text("Observaciones de Despacho:", 15, y);
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(dispatch.notes, 15, y + 4.5);
+    }
+
+    // Firmas Legales de Entrega y Recepción
+    y = Math.max(y + 25, 220);
+    doc.setDrawColor(148, 163, 184);
+    doc.line(25, y, 90, y);
+    doc.line(125, y, 190, y);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text("DESPACHADO POR (RECIMINSA)", 57.5, y + 5, { align: 'center' });
+    doc.text("RECIBIDO CONFORME (CLIENTE)", 157.5, y + 5, { align: 'center' });
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Firma y Sello del Despachador", 57.5, y + 9, { align: 'center' });
+    doc.text("Firma, Cédula y Sello de Recibido", 157.5, y + 9, { align: 'center' });
+
+    deliverGenericPDF(doc, `Conduce_${dispatch.id}.pdf`, 'Conduce de Despacho');
+}
+
+// =============================================
+// PDF: NOTA DE CRÉDITO (B04 - DGII)
+// =============================================
+function generateCreditNotePDF(creditNote) {
+    if (!creditNote) return;
+    const jsPDFConstructor = getJsPDFConstructor();
+    if (!jsPDFConstructor) {
+        showToast('Error: jsPDF no está cargado', 'error');
+        return;
+    }
+
+    const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    let y = 15;
+
+    // Header
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(220, 38, 38);
+    doc.text("RECIMINSA SRL", 15, y + 6);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("RNC: 133250233 | Tel: (809) 372-7000", 15, y + 11);
+    doc.text("Santo Domingo, República Dominicana", 15, y + 15);
+
+    // Tarjeta Nota de Crédito
+    doc.setFillColor(254, 242, 242);
+    doc.setDrawColor(252, 165, 165);
+    doc.roundedRect(120, y, 81, 30, 1.5, 1.5, 'FD');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(220, 38, 38);
+    doc.text("NOTA DE CRÉDITO (B04)", 160.5, y + 6, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`NC #: ${creditNote.id}`, 125, y + 12);
+    doc.text(`NCF: ${creditNote.ncf || 'Interna / Sin NCF'}`, 125, y + 16.5);
+    doc.text(`Fecha: ${creditNote.date}`, 125, y + 21);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(`Modifica: ${creditNote.ncfModified || creditNote.invoiceRef || 'Factura previa'}`, 125, y + 25.5);
+
+    y += 36;
+
+    // Datos del Cliente y Motivo DGII
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(15, y, 186, 20, 1.5, 1.5, 'F');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text("DATOS DEL CLIENTE Y MOTIVO LEGAL", 19, y + 5);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Cliente: ${creditNote.client}`, 19, y + 10);
+    doc.text(`RNC / Cédula: ${creditNote.nit || '—'}`, 19, y + 14.5);
+    doc.text(`Motivo DGII: ${creditNote.reason || 'Ajuste comercial'}`, 110, y + 10);
+
+    y += 26;
+
+    // Detalle del Crédito
+    doc.setFillColor(220, 38, 38);
+    doc.rect(15, y, 186, 7, 'F');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("CONCEPTO DEL AJUSTE / CRÉDITO", 18, y + 5);
+    doc.text("SUBTOTAL", 130, y + 5);
+    doc.text("ITBIS (18%)", 155, y + 5);
+    doc.text("TOTAL", 180, y + 5);
+
+    y += 7;
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+    doc.text(creditNote.concept || 'Devolución o descuento sobre factura', 18, y + 5);
+    doc.text(formatMoney(creditNote.subtotal || 0), 130, y + 5);
+    doc.text(formatMoney(creditNote.itbis || 0), 155, y + 5);
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(220, 38, 38);
+    doc.text(`-${formatMoney(creditNote.total || 0)}`, 180, y + 5);
+
+    y += 20;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, y, 201, y);
+
+    y += 10;
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Nota legal DGII: Este comprobante modifica el monto facturado originalmente de acuerdo con las disposiciones del Decreto 254-06 de la DGII.", 15, y);
+
+    deliverGenericPDF(doc, `Nota_Credito_${creditNote.id}.pdf`, 'Nota de Crédito');
+}
+
+// =============================================
+// PDF: NOTA DE DÉBITO (B03 - DGII)
+// =============================================
+function generateDebitNotePDF(debitNote) {
+    if (!debitNote) return;
+    const jsPDFConstructor = getJsPDFConstructor();
+    if (!jsPDFConstructor) {
+        showToast('Error: jsPDF no está cargado', 'error');
+        return;
+    }
+
+    const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    let y = 15;
+
+    // Header
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(22, 163, 74);
+    doc.text("RECIMINSA SRL", 15, y + 6);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("RNC: 133250233 | Tel: (809) 372-7000 | Santo Domingo, R.D.", 15, y + 11);
+
+    // Tarjeta Nota de Débito
+    doc.setFillColor(240, 253, 244);
+    doc.setDrawColor(187, 247, 208);
+    doc.roundedRect(120, y, 81, 30, 1.5, 1.5, 'FD');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(22, 163, 74);
+    doc.text("NOTA DE DÉBITO (B03)", 160.5, y + 6, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`ND #: ${debitNote.id}`, 125, y + 12);
+    doc.text(`NCF: ${debitNote.ncf || 'Interna / Sin NCF'}`, 125, y + 16.5);
+    doc.text(`Fecha: ${debitNote.date}`, 125, y + 21);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(`Modifica: ${debitNote.ncfModified || debitNote.invoiceRef || 'Factura previa'}`, 125, y + 25.5);
+
+    y += 36;
+
+    // Datos del Cliente y Motivo
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(15, y, 186, 20, 1.5, 1.5, 'F');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text("DATOS DEL CLIENTE Y CONCEPTO", 19, y + 5);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Cliente: ${debitNote.client}`, 19, y + 10);
+    doc.text(`RNC / Cédula: ${debitNote.nit || '—'}`, 19, y + 14.5);
+    doc.text(`Motivo: ${debitNote.reason || 'Recargo adicional'}`, 110, y + 10);
+
+    y += 26;
+
+    // Detalle del Débito
+    doc.setFillColor(22, 163, 74);
+    doc.rect(15, y, 186, 7, 'F');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("CONCEPTO DEL CARGO ADICIONAL", 18, y + 5);
+    doc.text("SUBTOTAL", 130, y + 5);
+    doc.text("ITBIS (18%)", 155, y + 5);
+    doc.text("TOTAL", 180, y + 5);
+
+    y += 7;
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+    doc.text(debitNote.concept || 'Intereses o gastos adicionales', 18, y + 5);
+    doc.text(formatMoney(debitNote.subtotal || 0), 130, y + 5);
+    doc.text(formatMoney(debitNote.itbis || 0), 155, y + 5);
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(22, 163, 74);
+    doc.text(`+${formatMoney(debitNote.total || 0)}`, 180, y + 5);
+
+    y += 20;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, y, 201, y);
+
+    y += 10;
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Nota legal DGII: Este comprobante incrementa el valor de la factura de referencia según lo establecido por las normas de la DGII.", 15, y);
+
+    deliverGenericPDF(doc, `Nota_Debito_${debitNote.id}.pdf`, 'Nota de Débito');
+}
+
+// Exportar globalmente
+window.generateQuotePDF = generateQuotePDF;
+window.generateDispatchPDF = generateDispatchPDF;
+window.generateCreditNotePDF = generateCreditNotePDF;
+window.generateDebitNotePDF = generateDebitNotePDF;
+

@@ -1,143 +1,236 @@
 #nullable enable
 using System.Text.Json;
-using System.Net.Http;
 
 namespace ReciminsaApp;
 
 public partial class MainPage : ContentPage
 {
-    private const string CurrentVersion = "v1.16.0";
+    private const string CurrentVersion = "v1.18.0";
     // Nota: Reemplaza esta URL con la ruta final donde alojes tu version.json (puede ser un Bucket público en Supabase o Github)
     private const string UpdateCheckUrl = "https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json";
+    // Host local desde el que HybridWebView sirve wwwroot (https://0.0.0.1/). Es el mismo origen que usaba
+    // BlazorWebView, así que localStorage/IndexedDB (sesión, datos offline) se conservan tras la migración.
+    private const string AppHost = "0.0.0.1";
     private static readonly JsonSerializerOptions CachedJsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public MainPage()
     {
         InitializeComponent();
-        blazorWebView.BlazorWebViewInitialized += BlazorWebView_BlazorWebViewInitialized;
-        blazorWebView.UrlLoading += (sender, e) =>
-        {
-            var host = e.Url?.Host?.ToLowerInvariant() ?? string.Empty;
-            var scheme = e.Url?.Scheme?.ToLowerInvariant() ?? string.Empty;
-
-            // Navegaciones internas del BlazorWebView (esquemas locales y hosts de app local)
-            bool isLocalUrl = scheme == "app" || scheme == "file" || scheme == "about" || scheme == "data" || scheme == "blob"
-                              || string.IsNullOrEmpty(host)
-                              || host == "0.0.0.0"
-                              || host == "0.0.0.1"
-                              || host == "localhost"
-                              || host == "app";
-
-            if (!isLocalUrl)
-            {
-                e.UrlLoadingStrategy = Microsoft.AspNetCore.Components.WebView.UrlLoadingStrategy.OpenExternally;
-            }
-            else
-            {
-                e.UrlLoadingStrategy = Microsoft.AspNetCore.Components.WebView.UrlLoadingStrategy.OpenInWebView;
-            }
-        };
     }
 
-    private async void BlazorWebView_BlazorWebViewInitialized(object? sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs e)
+    // =============================================
+    // INICIALIZACIÓN DEL WEBVIEW NATIVO
+    // =============================================
+
+    private void OnWebViewInitialized(object? sender, WebViewInitializedEventArgs e)
     {
+#if WINDOWS
+        if (hybridWebView.Handler?.PlatformView is Microsoft.UI.Xaml.Controls.WebView2 { CoreWebView2: { } core })
+        {
+            ConfigureWindowsWebView(core);
+        }
+#elif ANDROID
+        if (hybridWebView.Handler?.PlatformView is global::Android.Webkit.WebView androidView)
+        {
+            ConfigureAndroidWebView(androidView);
+        }
+#endif
+    }
+
 #if ANDROID
-        e.WebView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(), "AndroidNative");
+    private static void ConfigureAndroidWebView(global::Android.Webkit.WebView webView)
+    {
+        // Puente window.AndroidNative usado por pdf-utils.js, excel-utils.js, biometric-auth.js, etc.
+        // Se pasa el WebView para que la biometría pueda devolver el resultado a JS (onBiometricAuthResult).
+        webView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(webView), "AndroidNative");
+
         try
         {
-            e.WebView.ClearCache(true);
-            e.WebView.EvaluateJavascript("if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); }", null);
+            webView.ClearCache(true);
         }
         catch (Exception ex)
         {
             Console.WriteLine("Error clearing Android webview cache: " + ex.Message);
         }
+
+        // AddJavascriptInterface solo aplica a partir de la siguiente carga de página:
+        // si el contenido ya empezó a cargarse, se recarga para que window.AndroidNative exista.
+        if (!string.IsNullOrEmpty(webView.Url) && webView.Url != "about:blank")
+        {
+            webView.Reload();
+        }
+    }
 #endif
+
 #if WINDOWS
-        e.WebView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
-        e.WebView.CoreWebView2.NavigationStarting += CoreWebView2_NavigationStarting;
-        e.WebView.CoreWebView2.Settings.AreDevToolsEnabled = true;
-        e.WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
+    private static async void ConfigureWindowsWebView(Microsoft.Web.WebView2.Core.CoreWebView2 core)
+    {
+        core.Settings.AreDevToolsEnabled = true;
+        core.Settings.AreDefaultContextMenusEnabled = true;
+        core.NavigationStarting += CoreWebView2_NavigationStarting;
+        core.NewWindowRequested += CoreWebView2_NewWindowRequested;
 
         try
         {
             // Forzar limpieza de Service Workers y Cache que puedan estar causando que se vea la versión antigua
-            await e.WebView.CoreWebView2.Profile.ClearBrowsingDataAsync(Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.ServiceWorkers | Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.CacheStorage);
-            await e.WebView.CoreWebView2.ExecuteScriptAsync("if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); }");
+            await core.Profile.ClearBrowsingDataAsync(Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.ServiceWorkers | Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.CacheStorage);
+            await core.ExecuteScriptAsync("if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); }");
         }
         catch (Exception ex)
         {
             Console.WriteLine("Error limpiando cache: " + ex.Message);
         }
-#endif
     }
 
-#if WINDOWS
-    private void CoreWebView2_NavigationStarting(object sender, Microsoft.Web.WebView2.Core.CoreWebView2NavigationStartingEventArgs e)
+    private static void CoreWebView2_NavigationStarting(Microsoft.Web.WebView2.Core.CoreWebView2 sender, Microsoft.Web.WebView2.Core.CoreWebView2NavigationStartingEventArgs e)
     {
         // Si intenta navegar a un blob: (por ejemplo al darle click a un PDF mal generado), lo bloqueamos para evitar la pantalla blanca
         if (e.Uri?.StartsWith("blob:") == true)
         {
             e.Cancel = true;
+            return;
+        }
+
+        // Enlaces a sitios externos se abren en el navegador del sistema (antes lo hacía BlazorWebView.UrlLoading)
+        if (TryGetExternalUri(e.Uri, out var externalUri))
+        {
+            e.Cancel = true;
+            OpenExternally(externalUri);
         }
     }
 
-    private async void CoreWebView2_WebMessageReceived(object sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private static void CoreWebView2_NewWindowRequested(Microsoft.Web.WebView2.Core.CoreWebView2 sender, Microsoft.Web.WebView2.Core.CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        // window.open / target="_blank" hacia sitios externos → navegador del sistema
+        if (TryGetExternalUri(e.Uri, out var externalUri))
+        {
+            e.Handled = true;
+            OpenExternally(externalUri);
+        }
+    }
+#endif
+
+    private static bool TryGetExternalUri(string? url, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Uri? uri)
+    {
+        uri = null;
+        if (Uri.TryCreate(url, UriKind.Absolute, out var parsed) &&
+            (parsed.Scheme is "http" or "https" or "mailto" or "tel") &&
+            !string.Equals(parsed.Host, AppHost, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(parsed.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            uri = parsed;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void OpenExternally(Uri uri)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                await Launcher.Default.OpenAsync(uri);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"No se pudo abrir {uri}: {ex.Message}");
+            }
+        });
+    }
+
+    // =============================================
+    // MENSAJES JS → .NET (window.HybridWebView.SendRawMessage vía js/native-bridge.js)
+    // =============================================
+
+    private async void OnRawMessageReceived(object? sender, HybridWebViewRawMessageReceivedEventArgs e)
     {
         try
         {
-            var json = e.TryGetWebMessageAsString();
-            if (!string.IsNullOrEmpty(json))
+            if (string.IsNullOrEmpty(e.Message))
             {
-                var message = JsonSerializer.Deserialize<WebMessage>(json, CachedJsonOptions);
-                if (message?.Action == "download")
-                {
-                    string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-                    Directory.CreateDirectory(downloadsPath); // Asegurar que la carpeta Descargas exista
-
-                    string safeFileName = message.Filename.Replace("/", "_").Replace("\\", "_");
-                    string filePath = Path.Combine(downloadsPath, safeFileName);
-
-                    // Asegurar nombre único
-                    int count = 1;
-                    string fileNameOnly = Path.GetFileNameWithoutExtension(safeFileName);
-                    string extension = Path.GetExtension(safeFileName);
-                    while (File.Exists(filePath))
-                    {
-                        filePath = Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
-                        count++;
-                    }
-
-                    byte[] fileBytes = Convert.FromBase64String(message.Data);
-                    await File.WriteAllBytesAsync(filePath, fileBytes);
-
-                    // Intentar abrir con el programa por defecto del sistema
-                    try
-                    {
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true });
-                    }
-                    catch (Exception)
-                    {
-                        // Fallback a Launcher.OpenAsync de MAUI
-                        await Launcher.OpenAsync(new OpenFileRequest
-                        {
-                            File = new ReadOnlyFile(filePath)
-                        });
-                    }
-
-                    // Mostrar confirmación visual en pantalla al usuario
-                    string finalPath = filePath;
-                    MainThread.BeginInvokeOnMainThread(async () =>
-                        await DisplayAlertAsync("Factura Guardada", $"El archivo PDF se ha descargado y guardado en tu carpeta de Descargas:\n\n{finalPath}", "OK"));
-                }
+                return;
             }
+
+            var message = JsonSerializer.Deserialize<WebMessage>(e.Message, CachedJsonOptions);
+            switch (message?.Action)
+            {
+                case "download":
+                    await SaveDownloadAsync(message);
+                    break;
+                default:
+                    // save_user_session, get_user_session, authenticate_biometric... aún no tienen
+                    // implementación nativa en Windows; el JS usa su fallback (IndexedDB/localStorage).
+                    System.Diagnostics.Debug.WriteLine($"Mensaje JS sin manejar: {message?.Action}");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error procesando mensaje de JS: " + ex.Message);
+        }
+    }
+
+    private async Task SaveDownloadAsync(WebMessage message)
+    {
+        try
+        {
+#if WINDOWS
+            string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+#else
+            string downloadsPath = FileSystem.Current.CacheDirectory;
+#endif
+            Directory.CreateDirectory(downloadsPath); // Asegurar que la carpeta Descargas exista
+
+            string safeFileName = message.Filename.Replace("/", "_").Replace("\\", "_");
+            string filePath = Path.Combine(downloadsPath, safeFileName);
+
+            // Asegurar nombre único
+            int count = 1;
+            string fileNameOnly = Path.GetFileNameWithoutExtension(safeFileName);
+            string extension = Path.GetExtension(safeFileName);
+            while (File.Exists(filePath))
+            {
+                filePath = Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
+                count++;
+            }
+
+            byte[] fileBytes = Convert.FromBase64String(message.Data);
+            await File.WriteAllBytesAsync(filePath, fileBytes);
+
+            // Intentar abrir con el programa por defecto del sistema
+            try
+            {
+#if WINDOWS
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true });
+#else
+                throw new PlatformNotSupportedException();
+#endif
+            }
+            catch (Exception)
+            {
+                // Fallback a Launcher.OpenAsync de MAUI
+                await Launcher.OpenAsync(new OpenFileRequest
+                {
+                    File = new ReadOnlyFile(filePath)
+                });
+            }
+
+            // Mostrar confirmación visual en pantalla al usuario
+            string finalPath = filePath;
+            MainThread.BeginInvokeOnMainThread(async () =>
+                await DisplayAlertAsync("Archivo Guardado", $"El archivo se ha descargado y guardado en tu carpeta de Descargas:\n\n{finalPath}", "OK"));
         }
         catch (Exception ex)
         {
             Console.WriteLine("Error descargando archivo: " + ex.Message);
         }
     }
-#endif
+
+    // =============================================
+    // ACTUALIZACIONES
+    // =============================================
 
     protected override void OnAppearing()
     {

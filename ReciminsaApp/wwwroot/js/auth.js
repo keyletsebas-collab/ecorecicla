@@ -30,10 +30,12 @@ function userKey(baseKey) {
       if (user && user.accountId) {
         if (typeof calculateSecureChecksum === 'function') {
           const expectedSig = calculateSecureChecksum(user.accountId, user.email, user.familyId);
-          if (!user.signature || user.signature !== expectedSig) {
-            console.warn("⚠️ Actualizando firma criptográfica de sesión desactualizada...");
+          if (user.signature !== expectedSig) {
+            // Auto-heal signature smoothly without logging the user out
             user.signature = expectedSig;
-            try { localStorage.setItem('recim_session', JSON.stringify(user)); } catch (_) {}
+            try {
+              localStorage.setItem('recim_session', JSON.stringify(user));
+            } catch (_) {}
           }
         }
         const scope = user.familyId ? `family_${user.familyId}` : user.accountId;
@@ -45,6 +47,25 @@ function userKey(baseKey) {
   }
   return baseKey;
 }
+
+// Helper to safely update session properties and keep the cryptographic signature in sync
+function updateCurrentSession(updates) {
+  try {
+    const raw = localStorage.getItem('recim_session');
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    Object.assign(session, updates);
+    if (session.accountId && typeof calculateSecureChecksum === 'function') {
+      session.signature = calculateSecureChecksum(session.accountId, session.email, session.familyId);
+    }
+    localStorage.setItem('recim_session', JSON.stringify(session));
+    return session;
+  } catch (e) {
+    console.error('Error updating session:', e);
+    return null;
+  }
+}
+window.updateCurrentSession = updateCurrentSession;
 
 // ---- Secure password hashing (SHA-256) ----
 async function hashPasswordSHA256(password) {

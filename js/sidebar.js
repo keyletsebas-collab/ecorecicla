@@ -30,6 +30,12 @@ function closeSidebarIfMobile() {
     }
 }
 
+function toggleSidebarDropdown(id) {
+    const dropdown = document.getElementById(`sidebar-dropdown-${id}`);
+    if (!dropdown) return;
+    dropdown.classList.toggle('open');
+}
+
 // Highlight active nav link
 function setActiveNav(pageName) {
     // Sidebar links
@@ -38,9 +44,24 @@ function setActiveNav(pageName) {
         if (link.dataset.page === pageName) link.classList.add('active');
     });
 
+    // Auto-expand and highlight dropdown if active link is inside
+    const finanzasPages = ['facturas', 'nota_credito', 'nota_debito', 'ingresos', 'egresos', 'manejo_dgii'];
+    const dropdownFinanzas = document.getElementById('sidebar-dropdown-finanzas');
+    const toggleFinanzas = document.getElementById('sidebar-dropdown-toggle-finanzas');
+    if (dropdownFinanzas && toggleFinanzas) {
+        if (finanzasPages.includes(pageName)) {
+            dropdownFinanzas.classList.add('open');
+            toggleFinanzas.classList.add('active-parent');
+        } else {
+            toggleFinanzas.classList.remove('active-parent');
+        }
+    }
+
     // Bottom nav links
     document.querySelectorAll('.bottom-nav-item').forEach(item => {
         item.classList.remove('active');
         if (item.dataset.page === pageName) item.classList.add('active');
     });
 }
+
+window.toggleSidebarDropdown = toggleSidebarDropdown;

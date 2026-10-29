@@ -115,7 +115,13 @@ function renderBasicForm() {
       <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
         <div class="form-group">
           <label class="form-label">${t('lbl.client')}</label>
-          <input id="basic-client" type="text" class="form-input" placeholder="Nombre completo" />
+          <input id="basic-client" type="text" class="form-input" list="basic-clients-datalist" placeholder="Nombre completo" />
+          <datalist id="basic-clients-datalist">
+            ${(function() {
+              const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+              return clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('');
+            })()}
+          </datalist>
         </div>
         <div class="form-group">
           <label class="form-label">${t('lbl.invoice_date')}</label>
@@ -365,10 +371,11 @@ async function saveBasicInvoiceBatch() {
 
   saveInvoice(invoice);
 
-  // Finance entries: Registrar únicamente el egreso por la compra del material en la bitácora
+  // Finance entries: Las bitácoras representan compras/recogidas de materiales,
+  // por lo que SOLO afectan egresos (costo de compra) y NO ingresos.
   if (totalC > 0) {
     addFinanceEntry('egreso', {
-      concept: `Compra: ${invoice.id} – ${client}`,
+      concept: `Compra Bitácora: ${invoice.id} – ${client}`,
       amount: totalC, date, category: 'Materiales', ref: invoice.id
     });
   }

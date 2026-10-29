@@ -29,4 +29,5 @@ rcapp/
 *.zip
 *.log
 *.props
-*.cache
+*.cache
+reciminsaapp windows port/

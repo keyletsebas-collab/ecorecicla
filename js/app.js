@@ -53,6 +53,9 @@ const PAGE_TITLE_KEYS = {
     historial: 'page.historial',
     bitacoras: 'page.bitacoras',
     facturas: 'page.facturas',
+    nota_credito: 'Notas de Crédito (B04)',
+    nota_debito: 'Notas de Débito (B03)',
+    manejo_dgii: 'Manejo DGII – Formatos y Declaraciones Fiscales',
     codigos: 'page.codigos',
     clientes: 'page.clientes',
     ingresos: 'page.ingresos',
@@ -90,6 +93,9 @@ function rerenderCurrentPage() {
         case 'historial': renderHistoryPage(target); break;
         case 'bitacoras': renderBitacorasPage(target); break;
         case 'facturas': renderInvoicesPage(target); break;
+        case 'nota_credito': if (typeof renderCreditNotesPage === 'function') renderCreditNotesPage(target); break;
+        case 'nota_debito': if (typeof renderDebitNotesPage === 'function') renderDebitNotesPage(target); break;
+        case 'manejo_dgii': if (typeof renderManejoDgiiPage === 'function') renderManejoDgiiPage(target); break;
         case 'empresas': renderClientesPage(target, true); break;
         case 'codigos': renderCodigosPage(target); break;
         case 'clientes': renderClientesPage(target); break;
@@ -148,7 +154,10 @@ function navigate(pageName, subTab = null) {
     switch (pageName) {
         case 'historial': renderHistoryPage(target); break;
         case 'bitacoras': renderBitacorasPage(target); break;
-        case 'facturas': renderInvoicesPage(target, subTab || 'local'); break;
+        case 'facturas': renderInvoicesPage(target, subTab || 'facturas'); break;
+        case 'nota_credito': if (typeof renderCreditNotesPage === 'function') renderCreditNotesPage(target); break;
+        case 'nota_debito': if (typeof renderDebitNotesPage === 'function') renderDebitNotesPage(target); break;
+        case 'manejo_dgii': if (typeof renderManejoDgiiPage === 'function') renderManejoDgiiPage(target); break;
         case 'empresas': renderClientesPage(target, true); break;
         case 'codigos': renderCodigosPage(target); break;
         case 'clientes': renderClientesPage(target); break;
@@ -157,7 +166,6 @@ function navigate(pageName, subTab = null) {
         case 'ajustes': renderSettingsPage(target); break;
         case 'ecologia': renderEcologyPage(target); break;
         case 'precios': renderPricesPage(target); break;
-        case 'superadmin': renderSuperAdminPage(target); break;
         case 'colaboradores': renderCollaboratorsPage(target); break;
     }
 }
@@ -290,10 +298,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Verificación criptográfica de la sesión
             if (user && user.accountId && typeof calculateSecureChecksum === 'function') {
                 const expectedSig = calculateSecureChecksum(user.accountId, user.email, user.familyId);
-                if (!user.signature || user.signature !== expectedSig) {
-                    console.warn("⚠️ Sincronizando firma criptográfica al inicio...");
+                if (user.signature !== expectedSig) {
                     user.signature = expectedSig;
-                    try { localStorage.setItem('recim_session', JSON.stringify(user)); } catch (_) {}
+                    try {
+                        localStorage.setItem('recim_session', JSON.stringify(user));
+                    } catch (_) {}
                 }
             }
             

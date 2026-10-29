@@ -334,11 +334,11 @@ function downloadExcel(wb, filename) {
 
     if (window.chrome && window.chrome.webview) {
         const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-        window.chrome.webview.postMessage(JSON.stringify({
+        NativeBridge.post({
             action: 'download',
             filename: filename,
             data: base64Data
-        }));
+        });
         showToast('✅ Excel abierto en tu programa predeterminado', 'success');
     } else {
         XLSX.writeFile(wb, filename);
@@ -374,9 +374,20 @@ function exportarExcelResiduos(invoice) {
         const principal = items.reduce((max, i) => (parseFloat(i.qty) || 0) > (parseFloat(max.qty) || 0) ? i : max, items[0] || {});
         
         const ws2Data = [
-            ['Campo', 'Valor'], ['Fecha', fmtFecha(invoice.date)], ['ID Factura', invoice.id], ['Proveedor', invoice.client || invoice.company || '—'],
-            ['Total cantidad recibida', totalKg], [`Total comprado ${cur.code}`, totalCompra], [`Total vendido ${cur.code}`, totalVenta],
-            [`Ganancia total ${cur.code}`, totalVenta - totalCompra], ['Residuo principal', principal.name || '—'], ['Usuario', getUsuarioNombre()]
+            ['Campo', 'Valor'], 
+            ['Fecha', fmtFecha(invoice.date)], 
+            ['ID Factura', invoice.id], 
+            ['Tipo de Comprobante', invoice.ncfType ? `${invoice.ncfType} - ${invoice.typeName || 'Comprobante Fiscal'}` : (invoice.typeName || 'Factura Estándar')],
+            ['NCF', invoice.ncf || 'Interna'],
+            ['Método de Pago', invoice.payMethod || invoice.paymentMethod || 'Efectivo'],
+            ['Colaborador / Vendedor', invoice.collaborator || '—'],
+            ['Proveedor / Cliente', invoice.client || invoice.company || '—'],
+            ['Total cantidad recibida', totalKg], 
+            [`Total comprado ${cur.code}`, totalCompra], 
+            [`Total vendido ${cur.code}`, totalVenta],
+            [`Ganancia total ${cur.code}`, totalVenta - totalCompra], 
+            ['Residuo principal', principal.name || '—'], 
+            ['Usuario', getUsuarioNombre()]
         ];
         const ws2 = formatAndStyleWorksheet(XLSX.utils.aoa_to_sheet(ws2Data));
         XLSX.utils.book_append_sheet(wb, ws2, 'Resumen_Diario');
