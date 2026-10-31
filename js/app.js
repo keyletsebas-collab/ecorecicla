@@ -208,8 +208,15 @@ function initApp(user) {
         _superAdminCheckNavLink();
     }
     
-    // Default page (Restricted to Ingresos/Egresos on mobile)
-    const defaultPage = isMobile() ? 'ingresos' : 'historial';
+    // Default page (Permitir query param ?page=... o por defecto en móvil/escritorio)
+    let defaultPage = isMobile() ? 'ingresos' : 'historial';
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const pageParam = urlParams.get('page');
+        if (pageParam && document.getElementById(`page-${pageParam === 'empresas' ? 'facturas' : pageParam}`)) {
+            defaultPage = pageParam;
+        }
+    } catch (_) {}
     navigate(defaultPage);
 
     // Pull correct data from Firebase cloud immediately on boot

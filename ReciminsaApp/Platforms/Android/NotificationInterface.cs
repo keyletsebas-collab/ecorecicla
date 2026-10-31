@@ -29,6 +29,26 @@ namespace ReciminsaApp.Platforms.Android
         }
 
         [JavascriptInterface]
+        [Java.Interop.Export("NavigateHome")]
+        public void NavigateHome()
+        {
+            if (_webView != null)
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    try
+                    {
+                        _webView.LoadUrl("https://0.0.0.1/index.html?page=ajustes");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error en NavigateHome: {ex.Message}");
+                    }
+                });
+            }
+        }
+
+        [JavascriptInterface]
         [Java.Interop.Export("ShowNotification")]
         public void ShowNotification(string title, string body)
         {

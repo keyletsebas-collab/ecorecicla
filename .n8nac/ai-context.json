@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "signature": "d02fbb0f22b2d5c7e4d84955fc47eb0123b3d6106b5066223e51384fa29e770e",
-  "n8nacVersion": "2.5.0",
+  "signature": "1f5ce0a0b464b6e127eb169165674f594738422528aba1a0dedcc8e79536a0b0",
+  "n8nacVersion": "2.7.0",
   "n8nVersion": "Unknown",
-  "generatedAt": "2026-08-12T20:29:25.782Z",
-  "reason": "snapshot:webview-save-environment"
+  "generatedAt": "2026-10-30T21:15:37.331Z",
+  "reason": "snapshot:startup"
 }

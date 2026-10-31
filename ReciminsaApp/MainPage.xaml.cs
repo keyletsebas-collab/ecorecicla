@@ -40,6 +40,22 @@ public partial class MainPage : ContentPage
 #if ANDROID
     private static void ConfigureAndroidWebView(global::Android.Webkit.WebView webView)
     {
+        // Habilitar Viewport móvil nativo respetando el viewport de la web
+        webView.Settings.JavaScriptEnabled = true;
+        webView.Settings.DomStorageEnabled = true;
+        webView.Settings.DatabaseEnabled = true;
+        webView.Settings.UseWideViewPort = true;
+        webView.Settings.LoadWithOverviewMode = false;
+        webView.Settings.SetSupportZoom(false);
+        webView.Settings.BuiltInZoomControls = false;
+        webView.Settings.DisplayZoomControls = false;
+
+        // Eliminar márgenes de scroll nativo
+        webView.SetPadding(0, 0, 0, 0);
+
+        // Habilitar depuración de DevTools para inspección si fuera necesario
+        global::Android.Webkit.WebView.SetWebContentsDebuggingEnabled(true);
+
         // Puente window.AndroidNative usado por pdf-utils.js, excel-utils.js, biometric-auth.js, etc.
         // Se pasa el WebView para que la biometría pueda devolver el resultado a JS (onBiometricAuthResult).
         webView.AddJavascriptInterface(new Platforms.Android.NotificationInterface(webView), "AndroidNative");
@@ -295,6 +311,39 @@ public partial class MainPage : ContentPage
             }
         }
         return false;
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+#if ANDROID
+        if (hybridWebView.Handler?.PlatformView is global::Android.Webkit.WebView androidView)
+        {
+            var currentUrl = androidView.Url;
+            if (!string.IsNullOrEmpty(currentUrl) && currentUrl.Contains("soporte-it"))
+            {
+                androidView.LoadUrl("https://0.0.0.1/index.html?page=ajustes");
+                return true;
+            }
+
+            if (androidView.CanGoBack())
+            {
+                var historyList = androidView.CopyBackForwardList();
+                var curIdx = historyList.CurrentIndex;
+                if (curIdx > 0)
+                {
+                    var prevUrl = historyList.GetItemAtIndex(curIdx - 1)?.Url;
+                    if (prevUrl != null && (prevUrl.EndsWith("/#") || prevUrl.EndsWith("0.0.0.1/") || prevUrl.EndsWith("0.0.0.1/#")))
+                    {
+                        androidView.LoadUrl("https://0.0.0.1/index.html");
+                        return true;
+                    }
+                }
+                androidView.GoBack();
+                return true;
+            }
+        }
+#endif
+        return base.OnBackButtonPressed();
     }
 }
 

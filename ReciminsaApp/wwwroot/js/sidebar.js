@@ -16,9 +16,10 @@ function toggleSidebar() {
     }
 }
 
-// Close sidebar on wide screens (no mobile)
 function isMobile() {
-    return window.innerWidth <= 768;
+    return window.innerWidth <= 768 ||
+           document.documentElement.classList.contains('is-mobile-device') ||
+           /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
 }
 
 function closeSidebarIfMobile() {

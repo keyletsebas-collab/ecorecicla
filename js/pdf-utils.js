@@ -22,9 +22,8 @@ function base64ToBlob(base64, mimeType = 'application/pdf') {
 }
 
 function numeroALetras(num) {
-    const cur = typeof getCurrency === 'function' ? getCurrency() : { code: 'DOP' };
-    const currencyName = cur.code === 'USD' ? 'DÓLARES' : 'PESOS';
-    const centavosName = cur.code === 'USD' ? 'USD' : 'DOP';
+    const currencyName = 'PESOS';
+    const centavosName = 'DOP';
 
     const unidades = ['UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
     const decenas = ['DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];

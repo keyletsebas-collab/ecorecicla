@@ -1220,55 +1220,36 @@ function t(key) {
 }
 
 // =============================================
-// Currency helpers
+// Currency helpers (Official: Dominican Peso DOP)
 // =============================================
 const CURRENCIES = [
-    { id: 'usd', symbol: '$', code: 'USD', label: '🇺🇸 Dólar (USD)' },
-    { id: 'dop', symbol: 'RD$', code: 'DOP', label: '🇩🇴 Peso Dominicano (DOP)' },
+    { id: 'dop', symbol: 'RD$', code: 'DOP', label: '🇩🇴 Peso Dominicano (DOP)' }
 ];
 
 function getCurrency() {
-    const id = (getSettings().currency) || 'dop';
-    return CURRENCIES.find(c => c.id === id) || CURRENCIES[0];
+    return CURRENCIES[0];
 }
 
 function getDollarRate() {
-    const s = getSettings();
-    return parseFloat(s.dollarRate) || 59.50;
+    return 1;
 }
 window.getDollarRate = getDollarRate;
 
-function convertCurrency(amount, fromCode, toCode) {
-    if (!fromCode) fromCode = 'DOP';
-    if (!toCode) toCode = 'DOP';
-    fromCode = fromCode.toUpperCase();
-    toCode = toCode.toUpperCase();
-    if (fromCode === toCode) return amount;
-    
-    const rate = getDollarRate();
-    if (fromCode === 'USD' && toCode === 'DOP') {
-        return amount * rate;
-    }
-    if (fromCode === 'DOP' && toCode === 'USD') {
-        return amount / rate;
-    }
-    return amount;
+function convertCurrency(amount) {
+    return parseFloat(amount || 0);
 }
 window.convertCurrency = convertCurrency;
 
-function getConvertedAmount(amount, fromCode) {
-    return convertCurrency(parseFloat(amount || 0), fromCode || 'DOP', getCurrency().code);
+function getConvertedAmount(amount) {
+    return parseFloat(amount || 0);
 }
 window.getConvertedAmount = getConvertedAmount;
 
-/** Format a monetary amount using the current currency setting */
+/** Format a monetary amount using the official Dominican currency (DOP / RD$) */
 function formatMoney(amount, fromCode = null) {
     const cur = getCurrency();
     let val = parseFloat(amount || 0);
-    if (fromCode && fromCode.toUpperCase() !== cur.code.toUpperCase()) {
-        val = convertCurrency(val, fromCode, cur.code);
-    }
     const parts = val.toFixed(2).split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return `${cur.symbol}${parts.join('.')}`;
+    return `${cur.symbol} ${parts.join('.')}`;
 }

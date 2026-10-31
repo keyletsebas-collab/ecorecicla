@@ -221,7 +221,7 @@ function renderHistoryPage(container) {
     <div id="history-main-view" style="display: block;">
       <div class="page-header">
         <div>
-          <h2 class="section-title">${t('hist.title')}<span class="version-indicator-mobile">v1.1.0</span></h2>
+          <h2 class="section-title">${t('hist.title')}<span class="version-indicator-mobile">v1.18.0</span></h2>
           <p class="section-subtitle">${t('hist.subtitle')}</p>
         </div>
       </div>
@@ -1060,6 +1060,21 @@ function hideTradingDashboard() {
 }
 window.hideTradingDashboard = hideTradingDashboard;
 
+function formatTradingVal(val) {
+  if (val === undefined || val === null || isNaN(val) || val <= 0) return '0';
+  if (val >= 1000000) {
+    const m = val / 1000000;
+    return (m >= 10 ? m.toFixed(0) : m.toFixed(1)) + 'M';
+  }
+  if (val >= 10000) {
+    return (val / 1000).toFixed(0) + 'k';
+  }
+  if (val >= 1000) {
+    return (val / 1000).toFixed(1) + 'k';
+  }
+  return Math.round(val).toString();
+}
+
 function renderTradingDashboardShell() {
   const container = document.getElementById('history-trading-view');
   if (!container) return;
@@ -1071,8 +1086,8 @@ function renderTradingDashboardShell() {
   });
 
   container.innerHTML = `
-    <div style="width:100%; display:flex; flex-direction:column; gap:20px;">
-      <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap: 10px;">
+    <div style="width:100%; display:flex; flex-direction:column; gap:16px;">
+      <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap: 10px;">
         <div>
           <h2 class="section-title">📊 Panel de Estadísticas (Trading Style)</h2>
           <p class="section-subtitle">Visualización analítica premium de tu negocio en tiempo real</p>
@@ -1082,12 +1097,12 @@ function renderTradingDashboardShell() {
         </button>
       </div>
 
-      <div class="card card--elevated" style="background:#0b0f19; border:1px solid #1f2937; padding:24px; border-radius:16px; color:#f3f4f6; display:flex; flex-direction:column; gap:20px;">
+      <div class="card card--elevated" style="background:#0b0f19; border:1px solid #1f2937; padding:clamp(12px, 3vw, 22px); border-radius:16px; color:#f3f4f6; display:flex; flex-direction:column; gap:16px;">
         <!-- Controls row -->
-        <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-          <div class="form-group" style="margin:0; width:250px;">
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <div class="form-group" style="margin:0; flex:1 1 220px; max-width:320px; width:100%;">
             <label class="form-label" style="color:#9ca3af; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Categoría Analítica</label>
-            <select id="trading-main-select" class="form-select" style="background:#111827; border-color:#374151; color:#fff; height:42px;" onchange="onTradingMainSelectChange(this.value)">
+            <select id="trading-main-select" class="form-select" style="background:#111827; border-color:#374151; color:#fff; height:42px; width:100%;" onchange="onTradingMainSelectChange(this.value)">
               <option value="finanzas">📈 Finanzas (Ingresos vs Egresos)</option>
               <option value="materiales">🏷️ Materiales por Familias</option>
               <option value="colaboradores">👥 Actividad de Colaboradores</option>
@@ -1097,16 +1112,16 @@ function renderTradingDashboardShell() {
           </div>
 
           <!-- Secondary select for families, shown ONLY when main select is "materiales" -->
-          <div id="trading-family-select-group" class="form-group" style="margin:0; width:250px; display:none;">
+          <div id="trading-family-select-group" class="form-group" style="margin:0; flex:1 1 220px; max-width:320px; width:100%; display:none;">
             <label class="form-label" style="color:#9ca3af; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Seleccionar Familia</label>
-            <select id="trading-family-select" class="form-select" style="background:#111827; border-color:#374151; color:#fff; height:42px;" onchange="renderTradingChart('materiales')">
+            <select id="trading-family-select" class="form-select" style="background:#111827; border-color:#374151; color:#fff; height:42px; width:100%;" onchange="renderTradingChart('materiales')">
               ${familyOptions || '<option value="">-- No hay familias --</option>'}
             </select>
           </div>
         </div>
 
         <!-- Chart Screen Area -->
-        <div id="trading-chart-container" style="background:#111827; border:1px solid #1f2937; border-radius:12px; padding:24px; min-height:420px; display:flex; flex-direction:column; justify-content:center;">
+        <div id="trading-chart-container" style="background:#111827; border:1px solid #1f2937; border-radius:12px; padding:clamp(10px, 2.5vw, 18px); min-height:360px; display:flex; flex-direction:column; justify-content:center;">
           <!-- Dynamic Chart Content -->
         </div>
       </div>
@@ -1269,25 +1284,38 @@ function drawTradingFinanzasChart(items) {
     return;
   }
 
+  let totalPeriodIncome = 0;
+  let totalPeriodExpense = 0;
+  sortedMonths.forEach(m => {
+    totalPeriodIncome += (monthly[m].income || 0);
+    totalPeriodExpense += (monthly[m].expense || 0);
+  });
+  const netPeriod = totalPeriodIncome - totalPeriodExpense;
+
   let maxVal = 1000;
   sortedMonths.forEach(m => {
     maxVal = Math.max(maxVal, monthly[m].income, monthly[m].expense);
   });
+  maxVal = Math.ceil(maxVal * 1.05);
+
+  const numMonths = sortedMonths.length;
+  const colWidth = 105;
+  const startX = 85;
+  const chartWidth = Math.max(640, startX + numMonths * colWidth + 40);
+  const chartHeight = 330;
+  const graphHeight = 190;
+  const zeroY = 270;
+  const barWidth = 32;
+  const barGap = 6;
 
   let barSvgContent = '';
-  const startX = 85;
-  const spacingX = 110;
-  const graphHeight = 230;
-  const zeroY = 300;
-  const barWidth = 32;
-
   sortedMonths.forEach((m, idx) => {
-    const xPos = startX + idx * spacingX;
-    const incVal = monthly[m].income;
-    const expVal = monthly[m].expense;
+    const xPos = startX + idx * colWidth;
+    const incVal = monthly[m].income || 0;
+    const expVal = monthly[m].expense || 0;
     
-    const incHeight = Math.max(4, (incVal / maxVal) * graphHeight);
-    const expHeight = Math.max(4, (expVal / maxVal) * graphHeight);
+    const incHeight = incVal > 0 ? Math.max(6, (incVal / maxVal) * graphHeight) : 0;
+    const expHeight = expVal > 0 ? Math.max(6, (expVal / maxVal) * graphHeight) : 0;
     
     const incY = zeroY - incHeight;
     const expY = zeroY - expHeight;
@@ -1295,79 +1323,120 @@ function drawTradingFinanzasChart(items) {
     const [y, mm] = m.split('-');
     const label = t('hist.month_' + mm).substring(0, 3).toUpperCase();
     
-    const incText = safeFormatMoney(incVal).replace('RD$', '').trim();
-    const expText = safeFormatMoney(expVal).replace('RD$', '').trim();
-    
-    barSvgContent += `
-      <!-- Income Bar -->
-      <rect x="${xPos}" y="${incY}" width="${barWidth}" height="${incHeight}" rx="6" fill="url(#neonGreenGrad)" filter="url(#glow)" />
-      <!-- Expense Bar -->
-      <rect x="${xPos + barWidth + 8}" y="${expY}" width="${barWidth}" height="${expHeight}" rx="6" fill="url(#neonRedGrad)" filter="url(#glow)" />
-      
-      <!-- Income Value Tag -->
-      <g transform="translate(${xPos + barWidth/2}, ${incY - 10})">
-        <text font-size="11" fill="#00ffcc" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${incText}</text>
-      </g>
+    const incText = formatTradingVal(incVal);
+    const expText = formatTradingVal(expVal);
 
-      <!-- Expense Value Tag -->
-      <g transform="translate(${xPos + barWidth + 8 + barWidth/2}, ${expY - 10})">
-        <text font-size="11" fill="#ff4d79" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${expText}</text>
+    const fullIncStr = safeFormatMoney(incVal);
+    const fullExpStr = safeFormatMoney(expVal);
+
+    barSvgContent += `
+      <!-- Month Group: ${label} ${y} -->
+      <g>
+        <!-- Income Bar -->
+        ${incHeight > 0 ? `
+          <g style="cursor:pointer;">
+            <title>${label} ${y} - Ingresos: ${fullIncStr}</title>
+            <rect x="${xPos}" y="${incY}" width="${barWidth}" height="${incHeight}" rx="6" fill="url(#neonGreenGrad)" filter="url(#glow)" />
+            <text x="${xPos + barWidth/2}" y="${incY - 8}" font-size="12" fill="#00ffcc" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${incText}</text>
+          </g>
+        ` : `
+          <rect x="${xPos}" y="${zeroY - 2}" width="${barWidth}" height="2" rx="1" fill="#1e293b" />
+        `}
+
+        <!-- Expense Bar -->
+        ${expHeight > 0 ? `
+          <g style="cursor:pointer;">
+            <title>${label} ${y} - Egresos: ${fullExpStr}</title>
+            <rect x="${xPos + barWidth + barGap}" y="${expY}" width="${barWidth}" height="${expHeight}" rx="6" fill="url(#neonRedGrad)" filter="url(#glow)" />
+            <text x="${xPos + barWidth + barGap + barWidth/2}" y="${expY - 8}" font-size="12" fill="#ff4d79" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${expText}</text>
+          </g>
+        ` : `
+          <rect x="${xPos + barWidth + barGap}" y="${zeroY - 2}" width="${barWidth}" height="2" rx="1" fill="#1e293b" />
+        `}
+        
+        <!-- X Axis Labels -->
+        <text x="${xPos + barWidth + barGap/2}" y="296" font-size="13" fill="#f8fafc" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.05em">${label}</text>
+        <text x="${xPos + barWidth + barGap/2}" y="312" font-size="10" fill="#64748b" text-anchor="middle" font-family="monospace">${y}</text>
       </g>
-      
-      <!-- X Axis Month Label -->
-      <text x="${xPos + barWidth + 4}" y="335" font-size="13" fill="#e5e7eb" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.05em">${label}</text>
     `;
   });
 
   const chartHtml = `
-    <div style="display:flex; flex-direction:column; gap:20px; width:100%;">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:16px; flex-wrap:wrap; gap:12px;">
+    <div style="display:flex; flex-direction:column; gap:16px; width:100%;">
+      <!-- Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:14px; flex-wrap:wrap; gap:12px;">
         <div>
           <h4 style="margin:0; font-size:1.3rem; font-weight:800; color:#fff; letter-spacing:-0.02em;">📊 Balance de Caja (Últimos 6 meses)</h4>
           <span style="font-size:0.85rem; color:#9ca3af; font-weight:500;">Comparativo mensual de flujos financieros</span>
         </div>
-        <div style="display:flex; gap:20px; font-size:0.9rem; font-weight:700;">
+        <div style="display:flex; gap:12px; font-size:0.88rem; font-weight:700; flex-wrap:wrap;">
           <span style="display:inline-flex; align-items:center; gap:8px; color:#00ffcc; background:rgba(0,255,204,0.1); padding:6px 14px; border-radius:20px; border:1px solid rgba(0,255,204,0.2);">
-            <span style="width:12px; height:12px; border-radius:4px; background:#00ffcc; display:inline-block; box-shadow: 0 0 10px #00ffcc;"></span>Ingresos
+            <span style="width:10px; height:10px; border-radius:3px; background:#00ffcc; display:inline-block; box-shadow: 0 0 10px #00ffcc;"></span>Ingresos
           </span>
           <span style="display:inline-flex; align-items:center; gap:8px; color:#ff0055; background:rgba(255,0,85,0.1); padding:6px 14px; border-radius:20px; border:1px solid rgba(255,0,85,0.2);">
-            <span style="width:12px; height:12px; border-radius:4px; background:#ff0055; display:inline-block; box-shadow: 0 0 10px #ff0055;"></span>Egresos
+            <span style="width:10px; height:10px; border-radius:3px; background:#ff0055; display:inline-block; box-shadow: 0 0 10px #ff0055;"></span>Egresos
           </span>
         </div>
       </div>
 
-      <svg width="100%" height="360" viewBox="0 0 760 360" style="background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:10px;">
-        <defs>
-          <linearGradient id="neonGreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#00ffcc" />
-            <stop offset="100%" stop-color="#059669" />
-          </linearGradient>
-          <linearGradient id="neonRedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#ff3366" />
-            <stop offset="100%" stop-color="#be123c" />
-          </linearGradient>
-          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-        
-        <!-- Y-Axis Gridlines & Labels -->
-        <line x1="70" y1="70" x2="740" y2="70" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
-        <line x1="70" y1="147" x2="740" y2="147" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
-        <line x1="70" y1="223" x2="740" y2="223" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
-        <line x1="70" y1="300" x2="740" y2="300" stroke="#334155" stroke-width="2" />
-        
-        <text x="60" y="74" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${safeFormatMoney(maxVal).replace('RD$', '').trim()}</text>
-        <text x="60" y="151" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${safeFormatMoney(maxVal*0.66).replace('RD$', '').trim()}</text>
-        <text x="60" y="227" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${safeFormatMoney(maxVal*0.33).replace('RD$', '').trim()}</text>
-        <text x="60" y="304" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">0</text>
-        
-        ${barSvgContent}
-      </svg>
+      <!-- KPI Summary Cards -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; width:100%;">
+        <div style="background:#090d16; border:1px solid rgba(0,255,204,0.3); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.04em;">🟢 Total Ingresos (6M)</span>
+          <span style="font-size:1.15rem; font-weight:800; color:#00ffcc; font-family:monospace;">RD$ ${safeFormatMoney(totalPeriodIncome).replace('RD$', '').trim()}</span>
+        </div>
+        <div style="background:#090d16; border:1px solid rgba(255,0,85,0.3); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.04em;">🔴 Total Egresos (6M)</span>
+          <span style="font-size:1.15rem; font-weight:800; color:#ff4d79; font-family:monospace;">RD$ ${safeFormatMoney(totalPeriodExpense).replace('RD$', '').trim()}</span>
+        </div>
+        <div style="background:#090d16; border:1px solid ${netPeriod >= 0 ? 'rgba(56,189,248,0.3)' : 'rgba(239,68,68,0.3)'}; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.04em;">⚖️ Balance Neto</span>
+          <span style="font-size:1.15rem; font-weight:800; color:${netPeriod >= 0 ? '#38bdf8' : '#ef4444'}; font-family:monospace;">${netPeriod >= 0 ? '+' : ''}RD$ ${safeFormatMoney(netPeriod).replace('RD$', '').trim()}</span>
+        </div>
+      </div>
+
+      <!-- Chart Scroll Wrapper -->
+      <div style="width:100%; display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#9ca3af; padding:0 4px;">
+          <span>📈 Comparativo gráfico por mes</span>
+          <span style="color:#38bdf8; display:inline-flex; align-items:center; gap:4px; font-weight:600;">👉 Desliza para explorar meses</span>
+        </div>
+
+        <div id="finanzas-chart-scroll" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:16px 8px 12px 8px; box-shadow:inset 0 2px 10px rgba(0,0,0,0.5);">
+          <svg width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" style="min-width:${chartWidth}px; display:block; overflow:visible;">
+            <defs>
+              <linearGradient id="neonGreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#00ffcc" />
+                <stop offset="100%" stop-color="#059669" />
+              </linearGradient>
+              <linearGradient id="neonRedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ff3366" />
+                <stop offset="100%" stop-color="#be123c" />
+              </linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+            
+            <!-- Y-Axis Gridlines & Labels -->
+            <line x1="76" y1="80" x2="${chartWidth - 20}" y2="80" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+            <line x1="76" y1="143" x2="${chartWidth - 20}" y2="143" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+            <line x1="76" y1="206" x2="${chartWidth - 20}" y2="206" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+            <line x1="76" y1="270" x2="${chartWidth - 20}" y2="270" stroke="#334155" stroke-width="2" />
+            
+            <text x="68" y="84" font-size="11" fill="#94a3b8" text-anchor="end" font-family="monospace" font-weight="600">${formatTradingVal(maxVal)}</text>
+            <text x="68" y="147" font-size="11" fill="#94a3b8" text-anchor="end" font-family="monospace" font-weight="600">${formatTradingVal(maxVal*0.66)}</text>
+            <text x="68" y="210" font-size="11" fill="#94a3b8" text-anchor="end" font-family="monospace" font-weight="600">${formatTradingVal(maxVal*0.33)}</text>
+            <text x="68" y="274" font-size="11" fill="#94a3b8" text-anchor="end" font-family="monospace" font-weight="600">0</text>
+            
+            ${barSvgContent}
+          </svg>
+        </div>
+      </div>
 
       <!-- Tabla Detallada de Facturas, Ingresos y Egresos -->
-      <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px;">
+      <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:clamp(12px, 3vw, 20px);">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:16px; border-bottom:1px solid #1e293b; padding-bottom:14px;">
           <div>
             <h5 style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">📋 Registro Cronológico de Facturas y Movimientos</h5>
@@ -1400,7 +1469,15 @@ function drawTradingFinanzasChart(items) {
   `;
 
   container.innerHTML = chartHtml;
-  setTimeout(window.updateFinanzasRecordsTable, 0);
+  setTimeout(() => {
+    const scrollEl = document.getElementById('finanzas-chart-scroll');
+    if (scrollEl) {
+      scrollEl.scrollLeft = scrollEl.scrollWidth;
+    }
+    if (typeof window.updateFinanzasRecordsTable === 'function') {
+      window.updateFinanzasRecordsTable();
+    }
+  }, 0);
 }
 
 window.updateMaterialesRecordsTable = function() {
@@ -1536,13 +1613,17 @@ function drawTradingMaterialesChart(items) {
     return;
   }
 
+  const totalQty = chartData.reduce((sum, d) => sum + d.qty, 0);
+  const topMat = chartData.reduce((p, c) => (c.qty > p.qty ? c : p), chartData[0]);
+
   let maxQty = Math.max(...chartData.map(d => d.qty), 1);
   let chartRowsSvg = '';
-  const rowHeight = 78;
-  const chartHeight = chartData.length * rowHeight + 60;
-  const startY = 30;
-  const labelWidth = 270;
-  const graphWidth = 500;
+  const rowHeight = 72;
+  const chartHeight = chartData.length * rowHeight + 40;
+  const startY = 24;
+  const labelWidth = 240;
+  const graphWidth = 440;
+  const svgWidth = 840;
 
   chartData.forEach((d, idx) => {
     const yPos = startY + idx * rowHeight;
@@ -1550,46 +1631,74 @@ function drawTradingMaterialesChart(items) {
     
     chartRowsSvg += `
       <!-- Label -->
-      <text x="${labelWidth - 20}" y="${yPos + 26}" font-size="16" fill="#f8fafc" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-weight="800">${d.name} (${d.code})</text>
+      <text x="${labelWidth - 16}" y="${yPos + 24}" font-size="15" fill="#f8fafc" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${d.name} (${d.code})</text>
       
       <!-- Bar Background -->
-      <rect x="${labelWidth}" y="${yPos + 4}" width="${graphWidth}" height="32" rx="16" fill="#1e293b" />
+      <rect x="${labelWidth}" y="${yPos + 4}" width="${graphWidth}" height="28" rx="14" fill="#1e293b" />
       <!-- Bar Foreground (Cyan glow) -->
-      <rect x="${labelWidth}" y="${yPos + 4}" width="${barWidth}" height="32" rx="16" fill="url(#cyanGlowGrad)" filter="url(#cyanGlow)" />
+      <rect x="${labelWidth}" y="${yPos + 4}" width="${barWidth}" height="28" rx="14" fill="url(#cyanGlowGrad)" filter="url(#cyanGlow)" />
       
       <!-- Value Tag -->
-      <text x="${labelWidth + barWidth + 18}" y="${yPos + 26}" font-size="17" fill="#00ffff" font-family="system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="0.02em">${d.qty.toLocaleString('es-DO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${d.unit}</text>
+      <text x="${labelWidth + barWidth + 14}" y="${yPos + 24}" font-size="15" fill="#00ffff" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="0.02em">${d.qty.toLocaleString('es-DO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${d.unit}</text>
     `;
   });
 
   const materialOptionsHtml = familyMaterials.map(m => `<option value="${m.id}">📦 ${m.name} (${m.code})</option>`).join('');
 
   container.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:20px; width:100%;">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:16px;">
-        <h4 style="margin:0; font-size:1.45rem; font-weight:900; color:#fff; letter-spacing:-0.02em;">📦 Volumen por Material: Familia ${familyName}</h4>
-        <span style="font-size:0.95rem; color:#9ca3af; font-weight:600;">Pesaje acumulado en Bitácoras</span>
+    <div style="display:flex; flex-direction:column; gap:16px; width:100%;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:14px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h4 style="margin:0; font-size:1.35rem; font-weight:900; color:#fff; letter-spacing:-0.02em;">📦 Volumen por Material: Familia ${familyName}</h4>
+          <span style="font-size:0.85rem; color:#9ca3af; font-weight:600;">Pesaje acumulado registrado en bitácoras</span>
+        </div>
       </div>
 
-      <svg width="100%" height="${chartHeight}" viewBox="0 0 960 ${chartHeight}" style="background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:12px;">
-        <defs>
-          <linearGradient id="cyanGlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#3b82f6" />
-            <stop offset="100%" stop-color="#00ffff" />
-          </linearGradient>
-          <filter id="cyanGlow" x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-        
-        <line x1="${labelWidth}" y1="10" x2="${labelWidth}" y2="${chartHeight - 20}" stroke="#334155" stroke-width="2" />
-        
-        ${chartRowsSvg}
-      </svg>
+      <!-- KPI Summary Cards -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; width:100%;">
+        <div style="background:#090d16; border:1px solid rgba(0,255,255,0.3); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.04em;">⚖️ Total Acumulado</span>
+          <span style="font-size:1.15rem; font-weight:800; color:#00ffff; font-family:monospace;">${totalQty.toLocaleString('es-DO', { maximumFractionDigits: 1 })} kg</span>
+        </div>
+        <div style="background:#090d16; border:1px solid rgba(59,130,246,0.3); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.04em;">👑 Material Líder</span>
+          <span style="font-size:1.05rem; font-weight:800; color:#60a5fa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${topMat ? topMat.name : '—'}</span>
+        </div>
+        <div style="background:#090d16; border:1px solid rgba(139,92,246,0.3); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.04em;">📦 Variedad</span>
+          <span style="font-size:1.15rem; font-weight:800; color:#c084fc; font-family:monospace;">${chartData.length} materiales</span>
+        </div>
+      </div>
+
+      <!-- Chart Scroll Wrapper -->
+      <div style="width:100%; display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#9ca3af; padding:0 4px;">
+          <span>📦 Gráfico de Volúmenes por Material</span>
+          <span style="color:#38bdf8; display:inline-flex; align-items:center; gap:4px; font-weight:600;">👉 Desliza horizontalmente si es necesario</span>
+        </div>
+
+        <div id="materiales-chart-scroll" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:16px 8px 12px 8px; box-shadow:inset 0 2px 10px rgba(0,0,0,0.5);">
+          <svg width="${svgWidth}" height="${chartHeight}" viewBox="0 0 ${svgWidth} ${chartHeight}" style="min-width:720px; display:block; overflow:visible;">
+            <defs>
+              <linearGradient id="cyanGlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#3b82f6" />
+                <stop offset="100%" stop-color="#00ffff" />
+              </linearGradient>
+              <filter id="cyanGlow" x="-10%" y="-10%" width="120%" height="120%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+            
+            <line x1="${labelWidth}" y1="10" x2="${labelWidth}" y2="${chartHeight - 14}" stroke="#334155" stroke-width="2" />
+            
+            ${chartRowsSvg}
+          </svg>
+        </div>
+      </div>
 
       <!-- Tabla Detallada de Pesajes -->
-      <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px;">
+      <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:clamp(12px, 3vw, 20px);">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:16px; border-bottom:1px solid #1e293b; padding-bottom:14px;">
           <div>
             <h5 style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">📋 Pesaje Detallado por Material y Bitácora</h5>
@@ -1730,6 +1839,7 @@ function drawTradingColaboradoresChart(items) {
   const graphHeight = 220;
   const zeroY = 280;
   const barWidth = 44;
+  const chartWidth = Math.max(480, startX + activeColabs.length * spacingX + 40);
 
   activeColabs.forEach((d, idx) => {
     const xPos = startX + idx * spacingX;
@@ -1745,29 +1855,31 @@ function drawTradingColaboradoresChart(items) {
   });
 
   const barChartHtml = `
-    <div style="flex:1.4; min-width:340px; display:flex; flex-direction:column; gap:12px;">
+    <div style="flex:1.4; min-width:280px; width:100%; display:flex; flex-direction:column; gap:12px;">
       <h5 style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">📊 Actividad Total por Colaborador</h5>
-      <svg width="100%" height="340" viewBox="0 0 480 340" style="background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:10px;">
-        <defs>
-          <linearGradient id="colabBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#c084fc" />
-            <stop offset="100%" stop-color="#6366f1" />
-          </linearGradient>
-          <filter id="colabGlow" x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-        <line x1="45" y1="60" x2="450" y2="60" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
-        <line x1="45" y1="170" x2="450" y2="170" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
-        <line x1="45" y1="280" x2="450" y2="280" stroke="#334155" stroke-width="2" />
-        
-        <text x="38" y="64" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${maxActivity}</text>
-        <text x="38" y="174" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${Math.round(maxActivity/2)}</text>
-        <text x="38" y="284" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">0</text>
-        
-        ${barSvgContent}
-      </svg>
+      <div style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:16px;">
+        <svg width="100%" height="340" viewBox="0 0 ${chartWidth} 340" style="min-width:${chartWidth}px; background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:10px;">
+          <defs>
+            <linearGradient id="colabBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#c084fc" />
+              <stop offset="100%" stop-color="#6366f1" />
+            </linearGradient>
+            <filter id="colabGlow" x="-10%" y="-10%" width="120%" height="120%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+          <line x1="45" y1="60" x2="${chartWidth - 30}" y2="60" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+          <line x1="45" y1="170" x2="${chartWidth - 30}" y2="170" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+          <line x1="45" y1="280" x2="${chartWidth - 30}" y2="280" stroke="#334155" stroke-width="2" />
+          
+          <text x="38" y="64" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${maxActivity}</text>
+          <text x="38" y="174" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${Math.round(maxActivity/2)}</text>
+          <text x="38" y="284" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">0</text>
+          
+          ${barSvgContent}
+        </svg>
+      </div>
     </div>
   `;
 
@@ -2052,39 +2164,67 @@ function drawTradingVolumeChart(items, type) {
     `;
   });
 
+  const totalVolume = Object.values(monthly).reduce((s, v) => s + v, 0);
+  const avgMonthly = (totalVolume / (sortedMonths.length || 1)).toFixed(1);
+  let peakMonth = sortedMonths[0] || '—';
+  sortedMonths.forEach(m => {
+    if (monthly[m] > (monthly[peakMonth] || 0)) peakMonth = m;
+  });
+  const peakMonthLabel = peakMonth !== '—' ? (t('hist.month_' + peakMonth.split('-')[1]) || '').substring(0, 3).toUpperCase() + ` (${monthly[peakMonth]})` : '—';
+
   container.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:20px; width:100%;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:16px; flex-wrap:wrap; gap:12px;">
-        <h4 style="margin:0; font-size:1.3rem; font-weight:800; color:#fff;">${title}</h4>
-        <span style="font-size:0.9rem; color:#9ca3af; font-weight:500;">${subtitle}</span>
+        <div>
+          <h4 style="margin:0; font-size:1.3rem; font-weight:800; color:#fff;">${title}</h4>
+          <span style="font-size:0.9rem; color:#9ca3af; font-weight:500;">${subtitle}</span>
+        </div>
       </div>
 
-      <svg width="100%" height="360" viewBox="0 0 760 360" style="background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:10px;">
-        <defs>
-          <linearGradient id="neonGreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#00ffcc" />
-            <stop offset="100%" stop-color="#00aa88" />
-          </linearGradient>
-          <linearGradient id="cyanGlowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#3b82f6" />
-            <stop offset="100%" stop-color="#00ffff" />
-          </linearGradient>
-          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-        
-        <line x1="70" y1="70" x2="740" y2="70" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
-        <line x1="70" y1="185" x2="740" y2="185" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
-        <line x1="70" y1="300" x2="740" y2="300" stroke="#334155" stroke-width="2" />
-        
-        <text x="60" y="74" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${maxVal}</text>
-        <text x="60" y="189" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${Math.round(maxVal/2)}</text>
-        <text x="60" y="304" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">0</text>
-        
-        ${barSvgContent}
-      </svg>
+      <!-- KPI Summary Cards -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; width:100%;">
+        <div style="background:#090d16; border:1px solid #1e293b; border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em;">Total en Período</span>
+          <div style="font-size:1.4rem; font-weight:800; color:${neonColor}; font-family:monospace;">${totalVolume} ${type === 'bitacoras' ? 'recogidas' : 'facturas'}</div>
+        </div>
+        <div style="background:#090d16; border:1px solid #1e293b; border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em;">Promedio Mensual</span>
+          <div style="font-size:1.4rem; font-weight:800; color:#fff; font-family:monospace;">~${avgMonthly} / mes</div>
+        </div>
+        <div style="background:#090d16; border:1px solid #1e293b; border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:4px;">
+          <span style="font-size:0.75rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em;">Mes con Mayor Flujo</span>
+          <div style="font-size:1.4rem; font-weight:800; color:#f59e0b; font-family:monospace;">${peakMonthLabel}</div>
+        </div>
+      </div>
+
+      <div id="volume-chart-scroll" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:16px;">
+        <svg width="100%" height="360" viewBox="0 0 760 360" style="min-width:640px; background:#090d16; border:1px solid #1e293b; border-radius:16px; overflow:visible; padding:10px;">
+          <defs>
+            <linearGradient id="neonGreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#00ffcc" />
+              <stop offset="100%" stop-color="#00aa88" />
+            </linearGradient>
+            <linearGradient id="cyanGlowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#3b82f6" />
+              <stop offset="100%" stop-color="#00ffff" />
+            </linearGradient>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+          
+          <line x1="70" y1="70" x2="740" y2="70" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+          <line x1="70" y1="185" x2="740" y2="185" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+          <line x1="70" y1="300" x2="740" y2="300" stroke="#334155" stroke-width="2" />
+          
+          <text x="60" y="74" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${maxVal}</text>
+          <text x="60" y="189" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">${Math.round(maxVal/2)}</text>
+          <text x="60" y="304" font-size="11" fill="#64748b" text-anchor="end" font-family="monospace" font-weight="600">0</text>
+          
+          ${barSvgContent}
+        </svg>
+      </div>
 
       <!-- Tabla Detallada de Registros -->
       <div style="margin-top:12px; background:#090d16; border:1px solid #1e293b; border-radius:16px; padding:20px;">
@@ -2110,5 +2250,9 @@ function drawTradingVolumeChart(items, type) {
       </div>
     </div>
   `;
+  setTimeout(() => {
+    const scroller = document.getElementById('volume-chart-scroll');
+    if (scroller) scroller.scrollLeft = scroller.scrollWidth;
+  }, 50);
   setTimeout(window.updateVolumeRecordsTable, 0);
 }

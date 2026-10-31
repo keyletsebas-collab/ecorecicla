@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sessionStr = localStorage.getItem('recim_session');
   if (!sessionStr) {
     showToast(typeof t === 'function' ? t('sup.ticket_alert_login') : "Debes iniciar sesión para acceder al Soporte IT.", 'warning');
-    setTimeout(() => { window.location.href = "../index.html"; }, 1500);
+    setTimeout(() => { window.location.replace("../index.html"); }, 1500);
     return;
   }
   

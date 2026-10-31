@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="ReciminsaApp.MainPage">
+             x:Class="ReciminsaApp.MainPage"
+             NavigationPage.HasNavigationBar="False"
+             Shell.NavBarIsVisible="False"
+             Padding="0"
+             BackgroundColor="#070b08">
 
-    <!-- Contenedor nativo de la app web (Resources: wwwroot/index.html).
-         HybridWebView reemplaza a BlazorWebView: no hay componentes Razor. -->
+    <!-- Contenedor nativo de la app web a pantalla completa -->
     <HybridWebView x:Name="hybridWebView"
+                   HorizontalOptions="Fill"
+                   VerticalOptions="Fill"
                    HybridRoot="wwwroot"
                    DefaultFile="index.html"
                    RawMessageReceived="OnRawMessageReceived"

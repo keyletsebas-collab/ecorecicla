@@ -280,27 +280,32 @@
 }
 
 /* Mobile Optimizations */
-@media (max-width: 768px) {
-  .chatbot-fab {
-    bottom: calc(72px + var(--safe-area-bottom)); /* Puts it perfectly above mobile Bottom Nav */
-    right: 16px;
-    width: 48px;
-    height: 48px;
+@media (max-width: 768px), (pointer: coarse) {
+  .chatbot-fab,
+  .is-mobile-device .chatbot-fab {
+    bottom: calc(76px + var(--safe-area-bottom)) !important; /* Puts it cleanly above mobile Bottom Nav */
+    right: 16px !important;
+    width: 48px !important;
+    height: 48px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 12px rgba(34, 197, 94, 0.3) !important;
   }
   
-  .chatbot-window {
-    bottom: 0;
-    right: 0;
-    width: 100vw;
-    height: 100vh;
-    height: -webkit-fill-available;
-    border-radius: 0;
-    border: none;
-    z-index: 1100; /* Overlays bottom bar and sidebar when open */
-    transform: translateY(100%);
+  .chatbot-window,
+  .is-mobile-device .chatbot-window {
+    bottom: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    height: -webkit-fill-available !important;
+    border-radius: 0 !important;
+    border: none !important;
+    z-index: 1100 !important; /* Overlays bottom bar and sidebar when open */
+    transform: translateY(100%) !important;
   }
 
-  .chatbot-window.open {
-    transform: translateY(0);
+  .chatbot-window.open,
+  .is-mobile-device .chatbot-window.open {
+    transform: translateY(0) !important;
   }
 }

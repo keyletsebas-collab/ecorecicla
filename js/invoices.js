@@ -2737,22 +2737,30 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
       </div>
 
       <!-- Listado de Notas de Crédito -->
-      <h4 style="margin-bottom: 12px; color: var(--clr-text);">Historial de Notas de Crédito</h4>
-      <div style="overflow-x: auto;">
-        <table class="table" style="width: 100%;">
+      <h4 style="margin-bottom: 14px; color: var(--clr-text); font-weight: 700; font-size: 1.05rem;">Historial de Notas de Crédito</h4>
+      <div class="table-responsive">
+        <table class="table" style="width: 100%; min-width: 680px;">
           <thead>
             <tr>
-              <th>NC #</th>
-              <th>NCF</th>
-              <th>Factura Modificada</th>
-              <th>Cliente</th>
-              <th>Monto Total</th>
-              <th>Acciones</th>
+              <th style="width: 15%;">NC #</th>
+              <th style="width: 15%;">NCF</th>
+              <th style="width: 25%;">Factura Modificada</th>
+              <th style="width: 20%;">Cliente</th>
+              <th style="width: 15%;">Monto Total</th>
+              <th style="width: 10%; text-align: center;">Acciones</th>
             </tr>
           </thead>
           <tbody>
             ${notes.length === 0 ? `
-              <tr><td colspan="6" style="text-align: center; color: var(--clr-text-muted); padding: 20px;">No hay notas de crédito emitidas.</td></tr>
+              <tr>
+                <td colspan="6" class="table-empty-td">
+                  <div class="table-empty-card">
+                    <div class="empty-icon-bubble">📄</div>
+                    <h4 class="empty-title">Sin Notas de Crédito Registradas</h4>
+                    <p class="empty-desc">Las notas de crédito emitidas para anular o ajustar facturas comerciales aparecerán aquí con su NCF correspondiente.</p>
+                  </div>
+                </td>
+              </tr>
             ` : notes.map(n => `
               <tr>
                 <td><b>${n.id}</b></td>
@@ -2760,10 +2768,10 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
                 <td>${n.invoiceRef || '—'} ${n.ncfModified ? '(' + n.ncfModified + ')' : ''}</td>
                 <td>${n.client}</td>
                 <td style="font-weight: 700; color: #ef4444;">-${formatMoney(n.total)}</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn-secondary" onclick="printCreditNotePDF('${n.id}')" title="Descargar PDF" style="padding: 4px 8px; font-size: 0.8rem;">📄</button>
-                    <button class="btn-danger" onclick="deleteCreditNote('${n.id}')" title="Eliminar" style="padding: 4px 8px; font-size: 0.8rem;">🗑️</button>
+                <td style="text-align: center;">
+                  <div style="display: flex; gap: 6px; justify-content: center;">
+                    <button class="btn-secondary" onclick="printCreditNotePDF('${n.id}')" title="Descargar PDF" style="padding: 6px 10px; font-size: 0.85rem;">📄</button>
+                    <button class="btn-danger" onclick="deleteCreditNote('${n.id}')" title="Eliminar" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
                   </div>
                 </td>
               </tr>
@@ -3031,22 +3039,30 @@ function initDebitNotesView(targetContainer = null) {
       </div>
 
       <!-- Listado de Notas de Débito -->
-      <h4 style="margin-bottom: 12px; color: var(--clr-text);">Historial de Notas de Débito</h4>
-      <div style="overflow-x: auto;">
-        <table class="table" style="width: 100%;">
+      <h4 style="margin-bottom: 14px; color: var(--clr-text); font-weight: 700; font-size: 1.05rem;">Historial de Notas de Débito</h4>
+      <div class="table-responsive">
+        <table class="table" style="width: 100%; min-width: 680px;">
           <thead>
             <tr>
-              <th>ND #</th>
-              <th>NCF</th>
-              <th>Factura Modificada</th>
-              <th>Cliente</th>
-              <th>Monto Total</th>
-              <th>Acciones</th>
+              <th style="width: 15%;">ND #</th>
+              <th style="width: 15%;">NCF</th>
+              <th style="width: 25%;">Factura Modificada</th>
+              <th style="width: 20%;">Cliente</th>
+              <th style="width: 15%;">Monto Total</th>
+              <th style="width: 10%; text-align: center;">Acciones</th>
             </tr>
           </thead>
           <tbody>
             ${notes.length === 0 ? `
-              <tr><td colspan="6" style="text-align: center; color: var(--clr-text-muted); padding: 20px;">No hay notas de débito emitidas.</td></tr>
+              <tr>
+                <td colspan="6" class="table-empty-td">
+                  <div class="table-empty-card">
+                    <div class="empty-icon-bubble">📑</div>
+                    <h4 class="empty-title">Sin Notas de Débito Registradas</h4>
+                    <p class="empty-desc">Las notas de débito emitidas para registrar cargos o ajustes positivos aparecerán aquí con su NCF correspondiente.</p>
+                  </div>
+                </td>
+              </tr>
             ` : notes.map(n => `
               <tr>
                 <td><b>${n.id}</b></td>
@@ -3054,10 +3070,10 @@ function initDebitNotesView(targetContainer = null) {
                 <td>${n.invoiceRef || '—'} ${n.ncfModified ? '(' + n.ncfModified + ')' : ''}</td>
                 <td>${n.client}</td>
                 <td style="font-weight: 700; color: var(--clr-primary);">+${formatMoney(n.total)}</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn-secondary" onclick="printDebitNotePDF('${n.id}')" title="Descargar PDF" style="padding: 4px 8px; font-size: 0.8rem;">📄</button>
-                    <button class="btn-danger" onclick="deleteDebitNote('${n.id}')" title="Eliminar" style="padding: 4px 8px; font-size: 0.8rem;">🗑️</button>
+                <td style="text-align: center;">
+                  <div style="display: flex; gap: 6px; justify-content: center;">
+                    <button class="btn-secondary" onclick="printDebitNotePDF('${n.id}')" title="Descargar PDF" style="padding: 6px 10px; font-size: 0.85rem;">📄</button>
+                    <button class="btn-danger" onclick="deleteDebitNote('${n.id}')" title="Eliminar" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
                   </div>
                 </td>
               </tr>

@@ -37,28 +37,39 @@ function renderManejoDgiiPage(container) {
     : `<span style="font-size:0.8rem; color:#f59e0b; font-weight:600;">⚠️ Sin RNC (configurar en Ajustes)</span>`;
 
   container.innerHTML = `
-    <div class="page-header" style="margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; width:100%; box-sizing:border-box;">
-      <div style="min-width:250px; flex:1;">
+    <div class="dgii-header-container">
+      <div class="dgii-header-text">
         <h2 class="section-title">🏛️ Manejo DGII – Comprobantes Serie B</h2>
         <p class="section-subtitle">Formatos oficiales de envío mensual a la DGII basados en las operaciones reales de la empresa</p>
       </div>
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        <div style="background:var(--clr-surface-2); border:1px solid var(--clr-border); padding:6px 12px; border-radius:var(--r-md); display:flex; align-items:center; gap:8px;">
-          <span style="font-size:0.78rem; color:var(--clr-text-muted); font-weight:700;">RNC EMISOR:</span>
+      <div class="dgii-meta-panel">
+        <div class="dgii-rnc-card" title="RNC Emisor configurado en Ajustes">
+          <span style="font-size: 1rem;">🛡️</span>
+          <span class="dgii-rnc-label">RNC EMISOR:</span>
           ${rncDisplay}
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <label style="font-size:0.82rem; color:var(--clr-text-muted); font-weight:600; white-space:nowrap;">Período Fiscal:</label>
-          <input type="month" id="dgii-period-picker" class="form-input" style="padding:6px 10px; font-size:0.88rem; width:155px; min-width:145px;" value="${currentDgiiPeriod}" onchange="onDgiiPeriodChange(this.value)" />
+        <div class="dgii-period-card">
+          <span style="font-size: 1rem;">📅</span>
+          <label class="dgii-period-label" for="dgii-period-picker">Período Fiscal:</label>
+          <input type="month" id="dgii-period-picker" class="dgii-period-input" value="${currentDgiiPeriod}" onchange="onDgiiPeriodChange(this.value)" />
         </div>
       </div>
     </div>
 
     <!-- Barra de Pestañas Serie B DGII (606, 607, 608) -->
     <div class="dgii-tabs-bar">
-      <button class="dgii-tab-btn ${currentDgiiTab === '606' ? 'active' : ''}" data-tab="606" onclick="switchDgiiTab('606')">606</button>
-      <button class="dgii-tab-btn ${currentDgiiTab === '607' ? 'active' : ''}" data-tab="607" onclick="switchDgiiTab('607')">607</button>
-      <button class="dgii-tab-btn ${currentDgiiTab === '608' ? 'active' : ''}" data-tab="608" onclick="switchDgiiTab('608')">608</button>
+      <button class="dgii-tab-btn ${currentDgiiTab === '606' ? 'active' : ''}" data-tab="606" onclick="switchDgiiTab('606')">
+        <span style="font-weight: 800;">606</span>
+        <span class="dgii-tab-sublabel">Compras</span>
+      </button>
+      <button class="dgii-tab-btn ${currentDgiiTab === '607' ? 'active' : ''}" data-tab="607" onclick="switchDgiiTab('607')">
+        <span style="font-weight: 800;">607</span>
+        <span class="dgii-tab-sublabel">Ventas</span>
+      </button>
+      <button class="dgii-tab-btn ${currentDgiiTab === '608' ? 'active' : ''}" data-tab="608" onclick="switchDgiiTab('608')">
+        <span style="font-weight: 800;">608</span>
+        <span class="dgii-tab-sublabel">Anulados</span>
+      </button>
     </div>
 
     <!-- Contenedor del contenido del reporte activo -->

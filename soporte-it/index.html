@@ -17,12 +17,32 @@
   <div class="app-screen" style="display:flex; flex-direction:column; height:100vh; position:relative;">
     <!-- Topbar -->
     <header class="topbar">
-      <button class="btn-secondary" onclick="window.history.back()" style="padding: 6px 12px; font-size: 0.9rem;">
+      <button class="btn-secondary" onclick="volverAlSistema()" style="padding: 6px 12px; font-size: 0.9rem;">
         ← Volver
       </button>
       <h2 class="topbar-title" style="flex:1; text-align:center;">Soporte IT</h2>
       <div style="width: 70px;"></div> <!-- Spacer -->
     </header>
+
+    <script>
+      function volverAlSistema() {
+        try {
+          if (window.AndroidNative && typeof window.AndroidNative.NavigateHome === 'function') {
+            window.AndroidNative.NavigateHome();
+            return;
+          }
+        } catch (_) {}
+        window.location.replace('../index.html?page=ajustes');
+      }
+
+      // Proteger contra el botón Atrás nativo de Android y gestos del sistema
+      try {
+        window.history.pushState({ soporteActive: true }, '', window.location.href);
+        window.addEventListener('popstate', function () {
+          volverAlSistema();
+        });
+      } catch (_) {}
+    </script>
 
     <main class="main-content" style="flex:1; overflow-y:auto; padding: 20px;">
       

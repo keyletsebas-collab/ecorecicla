@@ -41,6 +41,7 @@ function getSettings() {
     if (shared.companyAddress) localSettings.companyAddress = shared.companyAddress;
     if (shared.companyLogo) localSettings.companyLogo = shared.companyLogo;
   } catch(e){}
+  localSettings.currency = 'dop';
   return localSettings;
 }
 
@@ -100,7 +101,7 @@ function renderSettingsPage(container) {
   const currentLang = settings.language || 'es';
   const currentTheme = settings.colorTheme || 'green';
   const darkMode = settings.darkMode !== false;
-  const currentCur = settings.currency || 'usd';
+  const currentCur = 'dop';
   let rawFolderVal = localStorage.getItem(userKey('recim_gdrive_folder')) || localStorage.getItem('recim_gdrive_folder') || '';
   if (rawFolderVal === '[]' || rawFolderVal === 'null' || rawFolderVal === 'undefined') {
     rawFolderVal = '';
@@ -204,32 +205,6 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
-      <!-- ===== DIVISA ===== -->
-      <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">${t('set.currency')}</h3>
-        <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:10px;">
-          <span class="settings-item-label">${t('set.currency_desc')}</span>
-          <div class="lang-options">
-            ${CURRENCIES.map(c => `
-              <button class="lang-btn ${c.id === currentCur ? 'active' : ''}"
-                      onclick="handleCurrencyChange('${c.id}')">
-                ${c.label}
-              </button>`).join('')}
-          </div>
-          <div class="settings-item" style="padding-top:8px;border-top:1px solid var(--clr-border);width:100%;flex-wrap:wrap;gap:15px;align-items:center;">
-            <div>
-              <span class="settings-item-label">${t('set.currency')} activa:</span>
-              <strong style="margin-left:5px;">${getCurrency().symbol}</strong> &nbsp; ${getCurrency().code}
-            </div>
-            
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="settings-item-label" style="font-weight:600;">Tasa de Cambio (1 USD):</span>
-              <input id="set-dollar-rate" type="number" class="form-input" style="width:100px;padding:4px 8px;font-size:0.85rem;" placeholder="Ej: 59.50" step="0.01" value="${settings.dollarRate || 59.50}" onchange="saveDollarRateSetting(this.value)" ${!(typeof isCurrentUserAdminOrFounder === 'function' ? isCurrentUserAdminOrFounder() : true) ? 'disabled' : ''} />
-              <span style="font-size:0.8rem;color:var(--clr-text-muted);">DOP</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- ===== MÓDULOS ACTIVOS ===== -->
       <div class="card card--elevated settings-section">
@@ -1014,16 +989,13 @@ function handleLangChange(code) {
 }
 
 function handleCurrencyChange(curId) {
-  saveSetting('currency', curId);
+  saveSetting('currency', 'dop');
   rerenderCurrentPage();
-  showToast(t('toast.currency'), 'success');
+  showToast('Moneda oficial fijada en Peso Dominicano (RD$)', 'success');
 }
 
 function saveDollarRateSetting(val) {
-  const rate = parseFloat(val) || 59.50;
-  saveSetting('dollarRate', rate);
-  saveSharedCompanySetting('dollarRate', rate);
-  showToast('✅ Tasa de cambio del Dólar actualizada', 'success');
+  // Deprecated: El sistema ahora opera exclusivamente en DOP
 }
 window.saveDollarRateSetting = saveDollarRateSetting;
 
