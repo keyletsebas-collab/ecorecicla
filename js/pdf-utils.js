@@ -1236,7 +1236,7 @@ async function deliverGenericPDF(doc, filename, label = 'Documento') {
 }
 
 // =============================================
-// PDF: COTIZACIÓN / PRESUPUESTO
+// PDF: COTIZACIÓN / PRESUPUESTO (MODELO OFICIAL RECIMINSA)
 // =============================================
 function generateQuotePDF(quote) {
     if (!quote) return;
@@ -1247,115 +1247,385 @@ function generateQuotePDF(quote) {
     }
 
     const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-    const companyLogo = typeof getCachedCompanyLogo === 'function' ? getCachedCompanyLogo() : null;
-    let y = 15;
+    const pageWidth = 215.9;
+    const pageCenter = pageWidth / 2; // 107.95 mm
 
-    // Logo & Emisor
-    if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
-        try { doc.addImage(companyLogo, 'PNG', 15, y, 40, 16); } catch (_) {}
+    // Helper: Formato de Fecha en Español (ej: "26 octubre 2026")
+    function formatSpanishDate(dateInput) {
+        if (!dateInput) {
+            const now = new Date();
+            const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+            return `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+        }
+        let d;
+        if (typeof dateInput === 'string' && dateInput.includes('-')) {
+            const parts = dateInput.split('T')[0].split('-');
+            if (parts.length === 3) {
+                d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            }
+        } else if (typeof dateInput === 'string' && dateInput.includes('/')) {
+            const parts = dateInput.split('/');
+            if (parts.length === 3) {
+                d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+            }
+        }
+        if (!d || isNaN(d.getTime())) d = new Date(dateInput);
+        if (isNaN(d.getTime())) return String(dateInput);
+        const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
     }
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(22, 163, 74);
-    doc.text("RECIMINSA SRL", 60, y + 6);
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(71, 85, 105);
-    doc.text("RNC: 133250233 | Tel: (809) 372-7000", 60, y + 11);
-    doc.text("Email: info@reciminsa.com | Santo Domingo, Rep. Dom.", 60, y + 15);
 
-    // Tarjeta Cotización
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(135, y, 66, 24, 1.5, 1.5, 'FD');
+    // Helper: Formato numérico estándar RD (ej: "20,000.00")
+    function formatNum(val) {
+        const num = parseFloat(val) || 0;
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // 1. Datos Emisor (Ajustes de Empresa con Valores por Defecto Oficiales)
+    let settings = {};
+    try {
+        settings = (typeof getSettings === 'function' ? getSettings() : null) || 
+                   (JSON.parse(localStorage.getItem(userKey('recim_settings')) || '{}'));
+    } catch (_) {}
+
+    let companyName = settings.companyName || 'Reciclado Minyetty Santos';
+    let companyAddr = settings.companyAddress || 'Carretera hato nuevo 25 , km14 ,\nlos alcarrizos , Santo Domingo , Rep Dom';
+    let companyRNC = settings.companyRNC || '133250233';
+    let companyTel = settings.companyPhone || settings.userPhone || '8495850386';
+    let companyEmail = settings.companyEmail || settings.userEmail || 'Gerenciareciminsasrl@gmail.com';
+    let companySlogan = settings.companySlogan || 'Un respiro al planeta , Un residuo a la vez.';
+
+    try {
+        const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
+        if (sharedSettings.companyName) companyName = sharedSettings.companyName;
+        if (sharedSettings.companyRNC) companyRNC = sharedSettings.companyRNC;
+        if (sharedSettings.companyPhone || sharedSettings.userPhone) companyTel = sharedSettings.companyPhone || sharedSettings.userPhone;
+        if (sharedSettings.companyEmail || sharedSettings.userEmail) companyEmail = sharedSettings.companyEmail || sharedSettings.userEmail;
+        if (sharedSettings.companyAddress) companyAddr = sharedSettings.companyAddress;
+        if (sharedSettings.companySlogan) companySlogan = sharedSettings.companySlogan;
+    } catch (_) {}
+
+    const companyLogo = (typeof getCachedCompanyLogo === 'function' ? getCachedCompanyLogo() : null) ||
+                       window.RECIMINSA_OFFICIAL_LOGO ||
+                       settings.companyLogo ||
+                       window.DEFAULT_APP_LOGO || '';
+
+    // 2. Datos Receptor / Cliente (Dinámicos)
+    const clientName = quote.client || quote.clientName || 'Cliente General';
+    let clientAddress = quote.address || quote.direccion || '';
+    let clientNit = quote.nit || quote.rnc || '';
+    let clientContact = quote.contact || quote.telefono || '';
+
+    if ((!clientAddress || !clientNit || !clientContact) && clientName) {
+        try {
+            const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+            const found = clients.find(c => 
+                (c.name && c.name.trim().toLowerCase() === clientName.trim().toLowerCase()) ||
+                (clientNit && c.nit && c.nit.trim() === clientNit.trim())
+            );
+            if (found) {
+                if (!clientAddress) clientAddress = found.address || found.direccion || '';
+                if (!clientNit) clientNit = found.nit || '';
+                if (!clientContact) clientContact = found.contact || found.phone || '';
+            }
+        } catch (_) {}
+    }
+
+    // 3. Logo Oficial (Superior Izquierda)
+    if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
+        try {
+            doc.addImage(companyLogo, 'PNG', 22, 12, 38, 30);
+        } catch (_) {}
+    }
+
+    // 4. Fecha (Superior Derecha, ej: "26 octubre 2026")
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(22, 163, 74);
-    doc.text("COTIZACIÓN COMERCIAL", 168, y + 6, { align: 'center' });
+    doc.setTextColor(31, 41, 55);
+    const dateStr = formatSpanishDate(quote.date);
+    doc.text(dateStr, 194, 27, { align: 'right' });
+
+    // 5. Título Central: "Cotización" (Negrita 17pt)
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Cotización', pageCenter, 40, { align: 'center' });
+
+    // 6. Dos Columnas: Emisor (Izq) y Cliente (Der)
+    let leftY = 47;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(companyName, 22, leftY);
+    leftY += 5;
+
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text(`No: ${quote.id}`, 140, y + 12);
-    doc.text(`Fecha: ${quote.date}`, 140, y + 16.5);
-    doc.text(`Validez: ${quote.validityDays || 15} días`, 140, y + 21);
+    doc.setTextColor(55, 65, 81);
+    const splitCompAddr = doc.splitTextToSize(companyAddr, 80);
+    doc.text(splitCompAddr, 22, leftY);
+    leftY += splitCompAddr.length * 3.8;
 
-    y += 30;
+    doc.text(`RNC: ${companyRNC} Teléfono: ${companyTel}`, 22, leftY);
+    leftY += 4;
 
-    // Datos Cliente
-    doc.setFillColor(241, 245, 249);
-    doc.roundedRect(15, y, 186, 18, 1.5, 1.5, 'F');
+    doc.setTextColor(37, 99, 235); // Azul enlace
+    doc.text(companyEmail, 22, leftY);
+    leftY += 5;
+
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text("DATOS DEL CLIENTE / PROSPECTO", 19, y + 5);
-    doc.setFont('Helvetica', 'normal');
-    doc.text(`Cliente: ${quote.client}`, 19, y + 10);
-    doc.text(`RNC / Cédula: ${quote.nit || 'No especificado'}`, 19, y + 14.5);
-    doc.text(`Contacto / Tel: ${quote.contact || '—'}`, 120, y + 10);
+    doc.setTextColor(22, 163, 74); // Verde institucional
+    doc.text(companySlogan, 22, leftY);
+    leftY += 4;
 
-    y += 24;
-
-    // Tabla de Ítems
-    doc.setFillColor(22, 163, 74);
-    doc.rect(15, y, 186, 7, 'F');
+    // Columna Derecha: Cliente
+    let rightY = 47;
     doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(clientName, 108, rightY);
+    rightY += 5;
+
+    doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.setTextColor(255, 255, 255);
-    doc.text("DESCRIPCIÓN DEL MATERIAL / SERVICIO", 18, y + 5);
-    doc.text("CANT.", 120, y + 5);
-    doc.text("UNIDAD", 140, y + 5);
-    doc.text("PRECIO", 160, y + 5);
-    doc.text("SUBTOTAL", 180, y + 5);
-
-    y += 7;
-    doc.setFont('Helvetica', 'normal');
-    doc.setTextColor(30, 41, 59);
-
-    const items = quote.items || [];
-    items.forEach((item, idx) => {
-        if (idx % 2 === 1) {
-            doc.setFillColor(248, 250, 252);
-            doc.rect(15, y, 186, 6.5, 'F');
-        }
-        doc.text(String(item.desc || '--'), 18, y + 4.5);
-        doc.text(item.isService ? '—' : String(item.qty || 0), 120, y + 4.5);
-        doc.text(item.isService ? 'Servicio' : String(item.unit || 'lb'), 140, y + 4.5);
-        doc.text(formatMoney(item.uprice || 0), 160, y + 4.5);
-        doc.text(formatMoney(item.subtotal || 0), 180, y + 4.5);
-        y += 6.5;
-    });
-
-    // Total
-    y += 4;
-    doc.setDrawColor(226, 232, 240);
-    doc.line(15, y, 201, y);
-    y += 6;
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(22, 163, 74);
-    doc.text(`TOTAL COTIZADO: ${formatMoney(quote.total || 0)}`, 201, y, { align: 'right' });
-
-    // Notas / Términos
-    if (quote.notes) {
-        y += 10;
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(30, 41, 59);
-        doc.text("Términos y Observaciones:", 15, y);
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        const splitNotes = doc.splitTextToSize(quote.notes, 186);
-        doc.text(splitNotes, 15, y + 4.5);
+    doc.setTextColor(55, 65, 81);
+    if (clientAddress) {
+        const splitClientAddr = doc.splitTextToSize(clientAddress, 86);
+        doc.text(splitClientAddr, 108, rightY);
+        rightY += splitClientAddr.length * 3.8;
+    }
+    if (clientNit) {
+        doc.text(`RNC:${clientNit}`, 108, rightY);
+        rightY += 4;
+    }
+    if (clientContact) {
+        doc.text(`Atención: ${clientContact}`, 108, rightY);
+        rightY += 4;
     }
 
-    // Pie
-    doc.setFont('Helvetica', 'italic');
-    doc.setFontSize(7.5);
-    doc.setTextColor(148, 163, 184);
-    doc.text("Reciminsa SRL – Gestión y reciclaje de materiales sostenibles. Gracias por su confianza.", 108, 265, { align: 'center' });
+    // 7. Estructura de la Tabla (Márgenes: x=22 a 194, Ancho total: 172mm)
+    const tableX = 22;
+    const tableW = 172;
+    const colSplit1 = 39;  // Cantidad (17mm)
+    const colSplit2 = 143; // Descripción (104mm)
+    const colSplit3 = 171; // Costo (28mm)
+    const tableRight = 194; // ITBIS (23mm)
 
-    deliverGenericPDF(doc, `Cotizacion_${quote.id}.pdf`, 'Cotización');
+    let tableY = Math.max(leftY, rightY) + 5;
+    if (tableY < 78) tableY = 78;
+
+    // Encabezado de Tabla (10mm alto)
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.25);
+    doc.rect(tableX, tableY, tableW, 10);
+    doc.line(colSplit1, tableY, colSplit1, tableY + 10);
+    doc.line(colSplit2, tableY, colSplit2, tableY + 10);
+    doc.line(colSplit3, tableY, colSplit3, tableY + 10);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Cantidad', (tableX + colSplit1) / 2, tableY + 6, { align: 'center' });
+    doc.text('Descripción', (colSplit1 + colSplit2) / 2, tableY + 6, { align: 'center' });
+    doc.text('Costo del', (colSplit2 + colSplit3) / 2, tableY + 4, { align: 'center' });
+    doc.text('servicio RD$', (colSplit2 + colSplit3) / 2, tableY + 7.5, { align: 'center' });
+    doc.text('ITBIS', (colSplit3 + tableRight) / 2, tableY + 6, { align: 'center' });
+
+    tableY += 10;
+
+    // Cuerpo de Ítems
+    const items = (quote.items && quote.items.length > 0) ? quote.items : [
+        {
+            qty: 1,
+            desc: quote.desc || 'Servicio de gestión y reciclaje',
+            uprice: quote.total || 0,
+            subtotal: quote.total || 0,
+            isService: true
+        }
+    ];
+
+    let totalSubtotal = 0;
+    let totalItbis = 0;
+
+    items.forEach(item => {
+        const qtyVal = item.qty !== undefined && item.qty !== null ? item.qty : 1;
+        const subtotal = item.subtotal !== undefined ? parseFloat(item.subtotal) : ((parseFloat(item.uprice) || 0) * (parseFloat(item.qty) || 1));
+        
+        let itbisVal = 0;
+        if (item.itbis !== undefined && item.itbis !== null) {
+            itbisVal = parseFloat(item.itbis);
+        } else if (item.taxRate !== undefined) {
+            itbisVal = subtotal * parseFloat(item.taxRate);
+        } else if (quote.taxRate !== undefined) {
+            itbisVal = subtotal * parseFloat(quote.taxRate);
+        } else if (quote.includeItbis !== false) {
+            itbisVal = subtotal * 0.18;
+        }
+
+        totalSubtotal += subtotal;
+        totalItbis += itbisVal;
+
+        // Parsear líneas de descripción y posibles detalles de servicio
+        const descText = String(item.desc || '').trim();
+        const descLines = descText.split('\n').map(l => l.trim()).filter(Boolean);
+        
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8.5);
+
+        let descContentHeight = 6;
+        let parsedSections = [];
+
+        descLines.forEach(line => {
+            const isHeader = line.toLowerCase().startsWith('servicio incluye') || line.toLowerCase().startsWith('incluye:');
+            const isBullet = line.startsWith('-') || line.startsWith('*') || line.startsWith('•');
+            
+            if (isHeader) {
+                parsedSections.push({ type: 'header', text: line });
+                descContentHeight += 6;
+            } else if (isBullet) {
+                const cleanBullet = line.replace(/^[-*•]\s*/, '');
+                const wrapped = doc.splitTextToSize(cleanBullet, 86);
+                parsedSections.push({ type: 'bullet', lines: wrapped });
+                descContentHeight += wrapped.length * 3.8 + 2;
+            } else {
+                const wrapped = doc.splitTextToSize(line, 98);
+                parsedSections.push({ type: 'text', lines: wrapped });
+                descContentHeight += wrapped.length * 4.0 + 1.5;
+            }
+        });
+
+        // Para 1 solo ítem, mantener el balance visual expandiendo hasta cerca de y=188mm como en el modelo
+        const naturalRowHeight = Math.max(8.5, descContentHeight + 4);
+        const targetTableEndY = 188;
+        const availableHeight = targetTableEndY - tableY;
+        const rowHeight = (items.length === 1 && availableHeight > naturalRowHeight) ? availableHeight : naturalRowHeight;
+
+        // Bordes de la Fila
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.25);
+        doc.rect(tableX, tableY, tableW, rowHeight);
+        doc.line(colSplit1, tableY, colSplit1, tableY + rowHeight);
+        doc.line(colSplit2, tableY, colSplit2, tableY + rowHeight);
+        doc.line(colSplit3, tableY, colSplit3, tableY + rowHeight);
+
+        // Col 0: Cantidad (Negrita 9pt)
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+        doc.text(String(qtyVal), (tableX + colSplit1) / 2, tableY + 6.5, { align: 'center' });
+
+        // Col 1: Descripción
+        let curDescY = tableY + 6;
+        parsedSections.forEach(sec => {
+            if (sec.type === 'header') {
+                doc.setFont('Helvetica', 'bold');
+                doc.setFontSize(8.5);
+                doc.setTextColor(0, 0, 0);
+                doc.text(sec.text, colSplit1 + 4, curDescY);
+                curDescY += 5.5;
+            } else if (sec.type === 'bullet') {
+                doc.setFont('Helvetica', 'normal');
+                doc.setFontSize(8.2);
+                doc.setTextColor(0, 0, 0);
+                doc.text('-', colSplit1 + 10, curDescY);
+                doc.text(sec.lines, colSplit1 + 15, curDescY);
+                curDescY += sec.lines.length * 3.8 + 2;
+            } else {
+                doc.setFont('Helvetica', 'bold');
+                doc.setFontSize(8.5);
+                doc.setTextColor(0, 0, 0);
+                doc.text(sec.lines, colSplit1 + 4, curDescY);
+                curDescY += sec.lines.length * 4.0 + 2;
+            }
+        });
+
+        // Col 2: Costo del servicio
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(0, 0, 0);
+        doc.text(formatNum(subtotal), colSplit3 - 2, tableY + 6.5, { align: 'right' });
+
+        // Col 3: ITBIS
+        doc.text(formatNum(itbisVal), tableRight - 2, tableY + 6.5, { align: 'right' });
+
+        tableY += rowHeight;
+    });
+
+    // 8. Fila Total (8.5mm alto)
+    const grandTotal = (quote.total !== undefined && quote.total > 0 && Math.abs(quote.total - (totalSubtotal + totalItbis)) > 1) 
+        ? quote.total 
+        : (totalSubtotal + totalItbis);
+
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.25);
+    doc.rect(tableX, tableY, tableW, 8.5);
+    doc.line(colSplit2, tableY, colSplit2, tableY + 8.5);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Total', (colSplit1 + colSplit2) / 2, tableY + 5.5, { align: 'center' });
+    doc.text(`RD$${formatNum(grandTotal)}`, (colSplit2 + tableRight) / 2, tableY + 5.5, { align: 'center' });
+
+    tableY += 8.5;
+
+    // 9. Sección "Importante :"
+    let notesY = Math.max(tableY + 7, 203);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(220, 38, 38); // Rojo
+    doc.text('Importante :', 22, notesY);
+    notesY += 5;
+
+    // Recolectar viñetas de términos y condiciones
+    const bulletList = [];
+    if (quote.notes) {
+        quote.notes.split('\n').map(l => l.trim()).filter(Boolean).forEach(line => {
+            bulletList.push(line.replace(/^[■•\-\*]\s*/, ''));
+        });
+    }
+
+    const cond2 = 'La orden de servicio debe ser remitida via correo electronico con 48 horas de antelacion por temas de logistica de transportacion.';
+    const cond3 = 'Pagos deberan ser realizados via transferencia bancaria.';
+    const cond4 = `Esta cotizacion es valida ${quote.validityDays || 15} días a partir de la fecha de elaboración.`;
+
+    if (!bulletList.some(b => b.toLowerCase().includes('48 horas'))) bulletList.push(cond2);
+    if (!bulletList.some(b => b.toLowerCase().includes('transferencia'))) bulletList.push(cond3);
+    if (!bulletList.some(b => b.toLowerCase().includes('valida') || b.toLowerCase().includes('validad'))) bulletList.push(cond4);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+
+    bulletList.forEach(bullet => {
+        doc.setFillColor(0, 0, 0);
+        doc.rect(25, notesY - 2.1, 1.2, 1.2, 'F');
+        const splitB = doc.splitTextToSize(bullet, 162);
+        doc.text(splitB, 28, notesY);
+        notesY += splitB.length * 3.6 + 1.2;
+    });
+
+    // 10. Pie de Página Centrado (y = 252 a 268)
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(8.5);
+    doc.setTextColor(22, 163, 74); // Verde institucional
+    doc.text(companySlogan, pageCenter, 252, { align: 'center' });
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(55, 65, 81);
+    const oneLineAddr = (companyAddr && companyAddr.includes('#25')) 
+        ? companyAddr.replace(/\n/g, ' , ').replace(/\s+/g, ' ') 
+        : 'Carretera Hato Nuevo #25, La Cienega, Los Alcarrizos, Santo Domingo, R.D.';
+    doc.text(oneLineAddr, pageCenter, 258, { align: 'center' });
+
+    doc.text(`Teléfono: ${companyTel} Correo: ${companyEmail}, IG: Recicladominyettysantos.`, pageCenter, 263, { align: 'center' });
+    
+    const formattedRNC = companyRNC ? companyRNC.replace(/-/g, '').replace(/(\d{3})(\d{5})(\d{1})/, '$1-$2-$3') : '133-25023-3';
+    doc.text(`RNC-${formattedRNC}`, pageCenter, 268, { align: 'center' });
+
+    deliverGenericPDF(doc, `Cotizacion_${quote.id || 'borrador'}.pdf`, 'Cotización');
 }
 
 // =============================================
