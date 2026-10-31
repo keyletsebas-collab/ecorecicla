@@ -208,8 +208,8 @@ function initApp(user) {
         _superAdminCheckNavLink();
     }
     
-    // Default page (Permitir query param ?page=... o por defecto en móvil/escritorio)
-    let defaultPage = isMobile() ? 'ingresos' : 'historial';
+    // Default page (Permitir query param ?page=... o por defecto 'historial')
+    let defaultPage = 'historial';
     try {
         const urlParams = new URLSearchParams(window.location.search);
         const pageParam = urlParams.get('page');
