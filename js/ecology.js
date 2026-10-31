@@ -793,6 +793,18 @@ function generateEcoImpactPDFEngine(options = {}) {
         base64Data = doc.output('datauristring').split(',')[1] || '';
     } catch (_) {}
 
+    // PUENTE NATIVO ANDROID (MAUI HybridWebView)
+    if (window.AndroidNative && typeof window.AndroidNative.DownloadFile === 'function') {
+        try {
+            window.AndroidNative.DownloadFile(filename, base64Data);
+            if (typeof showToast === 'function') showToast('✅ Certificado guardado en Descargas', 'success');
+            if (onSuccess) onSuccess(doc.output('blob'));
+            return;
+        } catch (e) {
+            console.warn('Android native bridge error:', e);
+        }
+    }
+
     // PUENTE NATIVO WINDOWS / MAUI WEBVIEW2
     if (window.chrome && window.chrome.webview) {
         try {

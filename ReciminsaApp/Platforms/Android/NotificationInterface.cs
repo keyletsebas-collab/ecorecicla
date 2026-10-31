@@ -80,34 +80,90 @@ namespace ReciminsaApp.Platforms.Android
             try
             {
                 byte[] fileBytes = Convert.FromBase64String(base64Data);
-                string filePath = "";
 
-                try
+                // 1. Guardar en CacheDirectory para que Launcher / FileProvider puedan abrirlo y compartirlo
+                string cachePath = FileSystem.Current.CacheDirectory;
+                string cacheFilePath = System.IO.Path.Combine(cachePath, filename);
+                System.IO.File.WriteAllBytes(cacheFilePath, fileBytes);
+
+                // 2. Guardar en la carpeta pública de Descargas (Downloads) del dispositivo
+                bool savedToPublicDownloads = false;
+
+                if (OperatingSystem.IsAndroidVersionAtLeast(29))
                 {
-                    var downloadsDir = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads)
-                        ?? throw new System.IO.DirectoryNotFoundException("Public downloads directory is not available.");
-                    string downloadsPath = downloadsDir.AbsolutePath;
-                    filePath = System.IO.Path.Combine(downloadsPath, filename);
-
-                    int count = 1;
-                    string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filename);
-                    string extension = System.IO.Path.GetExtension(filename);
-                    while (System.IO.File.Exists(filePath))
+                    try
                     {
-                        filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
-                        count++;
+                        var context = global::Android.App.Application.Context;
+                        var resolver = context.ContentResolver;
+                        if (resolver != null)
+                        {
+                            var contentValues = new global::Android.Content.ContentValues();
+                            contentValues.Put(global::Android.Provider.MediaStore.IMediaColumns.DisplayName, filename);
+                            contentValues.Put(global::Android.Provider.MediaStore.IMediaColumns.MimeType, GetMimeType(filename));
+                            contentValues.Put(global::Android.Provider.MediaStore.IMediaColumns.RelativePath, global::Android.OS.Environment.DirectoryDownloads);
+
+                            var uri = resolver.Insert(global::Android.Provider.MediaStore.Downloads.ExternalContentUri!, contentValues);
+                            if (uri != null)
+                            {
+                                using (var outputStream = resolver.OpenOutputStream(uri))
+                                {
+                                    if (outputStream != null)
+                                    {
+                                        outputStream.Write(fileBytes, 0, fileBytes.Length);
+                                        outputStream.Flush();
+                                        savedToPublicDownloads = true;
+                                    }
+                                }
+                            }
+                        }
                     }
-                    System.IO.File.WriteAllBytes(filePath, fileBytes);
+                    catch (Exception mediaEx)
+                    {
+                        Console.WriteLine("Error al guardar con MediaStore Downloads: " + mediaEx.Message);
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Console.WriteLine("Error al guardar en Descargas públicas, usando caché de la app: " + ex.Message);
-                    string cachePath = FileSystem.Current.CacheDirectory;
-                    filePath = System.IO.Path.Combine(cachePath, filename);
-                    System.IO.File.WriteAllBytes(filePath, fileBytes);
+                    try
+                    {
+                        var downloadsDir = global::Android.OS.Environment.GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDownloads);
+                        if (downloadsDir != null)
+                        {
+                            string downloadsPath = downloadsDir.AbsolutePath;
+                            string filePath = System.IO.Path.Combine(downloadsPath, filename);
+                            int count = 1;
+                            string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filename);
+                            string extension = System.IO.Path.GetExtension(filename);
+                            while (System.IO.File.Exists(filePath))
+                            {
+                                filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
+                                count++;
+                            }
+                            System.IO.File.WriteAllBytes(filePath, fileBytes);
+                            savedToPublicDownloads = true;
+                        }
+                    }
+                    catch (Exception legacyEx)
+                    {
+                        Console.WriteLine("Error guardando en Descargas legacy: " + legacyEx.Message);
+                    }
                 }
 
-                string finalPath = filePath;
+                // 3. Notificar al usuario mediante Toast nativo de Android
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    try
+                    {
+                        string msg = savedToPublicDownloads 
+                            ? $"📄 {filename} guardado en Descargas" 
+                            : $"📄 {filename} guardado";
+                        global::Android.Widget.Toast.MakeText(global::Android.App.Application.Context, msg, global::Android.Widget.ToastLength.Long)?.Show();
+                    }
+                    catch { }
+                });
+
+                // 4. Abrir con visor predeterminado (Launcher) o abrir menú de Compartir
+                string finalPath = cacheFilePath;
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
                     try
@@ -148,6 +204,23 @@ namespace ReciminsaApp.Platforms.Android
             {
                 Console.WriteLine("Error general en DownloadFile: " + ex.Message);
             }
+        }
+
+        private static string GetMimeType(string filename)
+        {
+            string ext = System.IO.Path.GetExtension(filename).ToLowerInvariant();
+            return ext switch
+            {
+                ".pdf" => "application/pdf",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".xls" => "application/vnd.ms-excel",
+                ".txt" => "text/plain",
+                ".csv" => "text/csv",
+                ".json" => "application/json",
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                _ => "application/octet-stream"
+            };
         }
 
         [JavascriptInterface]

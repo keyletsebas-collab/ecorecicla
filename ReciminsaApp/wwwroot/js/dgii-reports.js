@@ -868,6 +868,17 @@ function exportDgiiTxt(tipo) {
     fileContent = header + body;
   }
 
+  if (window.AndroidNative && typeof window.AndroidNative.DownloadFile === 'function') {
+    try {
+      const base64Data = btoa(unescape(encodeURIComponent(fileContent)));
+      window.AndroidNative.DownloadFile(`DGII_F${tipo}_${periodClean}.txt`, base64Data);
+      showToast(`✅ Archivo TXT Formato ${tipo} guardado en Descargas`, 'success');
+      return;
+    } catch (e) {
+      console.warn('Android native bridge error:', e);
+    }
+  }
+
   const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

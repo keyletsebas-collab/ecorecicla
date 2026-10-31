@@ -53,6 +53,12 @@ public partial class MainPage : ContentPage
         // Eliminar márgenes de scroll nativo
         webView.SetPadding(0, 0, 0, 0);
 
+        // Deshabilitar el prompt nativo de Google Autofill en WebView (que muestra https://0.0.0.1)
+        if (OperatingSystem.IsAndroidVersionAtLeast(26))
+        {
+            webView.ImportantForAutofill = global::Android.Views.ImportantForAutofill.NoExcludeDescendants;
+        }
+
         // Habilitar depuración de DevTools para inspección si fuera necesario
         global::Android.Webkit.WebView.SetWebContentsDebuggingEnabled(true);
 

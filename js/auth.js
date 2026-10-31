@@ -154,6 +154,9 @@ function switchAuthTab(tab) {
     if (signupForm) signupForm.classList.add('hidden');
     if (tabLogin) tabLogin.classList.add('auth-tab--active');
     if (tabSignup) tabSignup.classList.remove('auth-tab--active');
+    if (typeof checkShowSavedAccountModal === 'function') {
+      setTimeout(checkShowSavedAccountModal, 150);
+    }
   } else {
     if (signupForm) signupForm.classList.remove('hidden');
     if (loginForm) loginForm.classList.add('hidden');
@@ -275,6 +278,14 @@ async function handleLogin(evt) {
 
       // Guardar sesión en localStorage y SQLite
       localStorage.setItem('recim_session', JSON.stringify(session));
+      try {
+        localStorage.setItem('recim_saved_account', JSON.stringify({
+          name: data.name,
+          email: data.email,
+          avatar: session.avatar,
+          role: data.role || 'Usuario'
+        }));
+      } catch (_) {}
       if (typeof BiometricAuthManager !== 'undefined') {
         BiometricAuthManager.saveSessionToSQLite(session);
       }
@@ -612,6 +623,10 @@ async function handleLogout() {
   if (typeof BiometricAuthManager !== 'undefined' && typeof BiometricAuthManager.updateBiometricButtonVisibility === 'function') {
     BiometricAuthManager.updateBiometricButtonVisibility();
   }
+
+  if (typeof checkShowSavedAccountModal === 'function') {
+    setTimeout(checkShowSavedAccountModal, 350);
+  }
 }
 
 // =============================================
@@ -932,3 +947,100 @@ async function handleResetPassword(evt) {
     }
   }, 900);
 }
+
+// =============================================
+// MODAL DE CUENTA GUARDADA (AUTOLOGIN ELEGANTE)
+// =============================================
+function checkShowSavedAccountModal() {
+  try {
+    const authScreen = document.getElementById('auth-screen');
+    if (!authScreen || authScreen.classList.contains('hidden')) {
+      return;
+    }
+
+    if (localStorage.getItem('recim_dont_show_saved_account') === 'true') {
+      return;
+    }
+
+    let account = null;
+    const saved = localStorage.getItem('recim_saved_account');
+    if (saved) {
+      account = JSON.parse(saved);
+    } else {
+      const prevSession = localStorage.getItem('recim_session');
+      if (prevSession) {
+        const parsed = JSON.parse(prevSession);
+        if (parsed && parsed.email) {
+          account = {
+            name: parsed.name || 'Usuario',
+            email: parsed.email,
+            avatar: parsed.avatar || 'U',
+            role: 'Cuenta Principal'
+          };
+        }
+      }
+    }
+
+    if (!account || !account.email) return;
+
+    const modal = document.getElementById('saved-account-modal');
+    if (!modal) return;
+
+    const nameEl = document.getElementById('saved-acc-name');
+    const emailEl = document.getElementById('saved-acc-email');
+    const initialsEl = document.getElementById('saved-acc-initials');
+    const roleEl = document.getElementById('saved-acc-role');
+
+    if (nameEl) nameEl.textContent = account.name || 'Usuario';
+    if (emailEl) emailEl.textContent = account.email;
+    if (initialsEl) initialsEl.textContent = (account.avatar || account.name || account.email || 'U')[0].toUpperCase();
+    if (roleEl) roleEl.textContent = account.role || 'Acceso Rápido';
+
+    modal.classList.remove('hidden');
+  } catch (e) {
+    console.warn('Error mostrando modal de cuenta guardada:', e);
+  }
+}
+
+function closeSavedAccountModal() {
+  const modal = document.getElementById('saved-account-modal');
+  if (modal) modal.classList.add('hidden');
+  const checkbox = document.getElementById('saved-acc-dont-show');
+  if (checkbox && checkbox.checked) {
+    localStorage.setItem('recim_dont_show_saved_account', 'true');
+  }
+}
+
+function confirmSavedAccountLogin() {
+  try {
+    let email = '';
+    const saved = localStorage.getItem('recim_saved_account');
+    if (saved) {
+      const account = JSON.parse(saved);
+      email = account.email || '';
+    }
+    if (!email) {
+      const prevSession = localStorage.getItem('recim_session');
+      if (prevSession) {
+        const parsed = JSON.parse(prevSession);
+        email = parsed.email || '';
+      }
+    }
+
+    const emailInput = document.getElementById('login-email');
+    const passInput = document.getElementById('login-password');
+    if (emailInput && email) {
+      emailInput.value = email;
+    }
+    closeSavedAccountModal();
+    if (passInput) {
+      passInput.focus();
+    }
+  } catch (_) {
+    closeSavedAccountModal();
+  }
+}
+
+window.checkShowSavedAccountModal = checkShowSavedAccountModal;
+window.closeSavedAccountModal = closeSavedAccountModal;
+window.confirmSavedAccountLogin = confirmSavedAccountLogin;

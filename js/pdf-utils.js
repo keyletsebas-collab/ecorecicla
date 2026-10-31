@@ -1210,6 +1210,19 @@ async function deliverGenericPDF(doc, filename, label = 'Documento') {
         } catch (_) {}
     }
 
+    // --- PUENTE NATIVO ANDROID (MAUI HybridWebView) ---
+    if (window.AndroidNative && typeof window.AndroidNative.DownloadFile === 'function') {
+        try {
+            window.AndroidNative.DownloadFile(filename, base64Data);
+            if (typeof showToast === 'function') {
+                showToast(`📄 ${label} guardado en Descargas`, 'success');
+            }
+            return;
+        } catch (androidErr) {
+            console.warn('Android native bridge error:', androidErr);
+        }
+    }
+
     if (window.chrome && window.chrome.webview) {
         try {
             NativeBridge.post({ action: 'download', filename, data: base64Data });

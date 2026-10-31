@@ -421,6 +421,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.warn('Advertencia en inicialización de app.js (manteniendo sesión activa):', e);
         }
+    } else {
+        if (typeof checkShowSavedAccountModal === 'function') {
+            setTimeout(checkShowSavedAccountModal, 400);
+        }
     }
 
     // Update date every minute

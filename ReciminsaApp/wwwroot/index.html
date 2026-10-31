@@ -451,12 +451,12 @@
       <form id="form-login" class="auth-form" onsubmit="handleLogin(event)">
         <div class="form-group">
           <label class="form-label" for="login-email">Correo electrónico</label>
-          <input id="login-email" type="email" class="form-input" placeholder="correo@ejemplo.com" required autocomplete="email" />
+          <input id="login-email" type="email" class="form-input" placeholder="correo@ejemplo.com" required autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
         </div>
         <div class="form-group">
           <label class="form-label" for="login-password">Contraseña</label>
           <div class="input-password-wrap">
-            <input id="login-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" />
+            <input id="login-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
             <button type="button" class="password-toggle" onclick="togglePassword('login-password', this)" aria-label="Mostrar contraseña">👁</button>
           </div>
         </div>
@@ -583,6 +583,38 @@
           <a href="javascript:void(0)" class="back-link" onclick="backToLogin(event)">← Volver al inicio de sesión</a>
         </div>
       </form>
+    </div>
+
+    <!-- Modal Cuenta Guardada Elegante (Reemplazo Autofill) -->
+    <div id="saved-account-modal" class="saved-account-overlay hidden">
+      <div class="saved-account-card">
+        <div class="saved-account-badge">
+          <span class="badge-icon">✨</span>
+          <span>Cuenta Guardada</span>
+        </div>
+        <h2 class="saved-account-title">Continuar como</h2>
+        <div class="saved-account-profile">
+          <div class="saved-account-avatar" id="saved-acc-avatar">
+            <span id="saved-acc-initials">U</span>
+          </div>
+          <div class="saved-account-info">
+            <div class="saved-account-name" id="saved-acc-name">Usuario</div>
+            <div class="saved-account-email" id="saved-acc-email">correo@ejemplo.com</div>
+            <div class="saved-account-role-tag" id="saved-acc-role">Acceso Rápido</div>
+          </div>
+        </div>
+        <label class="saved-account-checkbox-wrap">
+          <input type="checkbox" id="saved-acc-dont-show" />
+          <span>No volver a mostrar automáticamente</span>
+        </label>
+        <div class="saved-account-actions">
+          <button type="button" class="btn-saved-acc-cancel" onclick="closeSavedAccountModal()">Cancelar</button>
+          <button type="button" class="btn-saved-acc-confirm" onclick="confirmSavedAccountLogin()">
+            <span>Acceder</span>
+            <span>➜</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
