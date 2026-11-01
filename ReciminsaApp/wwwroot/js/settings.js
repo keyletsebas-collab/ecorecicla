@@ -163,6 +163,28 @@ function renderSettingsPage(container) {
           <button class="btn-danger" style="width:100%;justify-content:center;" onclick="handleLogout()">🚪 Cerrar sesión</button>
         </div>
       </div>
+
+      <!-- ===== HERRAMIENTAS DE DATOS (tamaño similar a Cuenta) ===== -->
+      <div class="card card--elevated settings-section">
+        <h3 class="settings-section-title">${t('set.data_tools')}</h3>
+        <p style="font-size:0.78rem;color:var(--clr-text-muted);margin-bottom:12px;">${t('set.import_help')}</p>
+        
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #3b82f6, #1d4ed8);" onclick="exportAllDataToExcel()">
+            ${t('set.export_excel')}
+          </button>
+
+          <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #22c55e, #15803d);" onclick="showExcelExportModal()">
+            ${t('set.export_excel_custom')}
+          </button>
+          
+          <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display:none;" onchange="handleImportExcel(this)" />
+          <button class="btn-secondary" style="width:100%;justify-content:center;" onclick="document.getElementById('import-excel-input').click()">
+            ${t('set.import_excel')}
+          </button>
+        </div>
+      </div>
+
       <!-- ===== APARIENCIA ===== -->
       <div class="card card--elevated settings-section">
         <h3 class="settings-section-title">${t('set.appearance')}</h3>
@@ -189,7 +211,7 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
-      <!-- ===== IDIOMA ===== -->
+      <!-- ===== IDIOMA (tamaño similar a Apariencia) ===== -->
       <div class="card card--elevated settings-section">
         <h3 class="settings-section-title">${t('set.lang')}</h3>
         <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:10px;">
@@ -205,7 +227,6 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
-
       <!-- ===== MÓDULOS ACTIVOS ===== -->
       <div class="card card--elevated settings-section">
         <h3 class="settings-section-title">🧩 Módulos Activos</h3>
@@ -215,22 +236,7 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
-      <!-- ===== COMPARTIR EN EMPRESA ===== -->
-      <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">🏢 Compartir en Empresa</h3>
-        <div id="settings-family-container">
-          <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
-        </div>
-      </div>
-
-      <!-- ===== SUSCRIPCIÓN Y LICENCIA (ID DISPOSITIVO) ===== -->
-      <div class="card card--elevated settings-section">
-        <div id="settings-subscription-container">
-          <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
-        </div>
-      </div>
-
-      <!-- ===== RESPALDO EN GOOGLE DRIVE ===== -->
+      <!-- ===== RESPALDO EN GOOGLE DRIVE (tamaño similar a Módulos Activos) ===== -->
       <div class="card card--elevated settings-section">
         <h3 class="settings-section-title">${t('set.gdrive_title')}</h3>
         <div style="display:flex; flex-direction:column; gap:12px;">
@@ -277,36 +283,42 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
-      <!-- ===== CACHÉ Y DATOS ===== -->
+      <!-- ===== COMPARTIR EN EMPRESA ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">🗂 Almacenamiento y Caché</h3>
-        <div id="cache-breakdown">Calculando...</div>
-        <div class="cache-btn-group">
-          <button class="btn-secondary" onclick="handleClearCache('facturas')">🧹 Facturas</button>
-          <button class="btn-secondary" onclick="handleClearCache('finanzas')">🧹 Finanzas</button>
-          <button class="btn-danger" onclick="handleClearCache('todo')">⚠️ Limpiar Todo</button>
+        <h3 class="settings-section-title">🏢 Compartir en Empresa</h3>
+        <div id="settings-family-container">
+          <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
         </div>
       </div>
 
-      <!-- ===== HERRAMIENTAS DE DATOS ===== -->
+      <!-- ===== CACHÉ Y DATOS (tamaño similar a Compartir en Empresa) ===== -->
       <div class="card card--elevated settings-section">
-        <h3 class="settings-section-title">${t('set.data_tools')}</h3>
-        <p style="font-size:0.78rem;color:var(--clr-text-muted);margin-bottom:12px;">${t('set.import_help')}</p>
-        
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #3b82f6, #1d4ed8);" onclick="exportAllDataToExcel()">
-            ${t('set.export_excel')}
-          </button>
-
-          <button class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg, #22c55e, #15803d);" onclick="showExcelExportModal()">
-            ${t('set.export_excel_custom')}
-          </button>
-          
-          <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display:none;" onchange="handleImportExcel(this)" />
-          <button class="btn-secondary" style="width:100%;justify-content:center;" onclick="document.getElementById('import-excel-input').click()">
-            ${t('set.import_excel')}
-          </button>
+        <h3 class="settings-section-title">🗂 Almacenamiento y Caché</h3>
+        <div id="cache-breakdown">Calculando...</div>
+        <div class="cache-btn-group" style="display:flex; flex-wrap:wrap; gap:8px;">
+          <button class="btn-secondary" onclick="handleClearCache('facturas')">🧹 Facturas</button>
+          <button class="btn-secondary" onclick="handleClearCache('cotizaciones')">📋 Cotizaciones</button>
+          <button class="btn-secondary" onclick="handleClearCache('despachos')">🚚 Despachos</button>
+          <button class="btn-secondary" onclick="handleClearCache('devoluciones')">↩️ Devoluciones</button>
+          <button class="btn-secondary" onclick="handleClearCache('finanzas')">💰 Finanzas</button>
+          <button class="btn-danger" style="width:100%; justify-content:center; margin-top:4px;" onclick="handleClearCache('todo')">⚠️ Limpiar Todo</button>
         </div>
+      </div>
+
+      <!-- ===== SUSCRIPCIÓN Y LICENCIA (ID DISPOSITIVO) ===== -->
+      <div class="card card--elevated settings-section">
+        <div id="settings-subscription-container">
+          <div style="font-size:0.85rem;color:var(--clr-text-muted);">Cargando...</div>
+        </div>
+      </div>
+
+      <!-- ===== OPCIONES AVANZADAS (tamaño similar a ID Dispositivo) ===== -->
+      <div class="card card--elevated settings-section">
+        <h3 class="settings-section-title">⚙️ Opciones Avanzadas</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">Accede a configuraciones avanzadas de seguridad y autenticación rápida.</p>
+        <button class="btn-secondary" style="width:100%; justify-content:center; gap:8px; font-weight:600;" onclick="openAdvancedSettingsModal()">
+          <span>⚙️ Opciones Avanzadas</span>
+        </button>
       </div>
 
 
@@ -391,15 +403,6 @@ function renderSettingsPage(container) {
         <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">¿Tienes algún problema con la aplicación? Contáctanos para recibir ayuda.</p>
         <button class="btn-primary" style="width:100%; justify-content:center; padding: 14px 20px; font-size: 0.95rem; font-weight:700; border-radius: 12px; border:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35); transition: all 0.25s ease; cursor:pointer;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 22px rgba(16, 185, 129, 0.45)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.35)'" onclick="window.location.href='soporte-it/index.html'">
           🎧 Acceder a Soporte IT
-        </button>
-      </div>
-
-      <!-- ===== OPCIONES AVANZADAS ===== -->
-      <div class="card card--elevated settings-section" style="grid-column: span 2;">
-        <h3 class="settings-section-title">⚙️ Opciones Avanzadas</h3>
-        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px;">Accede a configuraciones avanzadas de seguridad y autenticación rápida.</p>
-        <button class="btn-secondary" style="width:100%; justify-content:center; gap:8px; font-weight:600;" onclick="openAdvancedSettingsModal()">
-          <span>⚙️ Opciones Avanzadas</span>
         </button>
       </div>
 
@@ -1005,9 +1008,10 @@ function renderCacheBreakdown() {
   if (!el) return;
 
   const CACHE_GROUPS = [
-    { key: 'facturas', label: '🧾 Facturas', baseKeys: ['recim_invoices'] },
+    { key: 'facturas', label: '🧾 Facturas y Docs', baseKeys: ['recim_invoices', 'recim_quotes', 'recim_dispatches', 'recim_returns', 'recim_credit_notes', 'recim_debit_notes'] },
     { key: 'finanzas', label: '💰 Finanzas', baseKeys: ['recim_ingresos', 'recim_egresos'] },
-    { key: 'materiales', label: '🏷️ Materiales', baseKeys: ['recim_material_codes'] },
+    { key: 'materiales', label: '🏷️ Materiales', baseKeys: ['recim_material_codes', 'recim_material_families'] },
+    { key: 'clientes', label: '👥 Clientes', baseKeys: ['recim_clients', 'recim_collaborators'] },
     { key: 'ajustes', label: '⚙️ Ajustes', baseKeys: ['recim_settings'] },
   ];
 
@@ -1029,14 +1033,28 @@ function renderCacheBreakdown() {
 
 async function handleClearCache(category) {
   const CACHE_MAP = {
-    facturas: { baseKeys: ['recim_invoices'], label: 'facturas' },
+    facturas: { 
+      baseKeys: ['recim_invoices', 'recim_quotes', 'recim_dispatches', 'recim_returns', 'recim_credit_notes', 'recim_debit_notes'], 
+      label: 'facturas, cotizaciones, despachos, devoluciones y notas' 
+    },
+    cotizaciones: { baseKeys: ['recim_quotes'], label: 'las cotizaciones' },
+    despachos: { baseKeys: ['recim_dispatches'], label: 'los despachos' },
+    devoluciones: { baseKeys: ['recim_returns'], label: 'las devoluciones' },
     finanzas: { baseKeys: ['recim_ingresos', 'recim_egresos'], label: 'ingresos y egresos' },
-    historial: { baseKeys: ['recim_invoices', 'recim_ingresos', 'recim_egresos', 'recim_bitacoras'], label: 'el historial (facturas, bitácoras, ingresos y egresos)' },
+    historial: { 
+      baseKeys: ['recim_invoices', 'recim_quotes', 'recim_dispatches', 'recim_returns', 'recim_credit_notes', 'recim_debit_notes', 'recim_ingresos', 'recim_egresos', 'recim_bitacoras'], 
+      label: 'el historial (facturas, cotizaciones, despachos, devoluciones, bitácoras, ingresos y egresos)' 
+    },
     materiales: { baseKeys: ['recim_material_codes', 'recim_material_families'], label: 'los materiales y familias' },
     clientes: { baseKeys: ['recim_clients', 'recim_collaborators'], label: 'clientes y colaboradores' },
     todo: { 
       baseKeys: [
         'recim_invoices', 
+        'recim_quotes',
+        'recim_dispatches',
+        'recim_returns',
+        'recim_credit_notes',
+        'recim_debit_notes',
         'recim_ingresos', 
         'recim_egresos', 
         'recim_bitacoras', 
@@ -1045,7 +1063,7 @@ async function handleClearCache(category) {
         'recim_clients', 
         'recim_collaborators'
       ], 
-      label: 'TODOS los datos del sistema' 
+      label: 'TODOS los datos del sistema (facturas, cotizaciones, despachos, devoluciones, finanzas, materiales y clientes)' 
     },
   };
   const group = CACHE_MAP[category];
@@ -1064,6 +1082,12 @@ async function handleClearCache(category) {
       localStorage.setItem(k, '[]');
       if (typeof userKey === 'function') {
         localStorage.setItem(userKey(k), '[]');
+      }
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key === k || key.startsWith(`${k}_`))) {
+          localStorage.setItem(key, '[]');
+        }
       }
     } catch (_) {}
   });

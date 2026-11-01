@@ -1095,20 +1095,22 @@ async function proceedWithPDF(invoice, format) {
         }
     }
 
-    // --- PUENTE NATIVO WINDOWS (MAUI HybridWebView) ---
-    if (window.chrome && window.chrome.webview) {
+    // --- PUENTE NATIVO .NET MAUI (HybridWebView SendRawMessage en Android y Windows) ---
+    if (window.NativeBridge && typeof window.NativeBridge.post === 'function') {
         try {
-            NativeBridge.post({
+            const posted = NativeBridge.post({
                 action: 'download',
                 filename: `Factura_${invoice.id}.pdf`,
                 data: base64Data
             });
-            if (typeof showToast === 'function') {
-                showToast('📄 Factura abierta en tu programa predeterminado', 'success');
+            if (posted) {
+                if (typeof showToast === 'function') {
+                    showToast('📄 Factura guardada en Descargas', 'success');
+                }
+                return;
             }
-            return;
         } catch (bridgeErr) {
-            console.warn('WebView2 bridge error, continuando con descarga...', bridgeErr);
+            console.warn('NativeBridge error, continuando con descarga...', bridgeErr);
         }
     }
 
@@ -1223,12 +1225,17 @@ async function deliverGenericPDF(doc, filename, label = 'Documento') {
         }
     }
 
-    if (window.chrome && window.chrome.webview) {
+    // --- PUENTE NATIVO .NET MAUI (HybridWebView SendRawMessage en Android y Windows) ---
+    if (window.NativeBridge && typeof window.NativeBridge.post === 'function') {
         try {
-            NativeBridge.post({ action: 'download', filename, data: base64Data });
-            if (typeof showToast === 'function') showToast(`📄 ${label} abierto con éxito`, 'success');
-            return;
-        } catch (_) {}
+            const posted = NativeBridge.post({ action: 'download', filename, data: base64Data });
+            if (posted) {
+                if (typeof showToast === 'function') showToast(`📄 ${label} guardado en Descargas`, 'success');
+                return;
+            }
+        } catch (bridgeErr) {
+            console.warn('NativeBridge error:', bridgeErr);
+        }
     }
 
     try {

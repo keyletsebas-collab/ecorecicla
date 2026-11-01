@@ -13,9 +13,9 @@ using Microsoft.Maui.Storage;
 
 #pragma warning disable CA1822 // Mark members as static
 
-namespace ReciminsaApp.Platforms.Android
-{
-    public class NotificationInterface : Java.Lang.Object
+namespace ReciminsaApp.Platforms.Android;
+
+public class NotificationInterface : Java.Lang.Object
     {
         private readonly global::Android.Webkit.WebView? _webView;
 
@@ -105,14 +105,12 @@ namespace ReciminsaApp.Platforms.Android
                             var uri = resolver.Insert(global::Android.Provider.MediaStore.Downloads.ExternalContentUri!, contentValues);
                             if (uri != null)
                             {
-                                using (var outputStream = resolver.OpenOutputStream(uri))
+                                using var outputStream = resolver.OpenOutputStream(uri);
+                                if (outputStream != null)
                                 {
-                                    if (outputStream != null)
-                                    {
-                                        outputStream.Write(fileBytes, 0, fileBytes.Length);
-                                        outputStream.Flush();
-                                        savedToPublicDownloads = true;
-                                    }
+                                    outputStream.Write(fileBytes, 0, fileBytes.Length);
+                                    outputStream.Flush();
+                                    savedToPublicDownloads = true;
                                 }
                             }
                         }
@@ -154,43 +152,71 @@ namespace ReciminsaApp.Platforms.Android
                 {
                     try
                     {
-                        string msg = savedToPublicDownloads 
-                            ? $"📄 {filename} guardado en Descargas" 
+                        string msg = savedToPublicDownloads
+                            ? $"📄 {filename} guardado en Descargas"
                             : $"📄 {filename} guardado";
                         global::Android.Widget.Toast.MakeText(global::Android.App.Application.Context, msg, global::Android.Widget.ToastLength.Long)?.Show();
                     }
                     catch { }
                 });
 
-                // 4. Abrir con visor predeterminado (Launcher) o abrir menú de Compartir
+                // 4. Abrir con visor predeterminado (Intent con FileProvider / Launcher) o menú de Compartir
                 string finalPath = cacheFilePath;
+                string mime = GetMimeType(filename);
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
+                    bool opened = false;
                     try
                     {
-                        bool opened = await Launcher.Default.OpenAsync(new OpenFileRequest
-                        {
-                            File = new ReadOnlyFile(finalPath)
-                        });
+                        var context = global::Android.App.Application.Context;
+                        var javaFile = new Java.IO.File(finalPath);
+                        var contentUri = AndroidX.Core.Content.FileProvider.GetUriForFile(
+                            context,
+                            $"{context.PackageName}.fileProvider",
+                            javaFile);
 
-                        if (!opened)
+                        var intent = new global::Android.Content.Intent(global::Android.Content.Intent.ActionView);
+                        intent.SetDataAndType(contentUri, mime);
+                        intent.AddFlags(global::Android.Content.ActivityFlags.GrantReadUriPermission);
+                        intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+
+                        var chooser = global::Android.Content.Intent.CreateChooser(intent, $"Abrir {filename}");
+                        if (chooser != null)
                         {
-                            await Share.Default.RequestAsync(new ShareFileRequest
-                            {
-                                Title = filename,
-                                File = new ShareFile(finalPath)
-                            });
+                            chooser.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+                            context.StartActivity(chooser);
+                            opened = true;
                         }
                     }
-                    catch (Exception launchEx)
+                    catch (Exception intentEx)
                     {
-                        Console.WriteLine("Error al abrir archivo con Launcher: " + launchEx.Message);
+                        Console.WriteLine("Intent directo falló: " + intentEx.Message);
+                    }
+
+                    if (!opened)
+                    {
+                        try
+                        {
+                            opened = await Launcher.Default.OpenAsync(new OpenFileRequest
+                            {
+                                Title = filename,
+                                File = new ReadOnlyFile(finalPath, mime)
+                            });
+                        }
+                        catch (Exception launchEx)
+                        {
+                            Console.WriteLine("Launcher falló: " + launchEx.Message);
+                        }
+                    }
+
+                    if (!opened)
+                    {
                         try
                         {
                             await Share.Default.RequestAsync(new ShareFileRequest
                             {
                                 Title = filename,
-                                File = new ShareFile(finalPath)
+                                File = new ShareFile(finalPath, mime)
                             });
                         }
                         catch (Exception shareEx)
@@ -462,5 +488,4 @@ namespace ReciminsaApp.Platforms.Android
             onResult(false, "Cancelado por el usuario");
         }
     }
-}
 #endif

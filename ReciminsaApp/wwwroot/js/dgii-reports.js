@@ -6,8 +6,118 @@
 
 // Estado activo del módulo
 let currentDgiiTab = '606';
-// Período activo inicial: Mes y año actual del sistema
-let currentDgiiPeriod = new Date().toISOString().slice(0, 7); // 'AAAA-MM'
+// Período activo inicial: Mes y año actual del sistema (o 'ALL' para todos los períodos)
+let currentDgiiPeriod = new Date().toISOString().slice(0, 7); // 'AAAA-MM' o 'ALL'
+let _dgiiUserManuallyChangedPeriod = false;
+
+/**
+ * Lee una lista de localStorage combinando la clave del usuario activo y la clave global de respaldo
+ */
+function _getDgiiStorageList(baseKey) {
+  const combined = [];
+  const seenIds = new Set();
+  const keys = [];
+  if (typeof userKey === 'function') {
+    try { keys.push(userKey(baseKey)); } catch (_) {}
+  }
+  keys.push(baseKey);
+
+  // También buscar cualquier clave en localStorage que empiece con baseKey por si pertenece a la sesión/familia activa
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k === baseKey || k.startsWith(baseKey + '_'))) {
+        if (!keys.includes(k)) keys.push(k);
+      }
+    }
+  } catch (_) {}
+
+  keys.forEach(k => {
+    try {
+      const raw = localStorage.getItem(k);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((item, idx) => {
+          if (!item || typeof item !== 'object') return;
+          const uid = item.id || `${k}_${item.date || ''}_${item.ncf || ''}_${item.amount || item.total || item.totalCompra || idx}`;
+          if (!seenIds.has(String(uid))) {
+            seenIds.add(String(uid));
+            combined.push(item);
+          }
+        });
+      }
+    } catch (_) {}
+  });
+
+  return combined;
+}
+
+/**
+ * Normaliza la fecha de cualquier registro a formato 'YYYY-MM-DD'
+ */
+function _normalizeDgiiDate(item) {
+  if (!item) return '';
+  let raw = item.date || item.fecha || item.paymentDate || item.createdAt || item.created_at || '';
+  if (!raw || typeof raw !== 'string') return '';
+  let clean = raw.trim();
+  if (clean.includes('T')) clean = clean.split('T')[0];
+  if (clean.includes(' ')) clean = clean.split(' ')[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+  if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(clean)) {
+    const parts = clean.split(/[\/-]/);
+    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+  }
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().slice(0, 10);
+  }
+  return clean;
+}
+
+/**
+ * Verifica si un registro coincide con el período fiscal seleccionado ('AAAA-MM' o 'ALL')
+ */
+function _matchesDgiiPeriod(item) {
+  if (!currentDgiiPeriod || currentDgiiPeriod === 'ALL') return true;
+  const normDate = _normalizeDgiiDate(item);
+  if (!normDate) return true;
+  return normDate.startsWith(currentDgiiPeriod);
+}
+
+/**
+ * Si el mes actual (ej. inicio de mes) no tiene registros pero existen compras/ventas en meses previos,
+ * selecciona automáticamente el período más reciente con datos para que 606 y 607 no aparezcan vacíos.
+ */
+function _autoSelectMostRecentDgiiPeriodIfEmpty() {
+  if (_dgiiUserManuallyChangedPeriod || currentDgiiPeriod === 'ALL') return;
+
+  const hasCurrent606 = getDgii606Records().length > 0;
+  const hasCurrent607 = getDgii607Records().length > 0;
+  if (hasCurrent606 || hasCurrent607) return;
+
+  const allItems = [
+    ..._getDgiiStorageList('recim_invoices'),
+    ..._getDgiiStorageList('recim_egresos'),
+    ..._getDgiiStorageList('recim_ingresos'),
+    ..._getDgiiStorageList('recim_credit_notes'),
+    ..._getDgiiStorageList('recim_debit_notes'),
+    ..._getDgiiStorageList('recim_batches')
+  ];
+
+  const periods = new Set();
+  allItems.forEach(it => {
+    const d = _normalizeDgiiDate(it);
+    if (d && /^\d{4}-\d{2}/.test(d)) {
+      periods.add(d.slice(0, 7));
+    }
+  });
+
+  if (periods.size > 0) {
+    const sorted = Array.from(periods).sort().reverse();
+    currentDgiiPeriod = sorted[0];
+  }
+}
 
 /**
  * Obtiene el RNC de la empresa del usuario actual (desde Ajustes o configuración compartida)
@@ -17,11 +127,12 @@ function getDgiiCompanyRnc() {
   let rnc = settings.companyRNC || settings.rnc || settings.companyRnc || '';
   if (!rnc) {
     try {
-      const shared = JSON.parse(localStorage.getItem('recim_shared_company_settings') || '{}');
+      const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
+      const shared = JSON.parse(localStorage.getItem(sharedKey) || localStorage.getItem('recim_shared_company_settings') || '{}');
       if (shared.companyRNC) rnc = shared.companyRNC;
     } catch (_) {}
   }
-  return rnc ? rnc.replace(/\D/g, '') : '';
+  return rnc ? String(rnc).replace(/\D/g, '') : '';
 }
 
 /**
@@ -31,10 +142,14 @@ function renderManejoDgiiPage(container) {
   if (!container) container = document.getElementById('page-manejo_dgii');
   if (!container) return;
 
+  _autoSelectMostRecentDgiiPeriodIfEmpty();
+
   const companyRnc = getDgiiCompanyRnc();
   const rncDisplay = companyRnc 
     ? `<code style="font-weight:800; color:#10b981; font-size:0.95rem;">${companyRnc}</code>`
     : `<span style="font-size:0.8rem; color:#f59e0b; font-weight:600;">⚠️ Sin RNC (configurar en Ajustes)</span>`;
+
+  const monthValue = currentDgiiPeriod === 'ALL' ? new Date().toISOString().slice(0, 7) : currentDgiiPeriod;
 
   container.innerHTML = `
     <div class="dgii-header-container">
@@ -48,10 +163,13 @@ function renderManejoDgiiPage(container) {
           <span class="dgii-rnc-label">RNC EMISOR:</span>
           ${rncDisplay}
         </div>
-        <div class="dgii-period-card">
+        <div class="dgii-period-card" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <span style="font-size: 1rem;">📅</span>
           <label class="dgii-period-label" for="dgii-period-picker">Período Fiscal:</label>
-          <input type="month" id="dgii-period-picker" class="dgii-period-input" value="${currentDgiiPeriod}" onchange="onDgiiPeriodChange(this.value)" />
+          <input type="month" id="dgii-period-picker" class="dgii-period-input" value="${monthValue}" onchange="onDgiiPeriodChange(this.value)" />
+          <button type="button" class="btn-secondary" onclick="toggleDgiiAllPeriods()" style="padding:4px 10px; font-size:0.76rem; font-weight:700; border-radius:6px; ${currentDgiiPeriod === 'ALL' ? 'background:#10b981; color:#fff; border-color:#10b981;' : ''}">
+            ${currentDgiiPeriod === 'ALL' ? '✓ Todos los meses' : 'Ver Todos'}
+          </button>
         </div>
       </div>
     </div>
@@ -81,10 +199,24 @@ function renderManejoDgiiPage(container) {
 
 function onDgiiPeriodChange(val) {
   if (val) {
+    _dgiiUserManuallyChangedPeriod = true;
     currentDgiiPeriod = val;
-    renderCurrentDgiiContent();
+    renderManejoDgiiPage();
   }
 }
+
+function toggleDgiiAllPeriods() {
+  _dgiiUserManuallyChangedPeriod = true;
+  if (currentDgiiPeriod === 'ALL') {
+    currentDgiiPeriod = new Date().toISOString().slice(0, 7);
+    _dgiiUserManuallyChangedPeriod = false;
+    _autoSelectMostRecentDgiiPeriodIfEmpty();
+  } else {
+    currentDgiiPeriod = 'ALL';
+  }
+  renderManejoDgiiPage();
+}
+window.toggleDgiiAllPeriods = toggleDgiiAllPeriods;
 
 function switchDgiiTab(tabKey) {
   currentDgiiTab = tabKey;
@@ -126,27 +258,43 @@ async function reloadDgiiSequence(seq) {
     autoScanCancelledDocuments();
   }
 
-  // Re-renderizar la vista activa
-  renderCurrentDgiiContent();
-
+  // Si el período activo está vacío pero hay registros en otro mes, seleccionarlo automáticamente
   let count = 0;
   if (seq === '606') count = getDgii606Records().length;
   else if (seq === '607') count = getDgii607Records().length;
   else if (seq === '608') count = getDgii608Records().length;
 
-  showToast(`✅ Secuencia ${seq} recargada: ${count} registro(s) encontrados para ${currentDgiiPeriod}`, 'success');
+  if (count === 0 && currentDgiiPeriod !== 'ALL') {
+    _dgiiUserManuallyChangedPeriod = false;
+    _autoSelectMostRecentDgiiPeriodIfEmpty();
+    if (seq === '606') count = getDgii606Records().length;
+    else if (seq === '607') count = getDgii607Records().length;
+    else if (seq === '608') count = getDgii608Records().length;
+    if (count === 0) {
+      currentDgiiPeriod = 'ALL';
+      if (seq === '606') count = getDgii606Records().length;
+      else if (seq === '607') count = getDgii607Records().length;
+      else if (seq === '608') count = getDgii608Records().length;
+    }
+  }
+
+  // Re-renderizar la página completa para sincronizar el selector de período y la tabla
+  renderManejoDgiiPage();
+
+  const periodLabel = currentDgiiPeriod === 'ALL' ? 'todos los períodos' : currentDgiiPeriod;
+  showToast(`✅ Secuencia ${seq} recargada: ${count} registro(s) encontrados (${periodLabel})`, 'success');
 }
 
 /**
  * Auto-escanea facturas, notas de crédito y notas de débito que hayan sido marcadas como anuladas
  */
 function autoScanCancelledDocuments() {
-  const cancelled = JSON.parse(localStorage.getItem(userKey('recim_ncf_cancelled')) || '[]');
+  const cancelled = _getDgiiStorageList('recim_ncf_cancelled');
   const existingNcfs = new Set(cancelled.map(c => (c.ncf || '').trim().toUpperCase()));
 
-  const invoices = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
-  const creditNotes = JSON.parse(localStorage.getItem(userKey('recim_credit_notes')) || '[]');
-  const debitNotes = JSON.parse(localStorage.getItem(userKey('recim_debit_notes')) || '[]');
+  const invoices = _getDgiiStorageList('recim_invoices');
+  const creditNotes = _getDgiiStorageList('recim_credit_notes');
+  const debitNotes = _getDgiiStorageList('recim_debit_notes');
 
   let added = false;
   [...invoices, ...creditNotes, ...debitNotes].forEach(item => {
@@ -157,7 +305,7 @@ function autoScanCancelledDocuments() {
         ncf: ncf,
         code: '02',
         reason: '02: Errores de impresión / Corrección',
-        date: item.date || new Date().toISOString().slice(0, 10),
+        date: _normalizeDgiiDate(item) || new Date().toISOString().slice(0, 10),
         notes: `Auto-detectado de ${item.id || 'documento anulado'}`
       });
       existingNcfs.add(ncf);
@@ -166,8 +314,27 @@ function autoScanCancelledDocuments() {
   });
 
   if (added) {
-    localStorage.setItem(userKey('recim_ncf_cancelled'), JSON.stringify(cancelled));
+    const key = typeof userKey === 'function' ? userKey('recim_ncf_cancelled') : 'recim_ncf_cancelled';
+    localStorage.setItem(key, JSON.stringify(cancelled));
   }
+}
+
+/**
+ * Busca el RNC/Cédula de un cliente o proveedor en el directorio de clientes registrados
+ */
+function _resolvePartyRnc(partyId, partyName, directRnc) {
+  if (directRnc && String(directRnc).trim()) return String(directRnc).trim();
+  const clients = _getDgiiStorageList('recim_clients');
+  if (partyId) {
+    const foundById = clients.find(c => String(c.id) === String(partyId));
+    if (foundById && foundById.nit) return String(foundById.nit).trim();
+  }
+  if (partyName) {
+    const normName = String(partyName).trim().toLowerCase();
+    const foundByName = clients.find(c => c.name && String(c.name).trim().toLowerCase() === normName);
+    if (foundByName && foundByName.nit) return String(foundByName.nit).trim();
+  }
+  return '';
 }
 
 // =============================================
@@ -176,36 +343,93 @@ function autoScanCancelledDocuments() {
 
 /**
  * Obtiene las compras reales del usuario actual para el período seleccionado
- * Escanea: Egresos (gastos) y Bitácoras (compras de reciclaje y materia prima)
+ * Escanea: Bitácoras de compra (en recim_invoices con type='basica' y recim_batches) + Egresos (recim_egresos)
  */
 function getDgii606Records() {
-  const egresos = JSON.parse(localStorage.getItem(userKey('recim_egresos')) || '[]');
-  const bitacoras = JSON.parse(localStorage.getItem(userKey('recim_batches')) || '[]');
+  const egresos = _getDgiiStorageList('recim_egresos');
+  const allInvoices = _getDgiiStorageList('recim_invoices');
+  const legacyBatches = _getDgiiStorageList('recim_batches');
 
-  const [year, month] = currentDgiiPeriod.split('-');
-  const filterPrefix = `${year}-${month}`;
+  // Bitácoras reales guardadas en recim_invoices (type === 'basica' o id con prefijo 'BIT-') + legacy recim_batches
+  const bitacorasFromInvoices = allInvoices.filter(inv => inv && (inv.type === 'basica' || String(inv.id || '').startsWith('BIT-')));
+  const bitacoras = [...bitacorasFromInvoices, ...legacyBatches];
+  const bitacoraIds = new Set(bitacoras.map(b => String(b.id || '')).filter(Boolean));
 
-  // 1. Egresos y gastos operacionales con comprobante o factura del usuario
-  const comprasEgresos = egresos.filter(e => (e.date || '').startsWith(filterPrefix)).map((e, idx) => {
-    const rawRnc = (e.rnc || e.supplierNit || e.supplierRnc || e.supplierId || '').replace(/\D/g, '');
+  // 1. Bitácoras de compra de material reciclado a proveedores / recicladores
+  const comprasBitacoras = bitacoras.filter(b => _matchesDgiiPeriod(b)).map((b, idx) => {
+    const normDate = _normalizeDgiiDate(b);
+    const itemsCost = (b.items || []).reduce((acc, it) => {
+      const itemCost = parseFloat(it.totalCompra ?? it.cost ?? ((parseFloat(it.qty) || 0) * (parseFloat(it.priceBuy || it.uprice) || 0))) || 0;
+      return acc + itemCost;
+    }, 0);
+    const totalCost = parseFloat(b.totalCompra) || itemsCost || parseFloat(b.amount) || 0;
+
+    const supplierName = b.supplier || b.client || b.company || 'Proveedor de Reciclaje';
+    const resolvedNit = _resolvePartyRnc(b.clientId || b.supplierId, supplierName, b.supplierNit || b.nit || b.rnc);
+    const rawNit = resolvedNit.replace(/\D/g, '');
+    let tipoId = 99;
+    if (rawNit.length === 9) tipoId = 1;
+    else if (rawNit.length === 11) tipoId = 2;
+
+    return {
+      rnc_cedula: resolvedNit || b.supplierId || b.id || `PROV-${(idx + 1).toString().padStart(4, '0')}`,
+      nombre_suplidor: supplierName,
+      tipo_id: tipoId,
+      ncf: b.ncf || '',
+      ncf_modificado: '',
+      tipo_bienes_servicios: '02',
+      fecha_comprobante: normDate.replace(/\D/g, ''),
+      fecha_pago: normDate.replace(/\D/g, ''),
+      monto_servicios: 0,
+      monto_bienes: totalCost,
+      total_facturado: totalCost,
+      itbis_facturado: parseFloat(b.taxAmount || b.itbis) || 0,
+      itbis_retenido: 0,
+      retencion_renta: 0,
+      propina_legal: 0,
+      monto_isc: 0,
+      monto_otros_imp: 0,
+      itbis_sujeto_prop: 0,
+      itbis_llevado_costo: 0,
+      tipo_gasto: '09', // 09 = Compras y Gastos que forman parte del Costo de Venta
+      origen: 'BITACORA',
+      forma_pago: '01'
+    };
+  }).filter(r => r.total_facturado > 0);
+
+  // 2. Egresos y gastos operacionales (excluyendo asientos automáticos duplicados de bitácoras ya listadas)
+  const comprasEgresos = egresos.filter(e => {
+    if (!_matchesDgiiPeriod(e)) return false;
+    if (e.ref && bitacoraIds.has(String(e.ref))) return false;
+    const conceptStr = String(e.concept || '');
+    for (const bitId of bitacoraIds) {
+      if (bitId && conceptStr.includes(bitId)) return false;
+    }
+    return true;
+  }).map((e, idx) => {
+    const normDate = _normalizeDgiiDate(e);
+    const payDate = _normalizeDgiiDate({ date: e.paymentDate }) || normDate;
+    const supplierName = e.supplier || e.beneficiary || e.concept || 'Suplidor Comercial';
+    const resolvedRnc = _resolvePartyRnc(e.supplierId || e.clientId, supplierName, e.rnc || e.supplierNit || e.supplierRnc || e.nit);
+    const rawRnc = resolvedRnc.replace(/\D/g, '');
     let tipoId = 99;
     if (rawRnc.length === 9) tipoId = 1;
     else if (rawRnc.length === 11) tipoId = 2;
 
-    const montoTotal = parseFloat(e.amount) || 0;
-    const itbisFact = parseFloat(e.itbis) || 0;
+    const montoTotal = parseFloat(e.amount || e.total) || 0;
+    const itbisFact = parseFloat(e.itbis || e.taxAmount) || 0;
     const servAmount = parseFloat(e.serviceAmount) || 0;
     const bienesAmount = servAmount > 0 ? Math.max(0, montoTotal - servAmount) : montoTotal;
 
     return {
-      rnc_cedula: e.rnc || e.supplierNit || (e.supplierId ? 'PROV-' + e.supplierId : 'PROV-001'),
-      nombre_suplidor: e.supplier || e.beneficiary || e.concept || 'Suplidor Comercial',
+      rnc_cedula: resolvedRnc || (e.supplierId ? 'PROV-' + e.supplierId : `PROV-${(idx + 1).toString().padStart(3, '0')}`),
+      nombre_suplidor: supplierName,
       tipo_id: tipoId,
       ncf: e.ncf || e.invoiceNumber || '',
       ncf_modificado: e.ncfModified || '',
       tipo_bienes_servicios: e.expenseType || '02',
-      fecha_comprobante: (e.date || '').replace(/\D/g, ''),
-      fecha_pago: (e.paymentDate || e.date || '').replace(/\D/g, ''),
+      fecha_comprobante: normDate.replace(/\D/g, ''),
+      fecha_pago: payDate.replace(/\D/g, ''),
       monto_servicios: servAmount,
       monto_bienes: bienesAmount,
       total_facturado: montoTotal,
@@ -218,46 +442,12 @@ function getDgii606Records() {
       itbis_sujeto_prop: 0,
       itbis_llevado_costo: 0,
       tipo_gasto: e.expenseType || '02',
-      origen: e.origin || 'EGRESO',
+      origen: e.origin || e.category || 'EGRESO',
       forma_pago: e.paymentMethodCode || '01'
     };
-  });
+  }).filter(r => r.total_facturado > 0);
 
-  // 2. Bitácoras de compra de material reciclado a proveedores / recicladores
-  const comprasBitacoras = bitacoras.filter(b => (b.date || '').startsWith(filterPrefix)).map((b, idx) => {
-    const totalCost = (b.items || []).reduce((acc, it) => acc + (parseFloat(it.cost) || 0), 0);
-    const rawNit = (b.supplierNit || '').replace(/\D/g, '');
-    let tipoId = 99;
-    if (rawNit.length === 9) tipoId = 1;
-    else if (rawNit.length === 11) tipoId = 2;
-
-    return {
-      rnc_cedula: b.supplierNit || b.supplierId || `PROV-${(idx + 1).toString().padStart(4, '0')}`,
-      nombre_suplidor: b.supplier || 'Proveedor de Reciclaje',
-      tipo_id: tipoId,
-      ncf: b.ncf || '',
-      ncf_modificado: '',
-      tipo_bienes_servicios: '02',
-      fecha_comprobante: (b.date || '').replace(/\D/g, ''),
-      fecha_pago: (b.date || '').replace(/\D/g, ''),
-      monto_servicios: 0,
-      monto_bienes: totalCost,
-      total_facturado: totalCost,
-      itbis_facturado: 0,
-      itbis_retenido: 0,
-      retencion_renta: 0,
-      propina_legal: 0,
-      monto_isc: 0,
-      monto_otros_imp: 0,
-      itbis_sujeto_prop: 0,
-      itbis_llevado_costo: 0,
-      tipo_gasto: '01',
-      origen: 'BITACORA',
-      forma_pago: '01'
-    };
-  });
-
-  return [...comprasEgresos, ...comprasBitacoras];
+  return [...comprasBitacoras, ...comprasEgresos];
 }
 
 function renderDgii606(container) {
@@ -357,36 +547,53 @@ function renderDgii606(container) {
 
 /**
  * Obtiene las ventas reales del usuario actual para el período seleccionado
- * Escanea: Facturas, Notas de Crédito emitidas, Notas de Débito e Ingresos con NCF
+ * Escanea: Facturas de venta, Ventas en Bitácoras, Notas de Crédito emitidas, Notas de Débito e Ingresos
  */
 function getDgii607Records() {
-  const invoices = JSON.parse(localStorage.getItem(userKey('recim_invoices')) || '[]');
-  const creditNotes = JSON.parse(localStorage.getItem(userKey('recim_credit_notes')) || '[]');
-  const debitNotes = JSON.parse(localStorage.getItem(userKey('recim_debit_notes')) || '[]');
-  const ingresos = JSON.parse(localStorage.getItem(userKey('recim_ingresos')) || '[]');
+  const invoices = _getDgiiStorageList('recim_invoices');
+  const creditNotes = _getDgiiStorageList('recim_credit_notes');
+  const debitNotes = _getDgiiStorageList('recim_debit_notes');
+  const ingresos = _getDgiiStorageList('recim_ingresos');
 
-  const [year, month] = currentDgiiPeriod.split('-');
-  const filterPrefix = `${year}-${month}`;
+  const includedDocIds = new Set();
 
-  // 1. Facturas normales
-  const listInvoices = invoices.filter(inv => (inv.date || '').startsWith(filterPrefix)).map(inv => {
-    const rawNit = (inv.nit || inv.rnc || '').replace(/\D/g, '');
+  // 1. Facturas de venta y Bitácoras con monto de venta proyectada/facturada
+  const listInvoices = invoices.filter(inv => _matchesDgiiPeriod(inv)).map(inv => {
+    const isBitacora = inv.type === 'basica' || String(inv.id || '').startsWith('BIT-');
+    if (inv.id) includedDocIds.add(String(inv.id));
+
+    const clientName = inv.company || inv.client || 'Cliente Contado';
+    const resolvedNit = _resolvePartyRnc(inv.clientId, clientName, inv.nit || inv.rnc);
+    const rawNit = resolvedNit.replace(/\D/g, '');
     let tipoId = 1;
     if (rawNit.length === 11) tipoId = 2;
     else if (!rawNit || rawNit === '000000000') tipoId = 3;
 
-    const montoFact = parseFloat(inv.subtotal || (parseFloat(inv.total || 0) - parseFloat(inv.taxAmount || 0))) || 0;
-    const itbisFact = parseFloat(inv.taxAmount) || 0;
+    const itbisFact = parseFloat(inv.taxAmount || inv.itbis) || 0;
+    let montoFact = 0;
+    if (isBitacora) {
+      const itemsVenta = (inv.items || []).reduce((acc, it) => {
+        const itemSell = parseFloat(it.totalVenta ?? ((parseFloat(it.qty) || 0) * (parseFloat(it.priceSell || it.uprice) || 0))) || 0;
+        return acc + itemSell;
+      }, 0);
+      montoFact = parseFloat(inv.totalVenta) || itemsVenta || 0;
+    } else {
+      const rawTotal = parseFloat(inv.total ?? inv.totalVenta ?? 0) || 0;
+      montoFact = parseFloat(inv.subtotal) || Math.max(0, rawTotal - itbisFact);
+    }
+
+    const normDate = _normalizeDgiiDate(inv);
+    const retDate = _normalizeDgiiDate({ date: inv.retentionDate });
 
     return {
-      rnc_cedula_cliente: inv.nit || inv.rnc || (tipoId === 3 ? '000000000' : ''),
-      nombre_cliente: inv.company || inv.client || 'Cliente Contado',
+      rnc_cedula_cliente: resolvedNit || (tipoId === 3 ? '000000000' : ''),
+      nombre_cliente: clientName,
       tipo_identificacion: tipoId,
       ncf: inv.ncf || '',
       ncf_modificado: inv.ncfModified || inv.ncfMod || '',
       tipo_ingreso: '01',
-      fecha_comprobante: (inv.date || '').replace(/\D/g, ''),
-      fecha_retencion: (inv.retentionDate || '').replace(/\D/g, ''),
+      fecha_comprobante: normDate.replace(/\D/g, ''),
+      fecha_retencion: retDate.replace(/\D/g, ''),
       monto_facturado: montoFact,
       itbis_facturado: itbisFact,
       itbis_retenido_terceros: parseFloat(inv.retItbisAmount) || 0,
@@ -396,29 +603,33 @@ function getDgii607Records() {
       monto_isc: parseFloat(inv.iscAmount) || 0,
       monto_otros_imp: 0,
       monto_propina_legal: 0,
-      forma_pago: inv.payMethod || inv.paymentMethod || 'Efectivo',
+      forma_pago: isBitacora ? 'Bitácora (Venta)' : (inv.payMethod || inv.paymentMethod || 'Efectivo'),
       total: parseFloat(inv.total) || (montoFact + itbisFact)
     };
-  });
+  }).filter(r => r.monto_facturado > 0 || r.total > 0);
 
   // 2. Notas de Crédito emitidas (B04 / E34)
-  const listCreditNotes = creditNotes.filter(cn => (cn.date || '').startsWith(filterPrefix)).map(cn => {
-    const rawNit = (cn.nit || cn.rnc || '').replace(/\D/g, '');
+  const listCreditNotes = creditNotes.filter(cn => _matchesDgiiPeriod(cn)).map(cn => {
+    if (cn.id) includedDocIds.add(String(cn.id));
+    const clientName = cn.company || cn.client || 'Cliente';
+    const resolvedNit = _resolvePartyRnc(cn.clientId, clientName, cn.nit || cn.rnc);
+    const rawNit = resolvedNit.replace(/\D/g, '');
     let tipoId = 1;
     if (rawNit.length === 11) tipoId = 2;
     else if (!rawNit || rawNit === '000000000') tipoId = 3;
 
+    const normDate = _normalizeDgiiDate(cn);
     const montoFact = parseFloat(cn.subtotal || cn.amount || cn.total || 0);
     const itbisFact = parseFloat(cn.taxAmount || cn.itbis || 0);
 
     return {
-      rnc_cedula_cliente: cn.nit || cn.rnc || (tipoId === 3 ? '000000000' : ''),
-      nombre_cliente: cn.company || cn.client || 'Cliente',
+      rnc_cedula_cliente: resolvedNit || (tipoId === 3 ? '000000000' : ''),
+      nombre_cliente: clientName,
       tipo_identificacion: tipoId,
       ncf: cn.ncf || '',
       ncf_modificado: cn.ncfMod || cn.invoiceNcf || '',
       tipo_ingreso: '01',
-      fecha_comprobante: (cn.date || '').replace(/\D/g, ''),
+      fecha_comprobante: normDate.replace(/\D/g, ''),
       fecha_retencion: '',
       monto_facturado: montoFact,
       itbis_facturado: itbisFact,
@@ -435,23 +646,27 @@ function getDgii607Records() {
   });
 
   // 3. Notas de Débito emitidas (B03 / E33)
-  const listDebitNotes = debitNotes.filter(dn => (dn.date || '').startsWith(filterPrefix)).map(dn => {
-    const rawNit = (dn.nit || dn.rnc || '').replace(/\D/g, '');
+  const listDebitNotes = debitNotes.filter(dn => _matchesDgiiPeriod(dn)).map(dn => {
+    if (dn.id) includedDocIds.add(String(dn.id));
+    const clientName = dn.company || dn.client || 'Cliente';
+    const resolvedNit = _resolvePartyRnc(dn.clientId, clientName, dn.nit || dn.rnc);
+    const rawNit = resolvedNit.replace(/\D/g, '');
     let tipoId = 1;
     if (rawNit.length === 11) tipoId = 2;
     else if (!rawNit || rawNit === '000000000') tipoId = 3;
 
+    const normDate = _normalizeDgiiDate(dn);
     const montoFact = parseFloat(dn.subtotal || dn.amount || dn.total || 0);
     const itbisFact = parseFloat(dn.taxAmount || dn.itbis || 0);
 
     return {
-      rnc_cedula_cliente: dn.nit || dn.rnc || (tipoId === 3 ? '000000000' : ''),
-      nombre_cliente: dn.company || dn.client || 'Cliente',
+      rnc_cedula_cliente: resolvedNit || (tipoId === 3 ? '000000000' : ''),
+      nombre_cliente: clientName,
       tipo_identificacion: tipoId,
       ncf: dn.ncf || '',
       ncf_modificado: dn.ncfMod || dn.invoiceNcf || '',
       tipo_ingreso: '01',
-      fecha_comprobante: (dn.date || '').replace(/\D/g, ''),
+      fecha_comprobante: normDate.replace(/\D/g, ''),
       fecha_retencion: '',
       monto_facturado: montoFact,
       itbis_facturado: itbisFact,
@@ -467,28 +682,49 @@ function getDgii607Records() {
     };
   });
 
-  // 4. Ingresos directos con NCF asignado
-  const listIngresos = ingresos.filter(ing => (ing.date || '').startsWith(filterPrefix) && ing.ncf).map(ing => ({
-    rnc_cedula_cliente: ing.rnc || '000000000',
-    nombre_cliente: ing.client || ing.concept || 'Ingreso con NCF',
-    tipo_identificacion: (ing.rnc && ing.rnc.length === 9) ? 1 : ((ing.rnc && ing.rnc.length === 11) ? 2 : 3),
-    ncf: ing.ncf,
-    ncf_modificado: '',
-    tipo_ingreso: '01',
-    fecha_comprobante: (ing.date || '').replace(/\D/g, ''),
-    fecha_retencion: '',
-    monto_facturado: parseFloat(ing.amount || 0),
-    itbis_facturado: parseFloat(ing.itbis || 0),
-    itbis_retenido_terceros: 0,
-    itbis_percibido: 0,
-    retencion_renta: 0,
-    isr_percibido: 0,
-    monto_isc: 0,
-    monto_otros_imp: 0,
-    monto_propina_legal: 0,
-    forma_pago: ing.payMethod || 'Efectivo',
-    total: parseFloat(ing.amount || 0)
-  }));
+  // 4. Ingresos directos registrados en Finanzas (excluyendo asientos automáticos ya contados por Factura/ND)
+  const listIngresos = ingresos.filter(ing => {
+    if (!_matchesDgiiPeriod(ing)) return false;
+    if (ing.ref && includedDocIds.has(String(ing.ref))) return false;
+    const conceptStr = String(ing.concept || '');
+    for (const docId of includedDocIds) {
+      if (docId && conceptStr.includes(docId)) return false;
+    }
+    return true;
+  }).map(ing => {
+    const normDate = _normalizeDgiiDate(ing);
+    const clientName = ing.client || ing.company || ing.concept || 'Ingreso Comercial';
+    const resolvedNit = _resolvePartyRnc(ing.clientId, clientName, ing.rnc || ing.nit);
+    const rawNit = resolvedNit.replace(/\D/g, '');
+    let tipoId = 3;
+    if (rawNit.length === 9) tipoId = 1;
+    else if (rawNit.length === 11) tipoId = 2;
+
+    const montoFact = parseFloat(ing.amount || ing.total || 0);
+    const itbisFact = parseFloat(ing.itbis || ing.taxAmount || 0);
+
+    return {
+      rnc_cedula_cliente: resolvedNit || '000000000',
+      nombre_cliente: clientName,
+      tipo_identificacion: tipoId,
+      ncf: ing.ncf || '',
+      ncf_modificado: '',
+      tipo_ingreso: '01',
+      fecha_comprobante: normDate.replace(/\D/g, ''),
+      fecha_retencion: '',
+      monto_facturado: montoFact,
+      itbis_facturado: itbisFact,
+      itbis_retenido_terceros: 0,
+      itbis_percibido: 0,
+      retencion_renta: 0,
+      isr_percibido: 0,
+      monto_isc: 0,
+      monto_otros_imp: 0,
+      monto_propina_legal: 0,
+      forma_pago: ing.payMethod || ing.category || 'Efectivo',
+      total: montoFact + itbisFact
+    };
+  }).filter(r => r.monto_facturado > 0);
 
   return [...listInvoices, ...listCreditNotes, ...listDebitNotes, ...listIngresos];
 }
@@ -587,12 +823,10 @@ function renderDgii607(container) {
  * Obtiene los NCF anulados registrados por el usuario para el período seleccionado
  */
 function getDgii608Records() {
-  const cancelled = JSON.parse(localStorage.getItem(userKey('recim_ncf_cancelled')) || '[]');
-  const [year, month] = currentDgiiPeriod.split('-');
-  const filterPrefix = `${year}-${month}`;
-  return cancelled.filter(c => (c.date || '').startsWith(filterPrefix)).map(c => ({
+  const cancelled = _getDgiiStorageList('recim_ncf_cancelled');
+  return cancelled.filter(c => _matchesDgiiPeriod(c)).map(c => ({
     ncf: c.ncf,
-    fecha_anulacion: (c.date || '').replace(/\D/g, ''),
+    fecha_anulacion: _normalizeDgiiDate(c).replace(/\D/g, ''),
     tipo_anulacion: c.code || '02',
     reasonLabel: c.reason || '02: Errores de impresión',
     comentario: c.notes || 'Comprobante anulado según normativa DGII'

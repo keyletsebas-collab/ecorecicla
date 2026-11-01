@@ -1,0 +1,13 @@
+*
+!index.html
+!manifest.json
+!service-worker.js
+!version.json
+!favicon.png
+!icon-192.png
+!icon-512.png
+!logo-no-white-lines.png
+!logo-white-lines.png
+!css/
+!js/
+!docker/

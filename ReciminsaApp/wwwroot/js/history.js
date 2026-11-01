@@ -699,14 +699,39 @@ async function deleteHistoryItem(type, id) {
 
 async function clearHistory() {
   // 1ª Confirmación
-  const ok1 = await window.AppDialog.confirm('⚠️ PRIMERA CONFIRMACIÓN: ¿Estás seguro de que deseas limpiar todo el historial (Facturas, Bitácoras, Ingresos y Egresos)?', 'Limpiar Historial');
+  const ok1 = await window.AppDialog.confirm('⚠️ PRIMERA CONFIRMACIÓN: ¿Estás seguro de que deseas limpiar todo el historial (Facturas, Cotizaciones, Despachos, Devoluciones, Bitácoras, Ingresos y Egresos)?', 'Limpiar Historial');
   if (!ok1) return;
   // 2ª Confirmación
   const ok2 = await window.AppDialog.confirm('🚨 SEGUNDA CONFIRMACIÓN: ¡ADVERTENCIA! Esta acción borrará todo el historial de forma permanente. ¿Deseas continuar?', 'Confirmación Definitiva');
   if (!ok2) return;
-  localStorage.setItem(userKey('recim_invoices'), JSON.stringify([]));
-  localStorage.setItem(userKey('recim_ingresos'), JSON.stringify([]));
-  localStorage.setItem(userKey('recim_egresos'), JSON.stringify([]));
+
+  const historyKeys = [
+    'recim_invoices',
+    'recim_quotes',
+    'recim_dispatches',
+    'recim_returns',
+    'recim_credit_notes',
+    'recim_debit_notes',
+    'recim_ingresos',
+    'recim_egresos',
+    'recim_bitacoras'
+  ];
+
+  historyKeys.forEach(k => {
+    try {
+      localStorage.setItem(k, '[]');
+      if (typeof userKey === 'function') {
+        localStorage.setItem(userKey(k), '[]');
+      }
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key === k || key.startsWith(`${k}_`))) {
+          localStorage.setItem(key, '[]');
+        }
+      }
+    } catch (_) {}
+  });
+
   if (window.forceSync) {
     try { await window.forceSync(); } catch (_) {}
   }

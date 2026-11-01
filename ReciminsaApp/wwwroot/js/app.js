@@ -92,7 +92,7 @@ function rerenderCurrentPage() {
     switch (pageName) {
         case 'historial': renderHistoryPage(target); break;
         case 'bitacoras': renderBitacorasPage(target); break;
-        case 'facturas': renderInvoicesPage(target); break;
+        case 'facturas': renderInvoicesPage(target, window._currentFacturacionTab || 'cotizaciones'); break;
         case 'nota_credito': if (typeof renderCreditNotesPage === 'function') renderCreditNotesPage(target); break;
         case 'nota_debito': if (typeof renderDebitNotesPage === 'function') renderDebitNotesPage(target); break;
         case 'manejo_dgii': if (typeof renderManejoDgiiPage === 'function') renderManejoDgiiPage(target); break;
@@ -154,7 +154,7 @@ function navigate(pageName, subTab = null) {
     switch (pageName) {
         case 'historial': renderHistoryPage(target); break;
         case 'bitacoras': renderBitacorasPage(target); break;
-        case 'facturas': renderInvoicesPage(target, subTab || 'facturas'); break;
+        case 'facturas': renderInvoicesPage(target, subTab || 'cotizaciones'); break;
         case 'nota_credito': if (typeof renderCreditNotesPage === 'function') renderCreditNotesPage(target); break;
         case 'nota_debito': if (typeof renderDebitNotesPage === 'function') renderDebitNotesPage(target); break;
         case 'manejo_dgii': if (typeof renderManejoDgiiPage === 'function') renderManejoDgiiPage(target); break;

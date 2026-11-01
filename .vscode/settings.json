@@ -1,5 +1,17 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.gradle.enabled": true,
+    "java.import.maven.enabled": false,
+    "java.autobuild.enabled": false,
+    "java.import.exclusions": [
+        "**/node_modules/**",
+        "**/bin/**",
+        "**/obj/**",
+        "**/www/**",
+        "**/out/**"
+    ],
+    "gradle.autoDetect": "off",
+    "gradle.nestedProjects": false,
     "dotnet.sdk.dotnetPath": "/usr/bin/dotnet",
     "omnisharp.dotnetPath": "/usr/bin/dotnet",
     "omnisharp.enableMsBuildLoadProjectsOnDemand": false,

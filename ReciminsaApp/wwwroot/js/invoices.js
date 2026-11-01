@@ -90,45 +90,10 @@ function getNcfTypeName(code) {
   } catch (_) {}
 })();
 
-// Quitar NCF de todas las facturas existentes (limpieza de NCF en facturas para dejarlas estándar internas)
+// Función utilitaria manual (desactivada en el arranque automático para no borrar NCFs ni alterar Bitácoras)
 function stripNcfFromAllInvoices() {
-  try {
-    const keysToCheck = ['recim_invoices'];
-    if (typeof userKey === 'function') {
-      try { keysToCheck.push(userKey('recim_invoices')); } catch (_) {}
-    }
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.includes('recim_invoices')) {
-        keysToCheck.push(k);
-      }
-    }
-
-    [...new Set(keysToCheck)].forEach(storageKey => {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      try {
-        const list = JSON.parse(raw);
-        if (!Array.isArray(list) || list.length === 0) return;
-
-        let hasModified = false;
-        list.forEach(inv => {
-          if (inv.ncf || inv.ncfType || (inv.typeName && inv.typeName.toLowerCase() !== 'factura estándar')) {
-            inv.ncf = '';
-            inv.ncfType = '';
-            inv.typeName = 'Factura Estándar';
-            hasModified = true;
-          }
-        });
-
-        if (hasModified) {
-          localStorage.setItem(storageKey, JSON.stringify(list));
-        }
-      } catch (_) {}
-    });
-  } catch (_) {}
+  // No-op automático para preservar NCFs de facturas y tipos de Bitácora
 }
-stripNcfFromAllInvoices();
 window.stripNcfFromAllInvoices = stripNcfFromAllInvoices;
 
 function getNcfSequences() {
@@ -882,6 +847,7 @@ function getModuleLabel(tabKey) {
 // =============================================
 
 function switchFacturacionTab(tabName) {
+  window._currentFacturacionTab = tabName;
   document.querySelectorAll('.fac-tab').forEach(t_ => t_.classList.remove('active'));
   document.querySelectorAll('.fac-tab-content').forEach(c => c.classList.remove('active'));
 
@@ -1777,11 +1743,20 @@ function initQuotesView() {
         <div class="form-row" style="grid-template-columns: 2fr 1fr;">
           <div class="form-group">
             <label class="form-label">Cliente / Prospecto <span style="color: #ef4444;">*</span></label>
-            <input id="quote-client" type="text" class="form-input" list="quote-clients-datalist" placeholder="Nombre de la empresa o cliente" />
+            <div style="display:flex; gap: 8px;">
+              <input id="quote-client" type="text" class="form-input" list="quote-clients-datalist" placeholder="Nombre de la empresa o cliente" style="flex:1;"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillQuoteClientByNameDGII();}" />
+              <button class="btn-secondary" onclick="autoFillQuoteClientByNameDGII()" style="margin:0; padding: 0 14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;" title="Buscar RNC en DGII por Nombre" type="button">🔍</button>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">RNC / Cédula</label>
-            <input id="quote-nit" type="text" class="form-input" placeholder="Opcional" />
+            <div style="display:flex; gap: 8px;">
+              <input id="quote-nit" type="text" class="form-input" placeholder="9 u 11 dígitos" style="flex:1;" 
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillQuoteClientDGII();}"
+                     onchange="if(this.value.trim().length === 9 || this.value.trim().length === 11){ autoFillQuoteClientDGII(); }" />
+              <button class="btn-secondary" onclick="autoFillQuoteClientDGII()" style="margin:0; padding: 0 14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;" title="Consultar RNC / Cédula en DGII" type="button">🔍</button>
+            </div>
           </div>
         </div>
 
@@ -1828,7 +1803,10 @@ function initQuotesView() {
       </div>
 
       <!-- Listado de Cotizaciones Emitidas -->
-      <h4 style="margin-bottom: 12px; color: var(--clr-text);">Historial de Cotizaciones</h4>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4 style="margin: 0; color: var(--clr-text);">Historial de Cotizaciones</h4>
+        ${quotes.length > 0 ? `<button class="btn-danger" onclick="clearAllQuotes()" style="padding: 4px 10px; font-size: 0.78rem;">🗑️ Borrar Todas</button>` : ''}
+      </div>
       <div style="overflow-x: auto;">
         <table class="table" style="width: 100%;">
           <thead>
@@ -2036,7 +2014,18 @@ function deleteQuote(quoteId) {
   localStorage.setItem(userKey('recim_quotes'), JSON.stringify(list));
   initQuotesView();
   showToast('Cotización eliminada', 'info');
+  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
 }
+
+async function clearAllQuotes() {
+  const ok = await window.AppDialog.confirm('¿Deseas eliminar TODAS las cotizaciones?', 'Eliminar Cotizaciones');
+  if (!ok) return;
+  localStorage.setItem(userKey('recim_quotes'), '[]');
+  initQuotesView();
+  showToast('Todas las cotizaciones han sido eliminadas', 'success');
+  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
+}
+window.clearAllQuotes = clearAllQuotes;
 
 function autofillQuoteClient(clientId) {
   const nameInput = document.getElementById('quote-client');
@@ -2058,6 +2047,83 @@ function autofillQuoteClient(clientId) {
   }
 }
 window.autofillQuoteClient = autofillQuoteClient;
+
+async function autoFillQuoteClientDGII() {
+  const nitEl = document.getElementById('quote-nit');
+  const nameEl = document.getElementById('quote-client');
+  if (!nitEl) return;
+  const val = nitEl.value.trim();
+
+  // Si no hay RNC pero hay nombre escrito, buscar por nombre automáticamente
+  if (!val) {
+    if (nameEl && nameEl.value.trim()) {
+      autoFillQuoteClientByNameDGII();
+      return;
+    }
+    showToast('Ingresa un RNC o Cédula para consultar en la DGII', 'warning');
+    return;
+  }
+
+  if (typeof fetchDGIIData !== 'function') {
+    showToast('⚠️ Módulo de consulta DGII no disponible', 'warning');
+    return;
+  }
+
+  const data = await fetchDGIIData(val);
+  if (data) {
+    if (data.rnc) nitEl.value = data.rnc;
+    if (nameEl && data.name) nameEl.value = data.name;
+    const contactEl = document.getElementById('quote-contact');
+    if (contactEl && data.phone && !contactEl.value) {
+      contactEl.value = data.phone;
+    }
+    showToast(`✅ RNC encontrado: ${data.name || data.rnc}`, 'success');
+  } else {
+    showToast('❌ No se encontraron datos en DGII para este RNC / Cédula', 'error');
+  }
+}
+
+async function autoFillQuoteClientByNameDGII() {
+  const nameEl = document.getElementById('quote-client');
+  const nitEl = document.getElementById('quote-nit');
+  if (!nameEl) return;
+  const val = nameEl.value.trim();
+
+  if (!val) {
+    showToast('Ingresa un nombre o razón social para buscar en la DGII', 'warning');
+    return;
+  }
+
+  if (typeof searchDGIICompanies !== 'function') {
+    showToast('⚠️ Módulo de consulta DGII no disponible', 'warning');
+    return;
+  }
+
+  const results = await searchDGIICompanies(val);
+  if (!results || results.length === 0) {
+    showToast('❌ No se encontraron empresas con ese nombre en la DGII', 'warning');
+    return;
+  }
+
+  if (results.length === 1) {
+    if (nameEl) nameEl.value = results[0].name;
+    if (nitEl) nitEl.value = results[0].rnc;
+    showToast(`✅ Empresa vinculada: ${results[0].rnc} (${results[0].name})`, 'success');
+  } else if (typeof openDGIICompanyPickerModal === 'function') {
+    openDGIICompanyPickerModal(results, (selected) => {
+      if (nameEl) nameEl.value = selected.name;
+      if (nitEl) nitEl.value = selected.rnc;
+      showToast(`✅ Empresa vinculada: ${selected.rnc} (${selected.name})`, 'success');
+    });
+  } else {
+    if (nameEl) nameEl.value = results[0].name;
+    if (nitEl) nitEl.value = results[0].rnc;
+    showToast(`✅ Empresa vinculada: ${results[0].rnc} (${results[0].name})`, 'success');
+  }
+}
+
+window.autoFillQuoteClientDGII = autoFillQuoteClientDGII;
+window.autoFillQuoteClientByNameDGII = autoFillQuoteClientByNameDGII;
 
 // =============================================
 // 6. BLOQUE DE DESPACHOS (Conduces de Entrega)
@@ -2177,7 +2243,10 @@ function initDispatchesView() {
       </div>
 
       <!-- Listado de Despachos -->
-      <h4 style="margin-bottom: 12px; color: var(--clr-text);">Historial de Conduces Emitidos</h4>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4 style="margin: 0; color: var(--clr-text);">Historial de Conduces Emitidos</h4>
+        ${dispatches.length > 0 ? `<button class="btn-danger" onclick="clearAllDispatches()" style="padding: 4px 10px; font-size: 0.78rem;">🗑️ Borrar Todos</button>` : ''}
+      </div>
       <div style="overflow-x: auto;">
         <table class="table" style="width: 100%;">
           <thead>
@@ -2316,7 +2385,18 @@ function deleteDispatch(dispatchId) {
   localStorage.setItem(userKey('recim_dispatches'), JSON.stringify(list));
   initDispatchesView();
   showToast('Conduce eliminado', 'info');
+  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
 }
+
+async function clearAllDispatches() {
+  const ok = await window.AppDialog.confirm('¿Deseas eliminar TODOS los conduces de despacho?', 'Eliminar Despachos');
+  if (!ok) return;
+  localStorage.setItem(userKey('recim_dispatches'), '[]');
+  initDispatchesView();
+  showToast('Todos los despachos han sido eliminados', 'success');
+  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
+}
+window.clearAllDispatches = clearAllDispatches;
 
 function autofillDispatchClient(clientId) {
   const destInput = document.getElementById('disp-dest');
@@ -2486,7 +2566,10 @@ function initReturnsView() {
       </div>
 
       <!-- Listado de Devoluciones -->
-      <h4 style="margin-bottom: 12px; color: var(--clr-text);">Historial de Devoluciones</h4>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4 style="margin: 0; color: var(--clr-text);">Historial de Devoluciones</h4>
+        ${returns.length > 0 ? `<button class="btn-danger" onclick="clearAllReturns()" style="padding: 4px 10px; font-size: 0.78rem;">🗑️ Borrar Todas</button>` : ''}
+      </div>
       <div style="overflow-x: auto;">
         <table class="table" style="width: 100%;">
           <thead>
@@ -2497,11 +2580,12 @@ function initReturnsView() {
               <th>Material</th>
               <th>Motivo</th>
               <th>Disposición</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             ${returns.length === 0 ? `
-              <tr><td colspan="6" style="text-align: center; color: var(--clr-text-muted); padding: 20px;">No hay devoluciones registradas.</td></tr>
+              <tr><td colspan="7" style="text-align: center; color: var(--clr-text-muted); padding: 20px;">No hay devoluciones registradas.</td></tr>
             ` : returns.map(r => `
               <tr>
                 <td><b>${r.id}</b></td>
@@ -2510,6 +2594,9 @@ function initReturnsView() {
                 <td>${r.material} (${r.qty} ${r.unit})</td>
                 <td>${r.reason}</td>
                 <td><span class="badge">${r.disposition}</span></td>
+                <td>
+                  <button class="btn-danger" onclick="deleteReturn('${r.id}')" title="Eliminar" style="padding: 4px 8px; font-size: 0.8rem;">🗑️</button>
+                </td>
               </tr>
             `).join('')}
           </tbody>
@@ -2598,6 +2685,26 @@ function handleSaveReturn() {
     initReturnsView();
   }
 }
+
+function deleteReturn(returnId) {
+  if (!confirm(`¿Eliminar la devolución ${returnId}?`)) return;
+  const list = getAllReturns().filter(r => r.id !== returnId);
+  localStorage.setItem(userKey('recim_returns'), JSON.stringify(list));
+  initReturnsView();
+  showToast('Devolución eliminada', 'info');
+  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
+}
+window.deleteReturn = deleteReturn;
+
+async function clearAllReturns() {
+  const ok = await window.AppDialog.confirm('¿Deseas eliminar TODAS las devoluciones registradas?', 'Eliminar Devoluciones');
+  if (!ok) return;
+  localStorage.setItem(userKey('recim_returns'), '[]');
+  initReturnsView();
+  showToast('Todas las devoluciones han sido eliminadas', 'success');
+  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
+}
+window.clearAllReturns = clearAllReturns;
 
 // =============================================
 // 8. BLOQUE DE NOTAS DE CRÉDITO (NCF B04 - DGII)
@@ -3237,27 +3344,22 @@ function getCompanyInfoForInvoices() {
   if (!rnc) rnc = '133250233';
 
   const clean = String(rnc).replace(/\D/g, '');
-  let formattedRnc = clean;
-  if (clean.length === 9) {
-    formattedRnc = `${clean.slice(0, 3)}-${clean.slice(3, 8)}-${clean.slice(8)}`;
-  } else if (clean.length === 11) {
-    formattedRnc = `${clean.slice(0, 3)}-${clean.slice(3, 10)}-${clean.slice(10)}`;
-  }
-
-  return { rnc: clean, formattedRnc: formattedRnc || clean, name };
+  return { rnc: clean, formattedRnc: clean, name };
 }
 
 /**
- * Renderizador principal del Módulo de Facturación (6 Bloques)
+ * Renderizador principal del Módulo de Facturación (Ciclo Comercial: Cotizaciones -> Facturas -> Despachos -> Devoluciones)
  */
-function renderInvoicesPage(container, initialTab = 'facturas') {
+function renderInvoicesPage(container, initialTab = 'cotizaciones') {
   const comp = getCompanyInfoForInvoices();
+  const safeTab = (initialTab === 'nota_credito' || initialTab === 'nota_debito') ? 'facturas' : (initialTab || 'cotizaciones');
+  window._currentFacturacionTab = safeTab;
 
   container.innerHTML = `
     <div class="page-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
       <div>
         <h2 class="section-title">Facturación y Gestión Comercial</h2>
-        <p class="section-subtitle">Cotizaciones, facturación unificada de venta, conduces y devoluciones</p>
+        <p class="section-subtitle">Ciclo comercial: Cotizaciones, facturación unificada de venta, conduces y devoluciones</p>
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
         <div style="background: var(--clr-surface-2, #172017); border: 1px solid var(--clr-border, rgba(34, 197, 94, 0.2)); padding: 6px 14px; border-radius: 8px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);">
@@ -3275,29 +3377,28 @@ function renderInvoicesPage(container, initialTab = 'facturas') {
 
     <!-- Navegación de 4 Bloques -->
     <div class="invoice-tabs">
-      <button class="invoice-tab fac-tab ${initialTab === 'cotizaciones' ? 'active' : ''}" id="fac-tab-btn-cotizaciones" onclick="switchFacturacionTab('cotizaciones')">
+      <button class="invoice-tab fac-tab ${safeTab === 'cotizaciones' ? 'active' : ''}" id="fac-tab-btn-cotizaciones" onclick="switchFacturacionTab('cotizaciones')">
         <span class="invoice-tab-icon">📋</span> Cotizaciones
       </button>
-      <button class="invoice-tab fac-tab ${initialTab === 'facturas' ? 'active' : ''}" id="fac-tab-btn-facturas" onclick="switchFacturacionTab('facturas')">
+      <button class="invoice-tab fac-tab ${safeTab === 'facturas' ? 'active' : ''}" id="fac-tab-btn-facturas" onclick="switchFacturacionTab('facturas')">
         <span class="invoice-tab-icon">🧾</span> Facturas
       </button>
-      <button class="invoice-tab fac-tab ${initialTab === 'despachos' ? 'active' : ''}" id="fac-tab-btn-despachos" onclick="switchFacturacionTab('despachos')">
+      <button class="invoice-tab fac-tab ${safeTab === 'despachos' ? 'active' : ''}" id="fac-tab-btn-despachos" onclick="switchFacturacionTab('despachos')">
         <span class="invoice-tab-icon">🚚</span> Despachos
       </button>
-      <button class="invoice-tab fac-tab ${initialTab === 'devoluciones' ? 'active' : ''}" id="fac-tab-btn-devoluciones" onclick="switchFacturacionTab('devoluciones')">
+      <button class="invoice-tab fac-tab ${safeTab === 'devoluciones' ? 'active' : ''}" id="fac-tab-btn-devoluciones" onclick="switchFacturacionTab('devoluciones')">
         <span class="invoice-tab-icon">↩️</span> Devoluciones
       </button>
     </div>
 
     <!-- Contenedores de cada Bloque -->
-    <div id="fac-tab-cotizaciones" class="invoice-tab-content fac-tab-content ${initialTab === 'cotizaciones' ? 'active' : ''}"></div>
-    <div id="fac-tab-facturas" class="invoice-tab-content fac-tab-content ${initialTab === 'facturas' ? 'active' : ''}"></div>
-    <div id="fac-tab-despachos" class="invoice-tab-content fac-tab-content ${initialTab === 'despachos' ? 'active' : ''}"></div>
-    <div id="fac-tab-devoluciones" class="invoice-tab-content fac-tab-content ${initialTab === 'devoluciones' ? 'active' : ''}"></div>
+    <div id="fac-tab-cotizaciones" class="invoice-tab-content fac-tab-content ${safeTab === 'cotizaciones' ? 'active' : ''}"></div>
+    <div id="fac-tab-facturas" class="invoice-tab-content fac-tab-content ${safeTab === 'facturas' ? 'active' : ''}"></div>
+    <div id="fac-tab-despachos" class="invoice-tab-content fac-tab-content ${safeTab === 'despachos' ? 'active' : ''}"></div>
+    <div id="fac-tab-devoluciones" class="invoice-tab-content fac-tab-content ${safeTab === 'devoluciones' ? 'active' : ''}"></div>
   `;
 
-  // Cargar el tab inicial (si es nota de credito/debito, abrir facturas)
-  const safeTab = (initialTab === 'nota_credito' || initialTab === 'nota_debito') ? 'facturas' : initialTab;
+  // Cargar el tab inicial del ciclo (por defecto: cotizaciones)
   switchFacturacionTab(safeTab);
 }
 

@@ -16,6 +16,16 @@ public partial class MainPage : ContentPage
     public MainPage()
     {
         InitializeComponent();
+
+#if ANDROID
+        hybridWebView.HandlerChanged += (s, ev) =>
+        {
+            if (hybridWebView.Handler?.PlatformView is global::Android.Webkit.WebView androidView)
+            {
+                ConfigureAndroidWebView(androidView);
+            }
+        };
+#endif
     }
 
     // =============================================
@@ -30,7 +40,9 @@ public partial class MainPage : ContentPage
             ConfigureWindowsWebView(core);
         }
 #elif ANDROID
-        if (hybridWebView.Handler?.PlatformView is global::Android.Webkit.WebView androidView)
+        var androidView = (e.PlatformArgs as Microsoft.Maui.Controls.PlatformWebViewInitializedEventArgs)?.Sender as global::Android.Webkit.WebView
+                       ?? hybridWebView.Handler?.PlatformView as global::Android.Webkit.WebView;
+        if (androidView != null)
         {
             ConfigureAndroidWebView(androidView);
         }
@@ -198,6 +210,11 @@ public partial class MainPage : ContentPage
     {
         try
         {
+#if ANDROID
+            var nativeInterface = new Platforms.Android.NotificationInterface();
+            nativeInterface.DownloadFile(message.Filename, message.Data);
+            await Task.CompletedTask;
+#else
 #if WINDOWS
             string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
 #else
@@ -243,6 +260,7 @@ public partial class MainPage : ContentPage
             string finalPath = filePath;
             MainThread.BeginInvokeOnMainThread(async () =>
                 await DisplayAlertAsync("Archivo Guardado", $"El archivo se ha descargado y guardado en tu carpeta de Descargas:\n\n{finalPath}", "OK"));
+#endif
         }
         catch (Exception ex)
         {

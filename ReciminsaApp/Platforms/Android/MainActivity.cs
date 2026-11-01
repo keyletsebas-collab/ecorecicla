@@ -16,6 +16,12 @@ public class MainActivity : MauiAppCompatActivity
 
         try
         {
+            global::Android.Webkit.WebView.SetWebContentsDebuggingEnabled(true);
+        }
+        catch { }
+
+        try
+        {
             if (Window != null)
             {
                 AndroidX.Core.View.WindowCompat.SetDecorFitsSystemWindows(Window, true);
