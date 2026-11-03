@@ -206,6 +206,7 @@ public partial class MainPage : ContentPage
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Uses instance member DisplayAlertAsync on non-Android platforms")]
     private async Task SaveDownloadAsync(WebMessage message)
     {
         try
