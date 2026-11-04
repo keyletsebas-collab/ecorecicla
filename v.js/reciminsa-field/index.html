@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#070b14" />
+  <title>Reciminsa Field – Terminal Operativa de Campo (v.js)</title>
+  <link rel="stylesheet" href="/reciminsa-field/css/field.css" />
+</head>
+<body>
+  <div class="field-shell">
+    <!-- Top Header -->
+    <header class="field-topbar">
+      <div class="field-brand">
+        <div class="field-brand-badge">🚛</div>
+        <div>
+          <h1>Reciminsa Field</h1>
+          <p>Terminal de Campo &bull; Modo INSERT-Only</p>
+        </div>
+      </div>
+      <div id="field-net-badge" class="pill-badge pill-badge--green">🌐 En línea</div>
+    </header>
+
+    <!-- ==================================================================
+         PANTALLA 1: VINCULACIÓN POR CÓDIGO (PAIRING SIN LOGIN - Sección 2)
+         ================================================================== -->
+    <section id="screen-pairing" class="field-card">
+      <div class="field-card-title">🔑 Activación de Terminal (Pairing sin Login)</div>
+      <p class="field-card-sub">
+        Este dispositivo no utiliza usuario ni contraseña. Ingresa el <strong>Pairing Code</strong> único generado por el administrador en <em>Reciminsa Ops</em> (TTL: 15–30 min).
+      </p>
+
+      <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:14px; font-size:0.76rem;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:var(--text-muted);">ANDROID_ID (Hardware):</span>
+          <code id="hw-android-id" style="color:var(--primary); font-weight:700;">Extrayendo...</code>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+          <span style="color:var(--text-muted);">Modelo del Terminal:</span>
+          <strong id="hw-device-model">Detectando...</strong>
+        </div>
+      </div>
+
+      <form id="form-device-pair" onsubmit="handleDevicePairing(event)">
+        <div class="field-group">
+          <label class="field-label" for="input-pairing-code">Código de Vinculación (Pairing Code)</label>
+          <input
+            id="input-pairing-code"
+            type="text"
+            class="field-input field-otp-input"
+            placeholder="REC-000000"
+            maxlength="12"
+            required
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="input-api-base">Servidor API Reciminsa Ops</label>
+          <input
+            id="input-api-base"
+            type="url"
+            class="field-input"
+            placeholder="http://localhost:3040"
+            required
+          />
+        </div>
+
+        <button type="submit" id="btn-pair-submit" class="btn-field-primary">
+          🔗 Vincular Dispositivo y Sincronizar Catálogos
+        </button>
+      </form>
+    </section>
+
+    <!-- ==================================================================
+         PANTALLA 2: OPERACIÓN DE CAMPO (TELEMETRÍA 10S + BITÁCORA INSERT-ONLY)
+         ================================================================== -->
+    <section id="screen-operation" class="hidden">
+      <!-- Barra de Estado de Telemetría (10s / 0.1 Hz) -->
+      <div class="telemetry-bar">
+        <div>
+          <div style="color:var(--text-muted); font-size:0.7rem;">OPERADOR VINCULADO</div>
+          <div id="op-colab-name" style="font-weight:800; font-size:0.86rem; color:var(--text);">—</div>
+          <div id="op-android-id" style="font-family:monospace; font-size:0.7rem; color:var(--primary);">ID: —</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="color:var(--text-muted); font-size:0.7rem;">TELEMETRÍA GPS (0.1 Hz / 10s)</div>
+          <div id="op-gps-status" style="font-weight:700; color:var(--primary);">🛰️ Activa (Cada 10s)</div>
+          <div id="op-gps-coords" style="font-family:monospace; font-size:0.7rem; color:var(--text-secondary);">Esperando GPS...</div>
+        </div>
+      </div>
+
+      <!-- Control de Turno (Auditoría #13: Iniciar / Finalizar Jornada) + Sincronización de Catálogos (Auditoría #5) -->
+      <div class="field-card" style="padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div style="font-size:0.76rem;">
+          <strong id="op-shift-title">🟢 Jornada Laboral Activa (Muestreo GPS 10s)</strong>
+          <div id="op-wakelock-status" style="color:var(--text-muted);">Foreground Service &amp; WakeLock activos &bull; 🔋 <span id="op-battery-label">100%</span></div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" id="btn-toggle-shift" class="btn-field-secondary" onclick="toggleWorkShift()" style="border-color:rgba(16,185,129,0.45); color:#10b981;">
+            ⏸️ Finalizar Jornada
+          </button>
+          <button type="button" class="btn-field-secondary" onclick="syncFieldCatalogs(true)">
+            🔄 Sincronizar Catálogos
+          </button>
+          <button type="button" class="btn-field-secondary" onclick="forceTelemetryPing()">
+            📡 Ping GPS
+          </button>
+        </div>
+      </div>
+
+      <!-- Formulario de Captura de Bitácora de Recogida (Estricto Modo INSERT-Only) -->
+      <div class="field-card">
+        <div class="field-card-title">⚖️ Captura de Bitácora de Recogida</div>
+        <p class="field-card-sub">
+          🔒 <strong>Inmutabilidad en Campo (INSERT-Only):</strong> Los pesajes registrados se envían por API a la bandeja de revisión de <em>Reciminsa Ops</em>. No se permiten ediciones ni eliminaciones desde este dispositivo.
+        </p>
+
+        <form id="form-field-bitacora" onsubmit="handleFieldBitacoraSubmit(event)">
+          <div class="field-group">
+            <label class="field-label" for="field-cliente-select">Cliente / Punto de Recolección</label>
+            <select id="field-cliente-select" class="field-select" required>
+              <option value="">-- Seleccionar Cliente --</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="field-material-select">Material Reciclable *</label>
+            <select id="field-material-select" class="field-select" required>
+              <option value="">-- Seleccionar Material --</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="field-peso-input">Peso Capturado (kg) *</label>
+            <input
+              id="field-peso-input"
+              type="number"
+              step="0.01"
+              min="0.01"
+              class="field-input"
+              placeholder="Ej: 125.50"
+              required
+            />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="field-notas-input">Notas Operativas (Opcional)</label>
+            <textarea
+              id="field-notas-input"
+              class="field-textarea"
+              rows="2"
+              placeholder="Observaciones del pesaje o estado del material..."
+            ></textarea>
+          </div>
+
+          <button type="submit" class="btn-field-primary">
+            📤 Registrar Pesaje y Enviar a Reciminsa Ops
+          </button>
+        </form>
+      </div>
+
+      <!-- Cola Local Offline-First (Sección 5.1) -->
+      <div class="field-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div>
+            <div class="field-card-title" style="margin:0;">📦 Cola Local Offline-First (SQLite / LocalStore)</div>
+            <div style="font-size:0.73rem; color:var(--text-muted);">
+              Se despacha automáticamente al detectar red activa (<code>NET_CAPABILITY_INTERNET</code>)
+            </div>
+          </div>
+          <button type="button" class="btn-field-secondary" onclick="flushOfflineBitacoraQueue(true)">
+            🔄 Vaciar Cola
+          </button>
+        </div>
+
+        <div id="field-local-queue-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="field-toast" class="toast-field hidden"></div>
+
+  <!-- CERO SDK DE SUPABASE: Solo lógica de cliente API Reciminsa Field -->
+  <script src="/reciminsa-field/js/field-app.js"></script>
+</body>
+</html>
