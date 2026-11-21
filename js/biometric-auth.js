@@ -184,12 +184,9 @@ const BiometricAuthManager = {
             return;
           }
         } catch (webAuthErr) {
-          console.log("WebAuthn aviso:", webAuthErr);
-          // Si no hay credenciales registradas aún en WebAuthn, solicitamos confirmación local estándar
-          if (confirm("¿Confirmar inicio de sesión mediante la seguridad de este dispositivo?")) {
-            resolve(true);
-            return;
-          }
+          console.warn("WebAuthn verificación no disponible o cancelada:", webAuthErr);
+          resolve(false);
+          return;
         }
       }
 
@@ -418,20 +415,34 @@ const BiometricAuthManager = {
   }
 };
 
-// --- Funciones para Código de Acceso Rápido (6 dígitos) ---
-function calculate6DigitQuickCode(identifier, timeBlock) {
-  if (!identifier) return '000000';
-  const str = `${identifier.toString().toLowerCase().trim()}_${timeBlock}_recim_secret_2026`;
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  const positiveHash = Math.abs(hash);
-  return (positiveHash % 1000000).toString().padStart(6, '0');
+// --- Funciones para Código de Acceso Rápido (6 dígitos CSPRNG de un solo uso) ---
+function generateSecureQuickCode() {
+  try {
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      const arr = new Uint32Array(1);
+      window.crypto.getRandomValues(arr);
+      return (arr[0] % 1000000).toString().padStart(6, '0');
+    }
+  } catch (_) {}
+  return Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+}
+
+// Alias de compatibilidad sin fórmula determinista offline
+function calculate6DigitQuickCode() {
+  return generateSecureQuickCode();
 }
 
 function openQuickCodeLoginModal() {
+  let savedEmail = '';
+  try {
+    const savedAcc = JSON.parse(localStorage.getItem('recim_saved_account') || '{}');
+    savedEmail = savedAcc.email || '';
+    if (!savedEmail) {
+      const lastSql = JSON.parse(localStorage.getItem('recim_last_sqlite_session') || '{}');
+      savedEmail = lastSql.email || '';
+    }
+  } catch (_) {}
+
   let modalOverlay = document.getElementById('quick-code-login-modal');
   if (!modalOverlay) {
     modalOverlay = document.createElement('div');
@@ -447,12 +458,17 @@ function openQuickCodeLoginModal() {
         </div>
         <div class="modal-body" style="padding: 20px;">
           <p style="font-size: 0.88rem; color: var(--clr-text-muted, #94a3b8); margin-bottom: 16px; line-height: 1.4;">
-            Ingresa el código temporal de 6 dígitos generado en Opciones Avanzadas.
+            Ingresa tu correo y el código temporal de 6 dígitos (de un solo uso) generado en Opciones Avanzadas.
           </p>
 
-          <form onsubmit="handleQuickCodeLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 16px;">
+          <form onsubmit="handleQuickCodeLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="quick-code-email" style="font-size: 0.82rem; margin-bottom: 6px; display: block;">Correo electrónico</label>
+              <input id="quick-code-email" type="email" class="form-input" placeholder="correo@ejemplo.com" required autocomplete="email" style="width: 100%; box-sizing: border-box;" />
+            </div>
+
             <div class="form-group" style="margin: 0; text-align: center;">
-              <label class="form-label" style="font-size: 0.82rem; margin-bottom: 8px; display: block;">Código de 6 dígitos</label>
+              <label class="form-label" for="quick-code-input" style="font-size: 0.82rem; margin-bottom: 8px; display: block;">Código de 6 dígitos</label>
               <input id="quick-code-input" type="text" class="form-input" placeholder="000000" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" required style="font-size: 2rem; font-weight: 800; letter-spacing: 8px; text-align: center; font-family: monospace; padding: 12px; border-radius: 12px; border: 2px solid #10b981;" autofocus />
             </div>
 
@@ -474,10 +490,14 @@ function openQuickCodeLoginModal() {
     modalOverlay.style.display = 'flex';
   }
 
+  const emailEl = document.getElementById('quick-code-email');
+  if (emailEl && savedEmail) {
+    emailEl.value = savedEmail;
+  }
   const inputEl = document.getElementById('quick-code-input');
   if (inputEl) {
     inputEl.value = '';
-    setTimeout(() => inputEl.focus(), 100);
+    setTimeout(() => (emailEl && !emailEl.value ? emailEl.focus() : inputEl.focus()), 100);
   }
   const errEl = document.getElementById('quick-code-error');
   if (errEl) errEl.classList.add('hidden');
@@ -490,10 +510,20 @@ function closeQuickCodeLoginModal() {
 
 async function handleQuickCodeLoginSubmit(evt) {
   evt.preventDefault();
+  const emailEl = document.getElementById('quick-code-email');
   const inputEl = document.getElementById('quick-code-input');
+  const email = emailEl ? emailEl.value.trim().toLowerCase() : '';
   const code = inputEl ? inputEl.value.trim() : '';
   const errEl = document.getElementById('quick-code-error');
   const btn = document.getElementById('quick-code-submit-btn');
+
+  if (!email || !email.includes('@')) {
+    if (errEl) {
+      errEl.textContent = "Ingresa el correo electrónico de tu cuenta.";
+      errEl.classList.remove('hidden');
+    }
+    return;
+  }
 
   if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
     if (errEl) {
@@ -511,76 +541,76 @@ async function handleQuickCodeLoginSubmit(evt) {
   }
 
   try {
-    const currentBlock = Math.floor(Date.now() / 60000);
-    const prevBlock = currentBlock - 1;
     let matchedProfile = null;
 
-    // 1. Validar en Supabase si está disponible
-    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-      try {
-        const { data: dbMatch } = await supabaseClient
-          .from('profiles')
-          .select('*')
-          .eq('quick_code', code)
-          .maybeSingle();
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+      throw new Error("Se requiere conexión activa a internet para verificar códigos de un solo uso.");
+    }
 
-        if (dbMatch && dbMatch.family_id !== 'BLOCKED') {
-          matchedProfile = dbMatch;
+    // 1. Intentar validación atómica en servidor vía RPC
+    try {
+      const { data: rpcRes, error: rpcErr } = await supabaseClient.rpc('verify_quick_code_login', {
+        p_email: email,
+        p_code: code
+      });
+      if (!rpcErr && rpcRes && typeof rpcRes === 'object') {
+        if (!rpcRes.ok) {
+          throw new Error("Código inválido o expirado. Genera uno nuevo en Opciones Avanzadas.");
         }
-      } catch (dbErr) {
-        console.warn("Aviso búsqueda rápida Supabase:", dbErr);
+        matchedProfile = rpcRes.profile;
       }
-
-      if (!matchedProfile) {
-        const { data: allProfiles } = await supabaseClient
-          .from('profiles')
-          .select('*');
-
-        if (allProfiles && allProfiles.length > 0) {
-          for (const prof of allProfiles) {
-            if (prof.family_id === 'BLOCKED') continue;
-            const code1 = calculate6DigitQuickCode(prof.email || prof.id, currentBlock);
-            const code2 = calculate6DigitQuickCode(prof.email || prof.id, prevBlock);
-            if (code === code1 || code === code2) {
-              matchedProfile = prof;
-              break;
-            }
-          }
-        }
+    } catch (rpcCatch) {
+      if (rpcCatch && rpcCatch.message && rpcCatch.message.includes('Código inválido')) {
+        throw rpcCatch;
       }
     }
 
-    // 2. Fallback Local para sesión guardada en SQLite / IndexedDB
-    if (!matchedProfile && typeof BiometricAuthManager !== 'undefined') {
-      const savedSession = await BiometricAuthManager.getLatestSessionFromSQLite();
-      if (savedSession && (savedSession.email || savedSession.accountId)) {
-        const id = savedSession.email || savedSession.accountId;
-        const code1 = calculate6DigitQuickCode(id, currentBlock);
-        const code2 = calculate6DigitQuickCode(id, prevBlock);
-        if (code === code1 || code === code2) {
-          matchedProfile = {
-            id: savedSession.accountId,
-            email: savedSession.email,
-            name: savedSession.name,
-            family_id: savedSession.familyId,
-            avatar: savedSession.avatar
-          };
+    // 2. Fallback acotado si el RPC aún no está desplegado en Supabase (nunca SELECT * de todos los usuarios)
+    if (!matchedProfile) {
+      const { data: dbMatch, error: dbErr } = await supabaseClient
+        .from('profiles')
+        .select('id, email, name, family_id, role, quick_code, quick_code_expires_at')
+        .ilike('email', email)
+        .eq('quick_code', code)
+        .maybeSingle();
+
+      if (dbErr) throw dbErr;
+
+      if (dbMatch) {
+        if (dbMatch.family_id === 'BLOCKED') {
+          throw new Error("Acceso denegado: esta cuenta ha sido bloqueada.");
         }
+        const expMs = dbMatch.quick_code_expires_at ? new Date(dbMatch.quick_code_expires_at).getTime() : 0;
+        if (!expMs || Date.now() > expMs) {
+          // Limpiar código expirado
+          await supabaseClient.from('profiles').update({ quick_code: null, quick_code_expires_at: null }).eq('id', dbMatch.id);
+          throw new Error("El código de 6 dígitos ha expirado. Genera uno nuevo.");
+        }
+
+        // Invalidar código inmediatamente (un solo uso)
+        await supabaseClient
+          .from('profiles')
+          .update({ quick_code: null, quick_code_expires_at: null })
+          .eq('id', dbMatch.id);
+
+        matchedProfile = dbMatch;
       }
     }
 
     if (!matchedProfile) {
-      throw new Error("Código de 6 dígitos inválido o expirado. Genera uno nuevo en Opciones Avanzadas.");
+      throw new Error("Correo o código de 6 dígitos inválido o expirado. Genera uno nuevo en Opciones Avanzadas.");
     }
 
-    // Iniciar sesión exitosamente con la cuenta identificada por el código
+    // Iniciar sesión exitosamente con la cuenta identificada por correo + código de un solo uso
     const session = {
       name: matchedProfile.name || matchedProfile.email,
       email: matchedProfile.email,
       avatar: (matchedProfile.avatar || matchedProfile.name || 'U')[0].toUpperCase(),
       provider: 'quick_code',
       accountId: matchedProfile.id,
-      familyId: matchedProfile.family_id || null
+      familyId: matchedProfile.family_id || null,
+      role: matchedProfile.role || null,
+      lastOnlineValidation: Date.now()
     };
 
     if (typeof calculateSecureChecksum === 'function') {
@@ -613,6 +643,7 @@ async function handleQuickCodeLoginSubmit(evt) {
   }
 }
 
+window.generateSecureQuickCode = generateSecureQuickCode;
 window.calculate6DigitQuickCode = calculate6DigitQuickCode;
 window.openQuickCodeLoginModal = openQuickCodeLoginModal;
 window.closeQuickCodeLoginModal = closeQuickCodeLoginModal;

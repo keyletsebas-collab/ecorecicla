@@ -17,20 +17,19 @@ function _getDgiiStorageList(baseKey) {
   const combined = [];
   const seenIds = new Set();
   const keys = [];
+  let hasScopedKey = false;
   if (typeof userKey === 'function') {
-    try { keys.push(userKey(baseKey)); } catch (_) {}
-  }
-  keys.push(baseKey);
-
-  // También buscar cualquier clave en localStorage que empiece con baseKey por si pertenece a la sesión/familia activa
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k === baseKey || k.startsWith(baseKey + '_'))) {
-        if (!keys.includes(k)) keys.push(k);
+    try {
+      const scoped = userKey(baseKey);
+      if (scoped && scoped !== baseKey) {
+        keys.push(scoped);
+        hasScopedKey = true;
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+  }
+  if (!hasScopedKey) {
+    keys.push(baseKey);
+  }
 
   keys.forEach(k => {
     try {
@@ -147,7 +146,7 @@ function renderManejoDgiiPage(container) {
   const companyRnc = getDgiiCompanyRnc();
   const rncDisplay = companyRnc 
     ? `<code style="font-weight:800; color:#10b981; font-size:0.95rem;">${companyRnc}</code>`
-    : `<span style="font-size:0.8rem; color:#f59e0b; font-weight:600;">⚠️ Sin RNC (configurar en Ajustes)</span>`;
+    : `<span style="font-size:0.8rem; color:#f59e0b; font-weight:600; cursor:pointer;" onclick="navigate('parametrizaciones_empresa')">⚠️ Sin RNC (configurar en Parametrizaciones de Empresa)</span>`;
 
   const monthValue = currentDgiiPeriod === 'ALL' ? new Date().toISOString().slice(0, 7) : currentDgiiPeriod;
 
@@ -155,10 +154,10 @@ function renderManejoDgiiPage(container) {
     <div class="dgii-header-container">
       <div class="dgii-header-text">
         <h2 class="section-title">🏛️ Manejo DGII – Comprobantes Serie B</h2>
-        <p class="section-subtitle">Formatos oficiales de envío mensual a la DGII basados en las operaciones reales de la empresa</p>
+        <p class="section-subtitle">Generador de borradores compatibles con los formatos 606, 607 y 608 de la DGII según las operaciones ingresadas</p>
       </div>
       <div class="dgii-meta-panel">
-        <div class="dgii-rnc-card" title="RNC Emisor configurado en Ajustes">
+        <div class="dgii-rnc-card" title="RNC Emisor configurado en Parametrizaciones de Empresa">
           <span style="font-size: 1rem;">🛡️</span>
           <span class="dgii-rnc-label">RNC EMISOR:</span>
           ${rncDisplay}
@@ -172,6 +171,10 @@ function renderManejoDgiiPage(container) {
           </button>
         </div>
       </div>
+    </div>
+
+    <div style="margin: 0 0 14px 0; padding: 10px 14px; border-radius: 10px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.78rem; color: var(--clr-text-secondary); line-height: 1.45;">
+      <strong>⚖️ Aviso de Responsabilidad Fiscal:</strong> Esta herramienta genera archivos de apoyo basados únicamente en los datos introducidos por el usuario y <b>no constituye asesoría contable ni tributaria</b>. La empresa contribuyente y su Contador Público Autorizado (CPA) son responsables exclusivos de validar su RNC, secuencias NCF autorizadas y totales antes de remitir declaraciones en la Oficina Virtual de la DGII.
     </div>
 
     <!-- Barra de Pestañas Serie B DGII (606, 607, 608) -->
@@ -372,7 +375,7 @@ function getDgii606Records() {
     else if (rawNit.length === 11) tipoId = 2;
 
     return {
-      rnc_cedula: resolvedNit || b.supplierId || b.id || `PROV-${(idx + 1).toString().padStart(4, '0')}`,
+      rnc_cedula: rawNit || '',
       nombre_suplidor: supplierName,
       tipo_id: tipoId,
       ncf: b.ncf || '',
@@ -422,7 +425,7 @@ function getDgii606Records() {
     const bienesAmount = servAmount > 0 ? Math.max(0, montoTotal - servAmount) : montoTotal;
 
     return {
-      rnc_cedula: resolvedRnc || (e.supplierId ? 'PROV-' + e.supplierId : `PROV-${(idx + 1).toString().padStart(3, '0')}`),
+      rnc_cedula: rawRnc || '',
       nombre_suplidor: supplierName,
       tipo_id: tipoId,
       ncf: e.ncf || e.invoiceNumber || '',
@@ -521,7 +524,7 @@ function renderDgii606(container) {
               <tr><td colspan="11" style="text-align:center; padding:36px; color:var(--clr-text-muted); font-size:0.92rem;">🔍 No hay compras ni egresos registrados para este usuario en el período fiscal <b>${currentDgiiPeriod}</b>.<br><small style="opacity:0.75;">Tus egresos y bitácoras de recogida del mes aparecerán aquí de forma automática al presionar "Recargar".</small></td></tr>
             ` : records.map(r => `
               <tr>
-                <td><b>${r.rnc_cedula}</b></td>
+                <td><b>${r.rnc_cedula || '<span style="color:var(--clr-text-muted); font-weight:normal;">Sin RNC</span>'}</b></td>
                 <td>${r.nombre_suplidor || '---'}</td>
                 <td><span class="badge" style="background:rgba(255,255,255,0.06); font-size:0.75rem;">${r.tipo_id === 1 ? 'RNC (1)' : (r.tipo_id === 2 ? 'Cédula (2)' : 'Otro (99)')}</span></td>
                 <td>${r.ncf ? `<code style="color:#10b981; font-weight:700;">${r.ncf}</code>` : `<span style="color:var(--clr-text-muted); font-style:italic;">Sin NCF</span>`}</td>
@@ -557,8 +560,10 @@ function getDgii607Records() {
 
   const includedDocIds = new Set();
 
-  // 1. Facturas de venta y Bitácoras con monto de venta proyectada/facturada
-  const listInvoices = invoices.filter(inv => _matchesDgiiPeriod(inv)).map(inv => {
+  // 1. Facturas de venta y Bitácoras con monto de venta proyectada/facturada (excluyendo anuladas)
+  const listInvoices = invoices.filter(inv =>
+    inv && inv.status !== 'anulado' && inv.status !== 'anulada' && !inv.isCancelled && !inv.cancelled && _matchesDgiiPeriod(inv)
+  ).map(inv => {
     const isBitacora = inv.type === 'basica' || String(inv.id || '').startsWith('BIT-');
     if (inv.id) includedDocIds.add(String(inv.id));
 
@@ -609,7 +614,9 @@ function getDgii607Records() {
   }).filter(r => r.monto_facturado > 0 || r.total > 0);
 
   // 2. Notas de Crédito emitidas (B04 / E34)
-  const listCreditNotes = creditNotes.filter(cn => _matchesDgiiPeriod(cn)).map(cn => {
+  const listCreditNotes = creditNotes.filter(cn =>
+    cn && cn.status !== 'anulado' && cn.status !== 'anulada' && !cn.isCancelled && !cn.cancelled && _matchesDgiiPeriod(cn)
+  ).map(cn => {
     if (cn.id) includedDocIds.add(String(cn.id));
     const clientName = cn.company || cn.client || 'Cliente';
     const resolvedNit = _resolvePartyRnc(cn.clientId, clientName, cn.nit || cn.rnc);
@@ -627,7 +634,7 @@ function getDgii607Records() {
       nombre_cliente: clientName,
       tipo_identificacion: tipoId,
       ncf: cn.ncf || '',
-      ncf_modificado: cn.ncfMod || cn.invoiceNcf || '',
+      ncf_modificado: cn.ncfModified || cn.ncfMod || cn.invoiceNcf || '',
       tipo_ingreso: '01',
       fecha_comprobante: normDate.replace(/\D/g, ''),
       fecha_retencion: '',
@@ -646,7 +653,9 @@ function getDgii607Records() {
   });
 
   // 3. Notas de Débito emitidas (B03 / E33)
-  const listDebitNotes = debitNotes.filter(dn => _matchesDgiiPeriod(dn)).map(dn => {
+  const listDebitNotes = debitNotes.filter(dn =>
+    dn && dn.status !== 'anulado' && dn.status !== 'anulada' && !dn.isCancelled && !dn.cancelled && _matchesDgiiPeriod(dn)
+  ).map(dn => {
     if (dn.id) includedDocIds.add(String(dn.id));
     const clientName = dn.company || dn.client || 'Cliente';
     const resolvedNit = _resolvePartyRnc(dn.clientId, clientName, dn.nit || dn.rnc);
@@ -664,7 +673,7 @@ function getDgii607Records() {
       nombre_cliente: clientName,
       tipo_identificacion: tipoId,
       ncf: dn.ncf || '',
-      ncf_modificado: dn.ncfMod || dn.invoiceNcf || '',
+      ncf_modificado: dn.ncfModified || dn.ncfMod || dn.invoiceNcf || '',
       tipo_ingreso: '01',
       fecha_comprobante: normDate.replace(/\D/g, ''),
       fecha_retencion: '',
@@ -1059,10 +1068,19 @@ function exportDgiiTxt(tipo) {
   let fileContent = '';
 
   if (tipo === '606') {
-    const records = getDgii606Records();
-    let header = `606|${companyRnc}|${periodClean}|${records.length}\n`;
-    let body = records.map(r => {
-      const rncClean = (r.rnc_cedula || '').replace(/\D/g, '') || r.rnc_cedula;
+    const allRecords = getDgii606Records();
+    const fiscalRecords = allRecords.filter(r => /^[BE]\d{10,12}$/i.test(String(r.ncf || '').trim()));
+    if (fiscalRecords.length === 0) {
+      showToast('⚠️ Ningún registro de compra/egreso del período tiene un NCF fiscal válido para TXT DGII.', 'warning');
+      return;
+    }
+    const skipped = allRecords.length - fiscalRecords.length;
+    if (skipped > 0) {
+      showToast(`ℹ️ Se exportaron ${fiscalRecords.length} comprobante(s) 606 con NCF válido (${skipped} sin NCF omitido(s)).`, 'info');
+    }
+    let header = `606|${companyRnc}|${periodClean}|${fiscalRecords.length}\n`;
+    let body = fiscalRecords.map(r => {
+      const rncClean = (r.rnc_cedula || '').replace(/\D/g, '') || '';
       const fComp = (r.fecha_comprobante || '').replace(/\D/g, '');
       const fPago = (r.fecha_pago || r.fecha_comprobante || '').replace(/\D/g, '');
       const mServ = (parseFloat(r.monto_servicios) || 0).toFixed(2);
@@ -1073,13 +1091,22 @@ function exportDgiiTxt(tipo) {
       const retRenta = (parseFloat(r.retencion_renta) || 0).toFixed(2);
       const fPagoCode = r.forma_pago || '01';
 
-      return `${rncClean}|${r.tipo_id}|${r.tipo_bienes_servicios || '02'}|${r.ncf}|${r.ncf_modificado || 'None'}|${fComp}|${fPago}|${mServ}|${mBienes}|${mTotal}|${itbFact}|${itbRet}|0.00|0.00|${itbFact}|0.00||${retRenta}|0.00|0.00|0.00|0.00|${fPagoCode}`;
+      return `${rncClean}|${r.tipo_id}|${r.tipo_bienes_servicios || '02'}|${r.ncf}|${r.ncf_modificado || ''}|${fComp}|${fPago}|${mServ}|${mBienes}|${mTotal}|${itbFact}|${itbRet}|0.00|0.00|${itbFact}|0.00||${retRenta}|0.00|0.00|0.00|0.00|${fPagoCode}`;
     }).join('\n');
     fileContent = header + body;
   } else if (tipo === '607') {
-    const records = getDgii607Records();
-    let header = `607|${companyRnc}|${periodClean}|${records.length}\n`;
-    let body = records.map(r => {
+    const allRecords = getDgii607Records();
+    const fiscalRecords = allRecords.filter(r => /^[BE]\d{10,12}$/i.test(String(r.ncf || '').trim()));
+    if (fiscalRecords.length === 0) {
+      showToast('⚠️ Ninguna factura del período tiene un NCF fiscal válido (Serie B/E). Las facturas sin comprobante no se remiten al TXT 607 de la DGII.', 'warning');
+      return;
+    }
+    const skipped = allRecords.length - fiscalRecords.length;
+    if (skipped > 0) {
+      showToast(`ℹ️ Se exportaron ${fiscalRecords.length} comprobante(s) 607 con NCF (${skipped} factura(s) sin comprobante fiscal omitidas).`, 'info');
+    }
+    let header = `607|${companyRnc}|${periodClean}|${fiscalRecords.length}\n`;
+    let body = fiscalRecords.map(r => {
       const rncClean = (r.rnc_cedula_cliente || '').replace(/\D/g, '') || '000000000';
       const fComp = (r.fecha_comprobante || '').replace(/\D/g, '');
       const mFact = (parseFloat(r.monto_facturado) || 0).toFixed(2);

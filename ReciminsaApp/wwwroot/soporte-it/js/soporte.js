@@ -4,14 +4,40 @@ let isAdmin = false;
 let currentChatTicketId = null;
 let chatSubscription = null;
 
-// Failsafe initialization for Supabase client
+const _escapeSupportHtml = window.escapeHtml || function (val) {
+  return String(val == null ? '' : val)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+function _isSafeImageUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const u = new URL(url.trim());
+    return u.protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
+}
+
+// Failsafe initialization for Supabase client using obfuscated runtime vault
 function ensureSupabaseConnected() {
   if (typeof supabaseClient === 'undefined' || !supabaseClient) {
     try {
       if (typeof supabase !== 'undefined' && typeof supabase.createClient === 'function') {
-        const _dec = (str) => { try { return atob(str); } catch (e) { return ""; } };
-        const DEFAULT_URL = _dec("aHR0cHM6Ly93a3Fnc3ByZ3p0cXhtb3ZvamV3dS5zdXBhYmFzZS5jbw==");
-        const DEFAULT_KEY = _dec("c2JfcHVibGlzaGFibGVfTXE2bUV4NXFTSXh2Nm12dF9ETmFFd19OVGVVSUZQdg==");
+        const _unlock = (hex) => {
+          const k = [82, 51, 99, 49, 109, 33, 110, 115, 52, 95, 83, 51, 99, 117, 114, 51, 95, 86, 52, 117, 108, 116, 95, 50, 48, 50, 54, 35, 75, 57];
+          const bytes = new Uint8Array(hex.length / 2);
+          for (let i = 0; i < hex.length; i += 2) {
+            bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16) ^ k[(i / 2) % k.length];
+          }
+          return new TextDecoder("utf-8").decode(bytes);
+        };
+        const DEFAULT_URL = (typeof _unlockVaultSecret === 'function' && _unlockVaultSecret("SB_URL")) || _unlock("3a4717411e1b415c43342254100500542522450d011b295d5a574156654a274302530c520b5d5730");
+        const DEFAULT_KEY = (typeof _unlockVaultSecret === 'function' && _unlockVaultSecret("SB_KEY")) || _unlock("21513c411843021a473732510f102d7e2e60593014412e61794a4015264f266c277f0c64192c7a0b36662a332245");
         const url = localStorage.getItem('recim_db_url') || DEFAULT_URL;
         const key = localStorage.getItem('recim_db_key') || DEFAULT_KEY;
         window.supabaseClient = supabase.createClient(url, key);
@@ -67,7 +93,7 @@ if (typeof showToast !== 'function') {
     else if (type === 'warning') icon = '⚠️';
     else if (type === 'info') icon = 'ℹ️';
 
-    toast.innerHTML = `<span style="font-size:1.15rem; flex-shrink:0;">${icon}</span><span style="flex:1;">${message}</span>`;
+    toast.innerHTML = `<span style="font-size:1.15rem; flex-shrink:0;">${icon}</span><span style="flex:1;">${_escapeSupportHtml(message)}</span>`;
     container.appendChild(toast);
 
     setTimeout(() => {
@@ -420,20 +446,27 @@ function renderTicketsList(tickets, container, showUserInfo) {
 
       card.innerHTML = `
         <div class="ticket-card-header">
-          <span class="ticket-module-badge">${ticket.module}</span>
+          <span class="ticket-module-badge">${_escapeSupportHtml(ticket.module)}</span>
           <span class="ticket-status ${statusClass}">${statusText}</span>
         </div>
-        <h4 class="ticket-title">${showUserInfo ? `Reclamo de: ${userDisplay}` : 'Mi Reclamo'}</h4>
-        <p class="ticket-desc-preview">${ticket.description}</p>
+        <h4 class="ticket-title">${showUserInfo ? `Reclamo de: ${_escapeSupportHtml(userDisplay)}` : 'Mi Reclamo'}</h4>
+        <p class="ticket-desc-preview">${_escapeSupportHtml(ticket.description)}</p>
         <div class="ticket-footer">
-          <span>📅 Problema desde: ${ticket.issue_date}</span>
-          <span>${createdDate}</span>
+          <span>📅 Problema desde: ${_escapeSupportHtml(ticket.issue_date)}</span>
+          <span>${_escapeSupportHtml(createdDate)}</span>
         </div>
         <div style="margin-top:12px; border-top:1px solid var(--clr-border); padding-top:10px; display:flex; gap:10px;">
           <button class="btn-secondary" style="flex:1; justify-content:center;">💬 ${showUserInfo ? 'Iniciar chat' : 'Ver chat / Responder'}</button>
-          <button style="padding:0 15px; background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid #ef4444; border-radius:var(--r-md); cursor:pointer; font-weight:bold; transition:all 0.2s ease;" onmouseover="this.style.background='#ef4444'; this.style.color='#fff';" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444';" onclick="event.stopPropagation(); deleteTicket('${ticket.id}')">🗑️</button>
+          <button class="btn-delete-ticket" style="padding:0 15px; background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid #ef4444; border-radius:var(--r-md); cursor:pointer; font-weight:bold; transition:all 0.2s ease;" onmouseover="this.style.background='#ef4444'; this.style.color='#fff';" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444';">🗑️</button>
         </div>
       `;
+      const delBtn = card.querySelector('.btn-delete-ticket');
+      if (delBtn) {
+        delBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          deleteTicket(ticket.id);
+        });
+      }
 
     container.appendChild(card);
   });
@@ -479,7 +512,7 @@ async function openChat(ticket) {
   }
 
   title.textContent = isAdmin ? `Chat con ${userDisplay}` : 'Soporte IT';
-  context.innerHTML = `<strong>Módulo:</strong> ${ticket.module} <br/> <strong>Problema:</strong> ${ticket.description}`;
+  context.innerHTML = `<strong>Módulo:</strong> ${_escapeSupportHtml(ticket.module)} <br/> <strong>Problema:</strong> ${_escapeSupportHtml(ticket.description)}`;
   messagesContainer.innerHTML = '<p style="text-align:center; color:var(--clr-text-muted); font-size:0.8rem; margin:auto;">Cargando mensajes...</p>';
   
   modal.classList.remove('hidden');
@@ -573,9 +606,31 @@ async function markMessagesAsRead() {
 
 let selectedImageFile = null;
 
+const ALLOWED_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']);
+const ALLOWED_IMAGE_EXTS = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+function validateSelectedImageFile(file) {
+  if (!file) return false;
+  if (!ALLOWED_IMAGE_MIMES.has((file.type || '').toLowerCase())) {
+    showToast('❌ Solo se permiten imágenes PNG, JPG, WEBP o GIF.', 'error');
+    return false;
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    showToast('❌ La imagen supera el tamaño máximo de 5 MB.', 'error');
+    return false;
+  }
+  return true;
+}
+
 function handleImageSelection(e) {
   const file = e.target.files[0];
   if (!file) return;
+  if (!validateSelectedImageFile(file)) {
+    e.target.value = '';
+    selectedImageFile = null;
+    return;
+  }
 
   selectedImageFile = file;
   const previewImg = document.getElementById('image-preview-img');
@@ -616,20 +671,41 @@ function appendMessageToUI(msg) {
     }
   }
 
-  let imageHtml = '';
-  if (msg.image_url) {
-    imageHtml = `<div style="margin-bottom:8px;"><img src="${msg.image_url}" alt="Attachment" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="openImageFullscreen('${msg.image_url}')"></div>`;
-  }
+  const safeImageUrl = _isSafeImageUrl(msg.image_url) ? msg.image_url.trim() : '';
 
   const div = document.createElement('div');
-  div.id = `msg-${msg.id}`;
+  div.id = `msg-${String(msg.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
   div.className = `chat-bubble ${bubbleClass}`;
-  div.innerHTML = `
-    ${!isMe ? `<div style="font-weight:bold; font-size:0.75rem; margin-bottom:2px;">${cleanUserName(msg.sender_name)}</div>` : ''}
-    ${imageHtml}
-    ${msg.message ? `<div>${msg.message}</div>` : ''}
-    <span class="chat-timestamp">${timeStr} ${statusIcon}</span>
-  `;
+
+  if (!isMe) {
+    const senderDiv = document.createElement('div');
+    senderDiv.style.cssText = 'font-weight:bold; font-size:0.75rem; margin-bottom:2px;';
+    senderDiv.textContent = cleanUserName(msg.sender_name);
+    div.appendChild(senderDiv);
+  }
+
+  if (safeImageUrl) {
+    const imgWrap = document.createElement('div');
+    imgWrap.style.marginBottom = '8px';
+    const img = document.createElement('img');
+    img.src = safeImageUrl;
+    img.alt = 'Adjunto';
+    img.style.cssText = 'max-width:100%; border-radius:8px; cursor:pointer;';
+    img.addEventListener('click', () => openImageFullscreen(safeImageUrl));
+    imgWrap.appendChild(img);
+    div.appendChild(imgWrap);
+  }
+
+  if (msg.message) {
+    const msgDiv = document.createElement('div');
+    msgDiv.textContent = String(msg.message);
+    div.appendChild(msgDiv);
+  }
+
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'chat-timestamp';
+  timeSpan.innerHTML = `${_escapeSupportHtml(timeStr)} ${statusIcon}`;
+  div.appendChild(timeSpan);
   
   container.appendChild(div);
 }
@@ -656,11 +732,14 @@ async function sendChatMessage(e) {
     let uploadedImageUrl = null;
 
     if (selectedImageFile) {
-      const fileExt = selectedImageFile.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const { data: uploadData, error: uploadError } = await supabaseClient.storage
+      if (!validateSelectedImageFile(selectedImageFile)) {
+        return;
+      }
+      const fileExt = ALLOWED_IMAGE_EXTS[(selectedImageFile.type || '').toLowerCase()] || 'png';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const { error: uploadError } = await supabaseClient.storage
         .from('support_attachments')
-        .upload(fileName, selectedImageFile);
+        .upload(fileName, selectedImageFile, { contentType: selectedImageFile.type });
       
       if (uploadError) throw uploadError;
 
@@ -730,9 +809,8 @@ function subscribeToChat() {
                         });
                     }
                 });
-            } else if ('Notification' in window) {
-                if (Notification.permission === 'granted') new Notification(title, { body: body });
-                else if (Notification.permission !== 'denied') Notification.requestPermission().then(p => { if (p === 'granted') new Notification(title, { body: body }); });
+            } else if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, { body: body });
             }
         }
       }

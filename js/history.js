@@ -59,6 +59,47 @@ function getUnifiedFinancialSummary(items) {
   return { totalIncome, totalExpense, netBalance };
 }
 
+function _histNormBranchId(branchId) {
+  if (typeof normalizeBranchId === 'function') return normalizeBranchId(branchId);
+  const clean = branchId == null ? '' : String(branchId).trim();
+  return clean || 'SUC-PRINCIPAL';
+}
+
+function _histResolveBranchName(branchId) {
+  const id = _histNormBranchId(branchId);
+  if (typeof resolveBranchNameById === 'function') return resolveBranchNameById(id);
+  return id === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : id;
+}
+
+function getDefaultHistoryBranchFilter() {
+  const canSwitch = typeof canCurrentUserSwitchBranches === 'function' ? canCurrentUserSwitchBranches() : true;
+  if (canSwitch) return 'all';
+  if (typeof getUserAssignedBranch === 'function') {
+    return _histNormBranchId(getUserAssignedBranch().id);
+  }
+  return 'SUC-PRINCIPAL';
+}
+
+function applyBranchFilter(items) {
+  if (window.currentHistoryBranchFilter === undefined) {
+    window.currentHistoryBranchFilter = getDefaultHistoryBranchFilter();
+  }
+  const branchFilter = window.currentHistoryBranchFilter || 'all';
+  if (branchFilter === 'all') return items;
+  const targetId = _histNormBranchId(branchFilter);
+  return items.filter(i => _histNormBranchId(i && i.branchId) === targetId);
+}
+window.applyBranchFilter = applyBranchFilter;
+
+function setHistoryBranchFilter(branchId) {
+  window.currentHistoryBranchFilter = branchId || 'all';
+  const container = document.getElementById('page-historial');
+  if (container) {
+    renderHistoryPage(container);
+  }
+}
+window.setHistoryBranchFilter = setHistoryBranchFilter;
+
 function applyDateFilter(items) {
   window.currentHistoryDateFilter = window.currentHistoryDateFilter || 'all';
   if (window.currentHistoryDateFilter === 'all') return items;
@@ -96,10 +137,14 @@ function applyMaterialFilter(items) {
   let selectedFamilyName = '';
   let selectedMaterialName = '';
   
-  const allMaterials = (typeof getMaterialCodes === 'function') ? getMaterialCodes() : [];
+  const allMaterials = (typeof getAllCustomCodesRaw === 'function')
+    ? getAllCustomCodesRaw()
+    : ((typeof getMaterialCodes === 'function') ? getMaterialCodes() : []);
+  const allFamilies = (typeof getAllMaterialFamiliesRaw === 'function')
+    ? getAllMaterialFamiliesRaw()
+    : ((typeof getMaterialFamilies === 'function') ? getMaterialFamilies() : []);
   
   if (filterKind === 'family') {
-    const allFamilies = (typeof getMaterialFamilies === 'function') ? getMaterialFamilies() : [];
     const fam = allFamilies.find(f => f.id === filterId);
     if (fam) {
       selectedFamilyName = fam.name.toLowerCase().trim();
@@ -156,7 +201,6 @@ function applyMaterialFilter(items) {
       if (filterKind === 'material' && selectedMaterialName) {
         const mat = allMaterials.find(m => m.id === filterId);
         if (mat && mat.familyId) {
-          const allFamilies = (typeof getMaterialFamilies === 'function') ? getMaterialFamilies() : [];
           const fam = allFamilies.find(f => f.id === mat.familyId);
           if (fam) {
             const famName = fam.name.toLowerCase().trim();
@@ -181,16 +225,35 @@ window.setHistoryDateFilter = setHistoryDateFilter;
 
 function renderHistoryPage(container) {
   const allItems = getAllHistoryItems();
-  const filteredByDate = applyDateFilter(allItems);
+  const filteredByBranch = applyBranchFilter(allItems);
+  const filteredByDate = applyDateFilter(filteredByBranch);
   const items = applyMaterialFilter(filteredByDate);
   const finSummary = getUnifiedFinancialSummary(items);
   const isEn = (getSettings().language === 'en');
 
   const currentFilter = window.currentHistoryDateFilter || 'all';
+  const currentBranchFilter = window.currentHistoryBranchFilter || getDefaultHistoryBranchFilter();
   const currentMatFilter = window.currentHistoryMaterialFilter || 'all';
 
-  const families = (typeof getMaterialFamilies === 'function') ? getMaterialFamilies() : [];
-  const materials = (typeof getMaterialCodes === 'function') ? getMaterialCodes() : [];
+  const branches = (typeof getCompanyBranches === 'function') ? getCompanyBranches() : [];
+  const hasMultipleBranches = branches.length > 1;
+
+  const families = (currentBranchFilter === 'all')
+    ? ((typeof getAllMaterialFamiliesRaw === 'function') ? getAllMaterialFamiliesRaw() : ((typeof getMaterialFamilies === 'function') ? getMaterialFamilies() : []))
+    : ((typeof getMaterialFamilies === 'function') ? getMaterialFamilies(currentBranchFilter) : []);
+  const materials = (currentBranchFilter === 'all')
+    ? ((typeof getAllCustomCodesRaw === 'function') ? getAllCustomCodesRaw() : ((typeof getMaterialCodes === 'function') ? getMaterialCodes() : []))
+    : ((typeof getCustomCodes === 'function') ? getCustomCodes(currentBranchFilter) : ((typeof getMaterialCodes === 'function') ? getMaterialCodes() : []));
+
+  let branchSelectHtml = `
+    <select id="history-filter-branch" class="form-select" style="width:auto;max-width:210px;" onchange="setHistoryBranchFilter(this.value)">
+      <option value="all" ${currentBranchFilter === 'all' ? 'selected' : ''}>${isEn ? '📍 All Branches' : '📍 Todas las sucursales'}</option>
+      ${branches.map(b => {
+        const bid = _histNormBranchId(b.id);
+        return `<option value="${bid}" ${currentBranchFilter === bid ? 'selected' : ''}>📍 ${b.name || bid}</option>`;
+      }).join('')}
+    </select>
+  `;
 
   let materialSelectHtml = `
     <select id="history-filter-material" class="form-select" style="width:auto;max-width:200px;" onchange="window.currentHistoryMaterialFilter = this.value; filterHistory();">
@@ -201,7 +264,8 @@ function renderHistoryPage(container) {
     materialSelectHtml += `<optgroup label="${isEn ? 'Families' : 'Familias'}">`;
     families.forEach(f => {
       const val = `family_${f.id}`;
-      materialSelectHtml += `<option value="${val}" ${currentMatFilter === val ? 'selected' : ''}>${f.name}</option>`;
+      const suffix = (currentBranchFilter === 'all' && hasMultipleBranches) ? ` [${f.branchName || _histResolveBranchName(f.branchId)}]` : '';
+      materialSelectHtml += `<option value="${val}" ${currentMatFilter === val ? 'selected' : ''}>${f.name}${suffix}</option>`;
     });
     materialSelectHtml += `</optgroup>`;
   }
@@ -210,7 +274,8 @@ function renderHistoryPage(container) {
     materialSelectHtml += `<optgroup label="${isEn ? 'Materials' : 'Materiales'}">`;
     materials.forEach(m => {
       const val = `material_${m.id}`;
-      materialSelectHtml += `<option value="${val}" ${currentMatFilter === val ? 'selected' : ''}>${m.name} (${m.code})</option>`;
+      const suffix = (currentBranchFilter === 'all' && hasMultipleBranches) ? ` [${m.branchName || _histResolveBranchName(m.branchId)}]` : '';
+      materialSelectHtml += `<option value="${val}" ${currentMatFilter === val ? 'selected' : ''}>${m.name} (${m.code})${suffix}</option>`;
     });
     materialSelectHtml += `</optgroup>`;
   }
@@ -272,6 +337,7 @@ function renderHistoryPage(container) {
           <option value="facturas">${isEn ? 'Invoices' : 'Facturas'}</option>
           <option value="finanzas">${isEn ? 'Finances' : 'Finanzas'}</option>
         </select>
+        ${branchSelectHtml}
         ${materialSelectHtml}
         <input id="history-search" type="text" class="form-input" style="width:auto;min-width:200px;" placeholder="${t('hist.search')}" oninput="filterHistory()" />
         <button class="btn-secondary" onclick="exportFilteredHistoryToExcel()">${t('hist.export_excel')}</button>
@@ -439,12 +505,16 @@ function renderSingleInvoiceCard(inv) {
         </tr>`).join('');
   }
 
+  const branchLabel = inv.branchName || _histResolveBranchName(inv.branchId);
+  const branchBadge = `<span class="badge" style="background:rgba(16,185,129,0.14);color:#6ee7b7;border:1px solid rgba(16,185,129,0.35);font-size:0.72rem;">📍 ${branchLabel}</span>`;
+
   let detailRows = '';
   if (isIngreso || isEgreso) {
     detailRows = `
       <div style="margin-bottom:12px;">
         <p style="margin: 4px 0;"><b>${t('lbl.concept')}:</b> ${inv.concept || '—'}</p>
         <p style="margin: 4px 0;"><b>${t('lbl.category')}:</b> ${inv.category || t('hist.category_general')}</p>
+        <p style="margin: 4px 0;"><b>📍 Sucursal:</b> ${branchLabel}</p>
         ${inv.notes ? `<p style="margin: 4px 0;"><b>${t('lbl.notes')}:</b> ${inv.notes}</p>` : ''}
       </div>
     `;
@@ -465,6 +535,7 @@ function renderSingleInvoiceCard(inv) {
         ${inv.ncf ? `<p style="margin:0;"><b>NCF:</b> <code style="font-weight:bold; color:var(--clr-primary-light);">${inv.ncf}</code></p>` : ''}
         <p style="margin:0;"><b>Método de Pago:</b> ${paymentDisplay}</p>
         <p style="margin:0;"><b>Colaborador:</b> ${colabDisplay}</p>
+        <p style="margin:0;"><b>📍 Sucursal:</b> ${branchLabel}</p>
       </div>`;
   } else {
     // Determinar etiqueta clara y oficial del tipo de comprobante
@@ -514,6 +585,7 @@ function renderSingleInvoiceCard(inv) {
         ${inv.ncf ? `<p style="margin:0;"><b>NCF Asignado:</b> <code style="font-weight:bold; color:var(--clr-primary-light); font-size:0.95rem;">${inv.ncf}</code></p>` : '<p style="margin:0;"><b>NCF:</b> <span class="text-muted" style="font-size:0.85rem;">(Sin NCF fiscal)</span></p>'}
         <p style="margin:0;"><b>Método de Pago:</b> ${paymentDisplay}</p>
         <p style="margin:0;"><b>Colaborador:</b> ${colabDisplay}</p>
+        <p style="margin:0;"><b>📍 Sucursal:</b> ${branchLabel}</p>
         <p style="margin:0;"><b>${t('hist.contact', 'Contacto:')}</b> ${inv.contact || '—'}</p>
         <p style="margin:0; grid-column: 1 / -1;"><b>${t('hist.address', 'Dirección:')}</b> ${inv.address || '—'}</p>
       </div>`;
@@ -597,7 +669,7 @@ function renderSingleInvoiceCard(inv) {
     <div class="history-card-header" onclick="toggleHistoryCard('${inv.id}')">
       <div class="history-card-icon">${icon}</div>
       <div class="history-card-info">
-        <div class="history-card-title">${cardTitle} &nbsp; ${badge}</div>
+        <div class="history-card-title">${cardTitle} &nbsp; ${badge} &nbsp; ${branchBadge}</div>
         <div class="history-card-meta">
           ${cardMeta}
         </div>
@@ -607,7 +679,10 @@ function renderSingleInvoiceCard(inv) {
         ${(!isIngreso && !isEgreso) ? `
           <div style="display: flex; flex-direction: column; gap: 4px; margin-left: 12px;">
             <button class="btn-secondary" onclick="event.stopPropagation(); exportarExcelResiduos(${isBasica ? 'getAllHistoryItems' : 'getAllInvoices'}().find(i => i.id === '${inv.id}'))" style="padding: 4px 8px; font-size: 0.75rem; font-weight: 600; min-width: 65px;" title="Descargar Excel">📊 Excel</button>
-            <button class="btn-secondary" onclick="event.stopPropagation(); generateInvoicePDF(${isBasica ? 'getAllHistoryItems' : 'getAllInvoices'}().find(i => i.id === '${inv.id}'))" style="padding: 4px 8px; font-size: 0.75rem; font-weight: 600; min-width: 65px;" title="Descargar PDF">📄 PDF</button>
+            <div style="display:flex; gap:4px;">
+              <button class="btn-secondary" onclick="event.stopPropagation(); generateInvoicePDF(${isBasica ? 'getAllHistoryItems' : 'getAllInvoices'}().find(i => i.id === '${inv.id}'))" style="padding: 4px 8px; font-size: 0.75rem; font-weight: 600; flex:1;" title="Descargar PDF">📄 PDF</button>
+              <button class="btn-secondary btn-whatsapp" onclick="event.stopPropagation(); shareInvoiceViaWhatsApp('${inv.id}')" style="padding: 4px 8px; font-size: 0.75rem; font-weight: 700; background:#25d366; color:#ffffff; border-color:#25d366;" title="Enviar PDF por WhatsApp">💬</button>
+            </div>
           </div>
         ` : ''}
       </div>
@@ -652,9 +727,14 @@ function toggleHistoryCard(id) {
 
 function filterHistory() {
   const typeFilter = document.getElementById('history-filter-type')?.value || 'all';
+  const branchEl = document.getElementById('history-filter-branch');
+  if (branchEl) {
+    window.currentHistoryBranchFilter = branchEl.value || 'all';
+  }
   const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
   
-  let items = applyDateFilter(getAllHistoryItems());
+  let items = applyBranchFilter(getAllHistoryItems());
+  items = applyDateFilter(items);
   items = applyMaterialFilter(items);
 
   if (typeFilter === 'bitacoras') {
@@ -677,20 +757,68 @@ function filterHistory() {
 }
 
 async function deleteHistoryItem(type, id) {
+  let deletedRecord = null;
   if (type === 'ingreso' || type === 'egreso') {
     const ok = await window.AppDialog.confirm('¿Estás seguro de que deseas eliminar este registro financiero?', 'Eliminar Registro');
     if (!ok) return;
     const baseKey = type === 'ingreso' ? 'recim_ingresos' : 'recim_egresos';
-    const list = JSON.parse(localStorage.getItem(userKey(baseKey)) || '[]').filter(e => e.id !== id);
+    const currentList = JSON.parse(localStorage.getItem(userKey(baseKey)) || '[]');
+    deletedRecord = currentList.find(e => e.id === id) || null;
+    const list = currentList.filter(e => e.id !== id);
     localStorage.setItem(userKey(baseKey), JSON.stringify(list));
     showToast('Registro financiero eliminado con éxito', 'success');
   } else {
     const ok = await window.AppDialog.confirm(t('confirm.del_inv'), 'Eliminar Factura');
     if (!ok) return;
-    const invoices = getAllInvoices().filter(i => i.id !== id);
+    const currentInvoices = getAllInvoices();
+    deletedRecord = currentInvoices.find(i => i.id === id) || null;
+    const invoices = currentInvoices.filter(i => i.id !== id);
     localStorage.setItem(userKey('recim_invoices'), JSON.stringify(invoices));
+
+    // Eliminar también el movimiento financiero automático vinculado a esta factura o bitácora
+    ['recim_ingresos', 'recim_egresos'].forEach(finKey => {
+      try {
+        const finList = JSON.parse(localStorage.getItem(userKey(finKey)) || '[]');
+        const filtered = finList.filter(e => e.ref !== id && !(e.concept && e.concept.includes(id)));
+        if (filtered.length !== finList.length) {
+          localStorage.setItem(userKey(finKey), JSON.stringify(filtered));
+        }
+      } catch (_) {}
+    });
+
     showToast(t('toast.del_inv'), 'success');
   }
+
+  if (typeof window.recordSmartAlertEvent === 'function') {
+    const label = (type === 'ingreso' || type === 'egreso')
+      ? (deletedRecord?.concept || id)
+      : (deletedRecord?.client || deletedRecord?.company || id);
+    window.recordSmartAlertEvent({
+      type: 'void_delete',
+      severity: 'warning',
+      title: `Registro eliminado (${id})`,
+      message: `Se eliminó ${type}: ${label}`,
+      branchId: deletedRecord?.branchId,
+      branchName: deletedRecord?.branchName,
+      refId: id
+    });
+  }
+
+  if (typeof window.recordAuditLog === 'function') {
+    const label = (type === 'ingreso' || type === 'egreso')
+      ? (deletedRecord?.concept || id)
+      : (deletedRecord?.client || deletedRecord?.company || id);
+    window.recordAuditLog({
+      actionType: 'history_delete',
+      entityType: type || 'history',
+      entityId: id,
+      summary: `Eliminación en historial: ${label}`,
+      branchId: deletedRecord?.branchId,
+      branchName: deletedRecord?.branchName,
+      details: { total: deletedRecord?.total || 0 }
+    });
+  }
+
   if (window.forceSync) {
     try { await window.forceSync(); } catch (_) {}
   }
@@ -719,18 +847,32 @@ async function clearHistory() {
 
   historyKeys.forEach(k => {
     try {
-      localStorage.setItem(k, '[]');
       if (typeof userKey === 'function') {
         localStorage.setItem(userKey(k), '[]');
-      }
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key === k || key.startsWith(`${k}_`))) {
-          localStorage.setItem(key, '[]');
-        }
+      } else {
+        localStorage.setItem(k, '[]');
       }
     } catch (_) {}
   });
+
+  if (typeof window.recordSmartAlertEvent === 'function') {
+    window.recordSmartAlertEvent({
+      type: 'bulk_clear',
+      severity: 'critical',
+      title: 'Limpieza total de historial',
+      message: 'Se limpiaron los registros de historial y finanzas.',
+      refId: 'CLEAR_HISTORY'
+    });
+  }
+
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'history_clear_all',
+      entityType: 'history',
+      entityId: 'CLEAR_HISTORY',
+      summary: 'Limpieza total del historial de operaciones y finanzas'
+    });
+  }
 
   if (window.forceSync) {
     try { await window.forceSync(); } catch (_) {}
@@ -758,7 +900,9 @@ function formatDateTime(isoStr) {
 function exportFilteredHistoryToExcel() {
     const typeFilter = document.getElementById('history-filter-type')?.value || 'all';
     const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
-    let items = getAllHistoryItems();
+    let items = applyBranchFilter(getAllHistoryItems());
+    items = applyDateFilter(items);
+    items = applyMaterialFilter(items);
 
     if (typeFilter === 'bitacoras') {
         items = items.filter(i => i.type === 'basica');
@@ -800,42 +944,7 @@ function handleHistoryImportExcel(input) {
   input.value = '';
 }
 
-function shareInvoiceViaWhatsApp(invoiceId) {
-  const allItems = getAllHistoryItems();
-  const inv = allItems.find(i => i.id === invoiceId);
-  if (!inv) return;
-
-  const clientName = inv.company || inv.client || 'Consumidor Final';
-  const totalVal = inv.total;
-  
-  // Format money safely
-  let totalFmt = '';
-  if (typeof formatMoney === 'function') {
-    totalFmt = formatMoney(totalVal);
-  } else {
-    totalFmt = 'RD$ ' + parseFloat(totalVal || 0).toFixed(2);
-  }
-
-  const text = `Hola *${clientName}*,\n\nGracias por reciclar con nosotros. Aquí tienes el detalle de tu recibo/factura *${inv.id}* por un monto de *${totalFmt}*.\n\n_Un respiro al planeta, un residuo a la vez._`;
-
-  if (window.AndroidNative && typeof window.AndroidNative.ShareText === 'function') {
-    window.AndroidNative.ShareText(text, "Enviar Recibo");
-  } else if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.Share) {
-    Capacitor.Plugins.Share.share({
-      text: text,
-      title: 'Compartir Recibo',
-      dialogTitle: 'Compartir por WhatsApp / App'
-    }).catch(err => console.error(err));
-  } else {
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    if (typeof openExternalLink === 'function') {
-      openExternalLink(url);
-    } else {
-      window.open(url, '_blank');
-    }
-  }
-}
-window.shareInvoiceViaWhatsApp = shareInvoiceViaWhatsApp;
+// shareInvoiceViaWhatsApp centralizado en js/whatsapp-share.js (PDF adjunto + resumen)
 
 function toggleVisualDashboard() {
   const card = document.getElementById('visual-dashboard-card');
@@ -861,7 +970,9 @@ function renderVisualDashboardCharts() {
   // Get active filtered items
   const typeFilter = document.getElementById('history-filter-type')?.value || 'all';
   const searchQuery = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
-  let items = applyDateFilter(getAllHistoryItems());
+  let items = applyBranchFilter(getAllHistoryItems());
+  items = applyDateFilter(items);
+  items = applyMaterialFilter(items);
 
   if (typeFilter === 'bitacoras') {
     items = items.filter(i => i.type === 'basica');

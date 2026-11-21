@@ -98,7 +98,8 @@ window.stripNcfFromAllInvoices = stripNcfFromAllInvoices;
 
 function getNcfSequences() {
   try {
-    const raw = localStorage.getItem(typeof userKey === 'function' ? userKey('recim_ncf_sequences') : 'recim_ncf_sequences') || localStorage.getItem('recim_ncf_sequences');
+    const scopedKey = typeof userKey === 'function' ? userKey('recim_ncf_sequences') : 'recim_ncf_sequences';
+    const raw = localStorage.getItem(scopedKey);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return {};
@@ -126,10 +127,46 @@ function getNcfSequences() {
 function saveNcfSequences(seqs) {
   const key = typeof userKey === 'function' ? userKey('recim_ncf_sequences') : 'recim_ncf_sequences';
   localStorage.setItem(key, JSON.stringify(seqs));
-  localStorage.setItem('recim_ncf_sequences', JSON.stringify(seqs));
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'ncf_sequence_update',
+      entityType: 'ncf',
+      entityId: 'secuencias',
+      summary: `Secuencias NCF actualizadas (${Object.keys(seqs || {}).length} tipos)`
+    });
+  }
   if (typeof window.forceSync === 'function') {
     try { window.forceSync(); } catch (_) {}
   }
+}
+
+function _invEscapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function _recordCancelledNcfFor608(ncf, docId, reasonText = '02: Errores de impresión / Anulación') {
+  const cleanNcf = String(ncf || '').trim().toUpperCase();
+  if (!/^[BE]\d{10,12}$/.test(cleanNcf)) return;
+  try {
+    const key = typeof userKey === 'function' ? userKey('recim_ncf_cancelled') : 'recim_ncf_cancelled';
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    const arr = Array.isArray(list) ? list : [];
+    if (arr.some(item => item && String(item.ncf || '').trim().toUpperCase() === cleanNcf)) return;
+    const codeMatch = String(reasonText).match(/^(\d{2})/);
+    arr.unshift({
+      ncf: cleanNcf,
+      code: codeMatch ? codeMatch[1] : '02',
+      reason: reasonText,
+      date: new Date().toISOString().slice(0, 10),
+      notes: `Anulación de documento ${docId || ''}`.trim()
+    });
+    localStorage.setItem(key, JSON.stringify(arr));
+  } catch (_) {}
 }
 
 /**
@@ -139,28 +176,38 @@ function getNcfTypeSelectOptionsHtml(selectedVal = '') {
   const seqs = getNcfSequences();
   const keys = Object.keys(seqs).filter(k => seqs[k] && seqs[k].active !== false);
 
-  let html = `<option value="">${(typeof t === 'function') ? t('inv.no_voucher', 'Sin Comprobante') : 'Sin Comprobante'}</option>`;
+  let html = `<option value="">${(typeof t === 'function') ? t('inv.no_voucher', 'Sin Comprobante Fiscal (Factura Comercial / Interna)') : 'Sin Comprobante Fiscal (Factura Comercial / Interna)'}</option>`;
 
   if (keys.length === 0) {
-    html += `<option value="" disabled style="color: var(--clr-text-muted);">⚠️ Sin secuencias creadas (Configurar en ⚙️ Inventario NCF)</option>`;
+    html += `<option value="" disabled style="color: var(--clr-text-muted);">⚠️ Sin secuencias NCF activas (Configurar en ⚙️ Parametrizaciones NCF)</option>`;
   } else {
     keys.forEach(k => {
       const item = seqs[k];
+      const info = getNextNcfInfo(k);
       let desc = item.name || getNcfTypeName(k);
       desc = desc.replace(/^\d+\s*-\s*/, '').replace(/\s*\([BE]\d+\)$/, '').trim();
+      let statusSuffix = '';
+      if (info.exhausted) {
+        statusSuffix = ' (⛔ AGOTADA - 0 disp. / Solicitar en DGII)';
+      } else if (info.isExpired) {
+        statusSuffix = ` (⛔ VENCIDA el ${item.dueDate})`;
+      } else if (info.remaining !== null) {
+        statusSuffix = ` (${info.remaining} disp.)`;
+      }
       const isSelected = selectedVal === k ? 'selected' : '';
-      html += `<option value="${k}" ${isSelected}>${k} - ${desc}</option>`;
+      html += `<option value="${k}" ${isSelected}>${k} - ${desc}${statusSuffix}</option>`;
     });
-  }
-
-  // Si se pasó un valor seleccionado (ej: por prellenado o cliente) que no está en las llaves, agregarlo
-  if (selectedVal && !keys.includes(selectedVal)) {
-    const desc = getNcfTypeName(selectedVal);
-    html += `<option value="${selectedVal}" selected>${selectedVal} - ${desc}</option>`;
   }
 
   return html;
 }
+
+function isNcfTypeAvailableForEmission(ncfType) {
+  if (!ncfType) return false;
+  const info = getNextNcfInfo(ncfType);
+  return Boolean(info && info.isConfigured && !info.exhausted && !info.isExpired && info.ncf);
+}
+window.isNcfTypeAvailableForEmission = isNcfTypeAvailableForEmission;
 
 function refreshAllNcfTypeSelects(selectVal = '') {
   const select = document.getElementById('fac-ncf-type-unified');
@@ -244,6 +291,9 @@ function consumeNcfSequence(ncfType) {
   if (seqs[ncfType] && seqs[ncfType].active) {
     seqs[ncfType].current = (parseInt(seqs[ncfType].current, 10) || 1) + 1;
     saveNcfSequences(seqs);
+    if (typeof window.refreshSmartAlerts === 'function') {
+      try { window.refreshSmartAlerts({ notifyNative: true }); } catch (_) {}
+    }
   }
 }
 
@@ -872,15 +922,56 @@ function switchFacturacionTab(tabName) {
 // 4. FACTURA DE VENTA UNIFICADA (Sin Local vs Crédito Fiscal)
 // =============================================
 
-function renderUnifiedFacturaForm() {
-  const materials = typeof getCustomCodes === 'function' ? getCustomCodes() : [];
+function _invNormBranchId(branchId) {
+  if (typeof normalizeBranchId === 'function') return normalizeBranchId(branchId);
+  const clean = branchId == null ? '' : String(branchId).trim();
+  return clean || 'SUC-PRINCIPAL';
+}
+
+function _invResolveBranchName(branchId) {
+  const id = _invNormBranchId(branchId);
+  if (typeof resolveBranchNameById === 'function') return resolveBranchNameById(id);
+  return id === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : id;
+}
+
+function _invGetClients(branchIdOverride = null) {
+  if (typeof getClients === 'function') return getClients(branchIdOverride);
+  const raw = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  if (!Array.isArray(raw)) return [];
+  const target = _invNormBranchId(branchIdOverride || (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL'));
+  return raw.filter(c => c && _invNormBranchId(c.branchId) === target);
+}
+
+function _invGetCustomCodes(branchIdOverride = null) {
+  if (typeof getCustomCodes === 'function') return getCustomCodes(branchIdOverride);
+  const raw = JSON.parse(localStorage.getItem(userKey('recim_material_codes')) || '[]');
+  if (!Array.isArray(raw)) return [];
+  const target = _invNormBranchId(branchIdOverride || (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL'));
+  return raw.filter(c => c && _invNormBranchId(c.branchId) === target);
+}
+
+function renderUnifiedFacturaForm(selectedBranchOverride = null) {
+  const selectedBranchId = _invNormBranchId(
+    selectedBranchOverride ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const branchSelectorHtml = typeof renderBranchSelectorField === 'function'
+    ? renderBranchSelectorField({
+        selectId: 'fac-branch-select-unified',
+        label: '📍 Sucursal',
+        selectedBranchId,
+        onChangeExpr: 'onUnifiedFacturaBranchChange(this.value)'
+      })
+    : '';
+
+  const materials = _invGetCustomCodes(selectedBranchId);
   let datalistHtml = `<datalist id="material-codes-datalist-unified">`;
   materials.forEach(m => {
     datalistHtml += `<option value="${m.code} - ${m.name}">${m.name} (${m.code})</option>`;
   });
   datalistHtml += `</datalist>`;
 
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const clients = _invGetClients(selectedBranchId);
   let clientsDatalistHtml = `<datalist id="clients-datalist-unified">`;
   clients.forEach(c => {
     clientsDatalistHtml += `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`;
@@ -904,8 +995,9 @@ function renderUnifiedFacturaForm() {
       <!-- Banner de Alerta Dinámico NCF (DGII) -->
       <div id="unified-ncf-alert-box"></div>
 
-      <!-- Fila 1: Selección de Cliente Rápido -->
-      <div class="form-row" style="margin-bottom: 15px;">
+      <!-- Fila 1: Sucursal y Selección de Cliente Rápido -->
+      <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 15px;">
+        ${branchSelectorHtml}
         <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label">${t('inv.select_client')}</label>
           <select id="fac-client-select-unified" class="form-select" onchange="autofillClientUnified(this.value)">
@@ -941,8 +1033,8 @@ function renderUnifiedFacturaForm() {
           </select>
         </div>
         <div class="form-group" id="fac-ncf-group-unified" style="display: none;">
-          <label class="form-label">${t('inv.ncf_full')} <span class="text-muted" style="font-size:0.85em; font-weight:normal;">(${t('lbl.optional', 'Opcional')})</span></label>
-          <input id="fac-ncf-unified" type="text" class="form-input" placeholder="${t('inv.ncf_ph')}" maxlength="13" onchange="padNcfUnified(this)" onkeyup="if(event.key==='Enter') padNcfUnified(this)" />
+          <label class="form-label">${t('inv.ncf_full')} <span class="text-muted" style="font-size:0.85em; font-weight:normal;">(Secuencia DGII automática)</span></label>
+          <input id="fac-ncf-unified" type="text" class="form-input" placeholder="${t('inv.ncf_ph')}" maxlength="13" readonly />
         </div>
       </div>
 
@@ -1077,12 +1169,17 @@ function renderUnifiedFacturaForm() {
               if (invoices.length === 0) {
                 return `<tr><td colspan="6" style="text-align: center; color: var(--clr-text-muted); padding: 25px;">No hay facturas registradas aún.</td></tr>`;
               }
-              return invoices.map(inv => `
+              return invoices.map(inv => {
+                const invBranchName = inv.branchName || _invResolveBranchName(inv.branchId);
+                return `
                 <tr>
-                  <td><b>${inv.id}</b></td>
-                  <td>${inv.date || '—'}</td>
-                  <td><span class="badge" style="background:var(--clr-surface-2); color:var(--clr-text-muted); border:1px solid var(--clr-border);">${inv.ncf ? inv.ncf : 'Interna (Sin NCF)'}</span></td>
-                  <td><b>${inv.company || inv.client || '—'}</b> ${inv.nit ? `<span style="font-size:0.8rem; color:var(--clr-text-muted);">(${inv.nit})</span>` : ''}</td>
+                  <td>
+                    <b>${_invEscapeHtml(inv.id)}</b>
+                    <div style="margin-top:3px;"><span class="badge" style="background:rgba(16,185,129,0.14); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-size:0.7rem;">📍 ${_invEscapeHtml(invBranchName)}</span></div>
+                  </td>
+                  <td>${_invEscapeHtml(inv.date || '—')}</td>
+                  <td><span class="badge" style="background:var(--clr-surface-2); color:var(--clr-text-muted); border:1px solid var(--clr-border);">${inv.ncf ? _invEscapeHtml(inv.ncf) : 'Interna (Sin NCF)'}</span></td>
+                  <td><b>${_invEscapeHtml(inv.company || inv.client || '—')}</b> ${inv.nit ? `<span style="font-size:0.8rem; color:var(--clr-text-muted);">(${_invEscapeHtml(inv.nit)})</span>` : ''}</td>
                   <td style="font-weight:700; color:var(--clr-primary);">${formatMoney(inv.total !== undefined ? inv.total : (inv.totalVenta || 0))}</td>
                   <td style="text-align:center;">
                     <div style="display:inline-flex; gap:6px; align-items:center; justify-content:center;">
@@ -1094,7 +1191,8 @@ function renderUnifiedFacturaForm() {
                     </div>
                   </td>
                 </tr>
-              `).join('');
+              `;
+              }).join('');
             })()}
           </tbody>
         </table>
@@ -1107,7 +1205,8 @@ function initUnifiedFacturaForm(prefillData = null) {
   const container = document.getElementById('fac-tab-facturas');
   if (!container) return;
 
-  container.innerHTML = renderUnifiedFacturaForm();
+  const targetBranchId = prefillData?.branchId ? _invNormBranchId(prefillData.branchId) : null;
+  container.innerHTML = renderUnifiedFacturaForm(targetBranchId);
   
   if (prefillData && Array.isArray(prefillData.items) && prefillData.items.length > 0) {
     prefillData.items.forEach(item => addFacEntryRowUnified(item));
@@ -1119,7 +1218,12 @@ function initUnifiedFacturaForm(prefillData = null) {
   const dateEl = document.getElementById('fac-date-unified');
   if (dateEl) dateEl.value = prefillData?.date || today;
 
-  initClientSelectUnified();
+  const branchSelect = document.getElementById('fac-branch-select-unified');
+  if (branchSelect && targetBranchId && !branchSelect.disabled) {
+    branchSelect.value = targetBranchId;
+  }
+
+  initClientSelectUnified(branchSelect ? branchSelect.value : targetBranchId);
 
   if (prefillData) {
     if (prefillData.company) document.getElementById('fac-name-unified').value = prefillData.company;
@@ -1138,12 +1242,15 @@ function initUnifiedFacturaForm(prefillData = null) {
     }
     if (prefillData.ncfType) {
       const ncfEl = document.getElementById('fac-ncf-type-unified');
-      if (ncfEl) ncfEl.value = prefillData.ncfType;
+      if (ncfEl) {
+        ncfEl.value = isNcfTypeAvailableForEmission(prefillData.ncfType) ? prefillData.ncfType : '';
+      }
     } else if (prefillData.nit) {
       const cleanNit = prefillData.nit.replace(/\D/g, '');
       const ncfEl = document.getElementById('fac-ncf-type-unified');
-      if (ncfEl && !ncfEl.value) {
-        ncfEl.value = (cleanNit.length === 9) ? 'B01' : 'B02';
+      const suggested = (cleanNit.length === 9) ? 'B01' : 'B02';
+      if (ncfEl && !ncfEl.value && isNcfTypeAvailableForEmission(suggested)) {
+        ncfEl.value = suggested;
       }
     }
   }
@@ -1155,14 +1262,54 @@ function initUnifiedFacturaForm(prefillData = null) {
 async function deleteUnifiedInvoice(invoiceId) {
   let ok = false;
   if (window.AppDialog && typeof window.AppDialog.confirm === 'function') {
-    ok = await window.AppDialog.confirm('¿Deseas eliminar esta factura permanentemente?', 'Eliminar Factura');
+    ok = await window.AppDialog.confirm('¿Deseas anular y eliminar esta factura? Si tenía un NCF fiscal asignado, quedará registrado en el Formato 608 (Anulados) de la DGII.', 'Anular / Eliminar Factura');
   } else {
-    ok = confirm('¿Deseas eliminar esta factura permanentemente?');
+    ok = confirm('¿Deseas anular y eliminar esta factura?');
   }
   if (!ok) return;
 
-  const invoices = (typeof getAllInvoices === 'function' ? getAllInvoices() : []).filter(i => i.id !== invoiceId);
+  const allInvoices = typeof getAllInvoices === 'function' ? getAllInvoices() : [];
+  const deletedInv = allInvoices.find(i => i && i.id === invoiceId) || null;
+  if (deletedInv && deletedInv.ncf) {
+    _recordCancelledNcfFor608(deletedInv.ncf, deletedInv.id, '02: Errores de impresión / Anulación de factura');
+  }
+
+  const invoices = allInvoices.filter(i => i.id !== invoiceId);
   localStorage.setItem(userKey('recim_invoices'), JSON.stringify(invoices));
+
+  if (deletedInv && typeof window.recordSmartAlertEvent === 'function') {
+    window.recordSmartAlertEvent({
+      type: 'void_delete',
+      severity: 'warning',
+      title: `Factura ${invoiceId} anulada/eliminada`,
+      message: `${deletedInv.company || deletedInv.client || 'Cliente'}${deletedInv.ncf ? ` • NCF ${deletedInv.ncf} enviado al 608` : ''}`,
+      branchId: deletedInv.branchId,
+      branchName: deletedInv.branchName,
+      refId: invoiceId
+    });
+  }
+  if (deletedInv && typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'invoice_delete',
+      entityType: 'invoice',
+      entityId: invoiceId,
+      summary: `Factura eliminada/anulada: ${invoiceId}${deletedInv.ncf ? ` (NCF ${deletedInv.ncf} registrado en 608)` : ''}`,
+      branchId: deletedInv.branchId,
+      branchName: deletedInv.branchName
+    });
+  }
+
+  // Eliminar también el ingreso/egreso automático asociado a esta factura
+  ['recim_ingresos', 'recim_egresos'].forEach(finKey => {
+    try {
+      const finList = JSON.parse(localStorage.getItem(userKey(finKey)) || '[]');
+      const filtered = finList.filter(e => e.ref !== invoiceId && !(e.concept && e.concept.includes(invoiceId)));
+      if (filtered.length !== finList.length) {
+        localStorage.setItem(userKey(finKey), JSON.stringify(filtered));
+      }
+    } catch (_) {}
+  });
+
   if (typeof window.forceSync === 'function') {
     try { window.forceSync(); } catch (_) {}
   }
@@ -1171,11 +1318,16 @@ async function deleteUnifiedInvoice(invoiceId) {
 }
 window.deleteUnifiedInvoice = deleteUnifiedInvoice;
 
-function initClientSelectUnified() {
+function initClientSelectUnified(branchIdOverride = null) {
   const select = document.getElementById('fac-client-select-unified');
   if (!select) return;
 
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const branchId = _invNormBranchId(
+    branchIdOverride ||
+    document.getElementById('fac-branch-select-unified')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const clients = _invGetClients(branchId);
   let options = `<option value="">-- Escribir datos manualmente --</option>`;
   clients.forEach(c => {
     options += `<option value="${c.id}">${c.name} ${c.nit ? '('+c.nit+')' : ''}</option>`;
@@ -1183,9 +1335,82 @@ function initClientSelectUnified() {
   select.innerHTML = options;
 }
 
+function onUnifiedFacturaBranchChange(branchId) {
+  const targetBranchId = _invNormBranchId(branchId);
+  initClientSelectUnified(targetBranchId);
+
+  const clients = _invGetClients(targetBranchId);
+  const clientsDatalist = document.getElementById('clients-datalist-unified');
+  if (clientsDatalist) {
+    clientsDatalist.innerHTML = clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('');
+  }
+
+  const materials = _invGetCustomCodes(targetBranchId);
+  const matDatalist = document.getElementById('material-codes-datalist-unified');
+  if (matDatalist) {
+    matDatalist.innerHTML = materials.map(m => `<option value="${m.code} - ${m.name}">${m.name} (${m.code})</option>`).join('');
+  }
+
+  const nameInput = document.getElementById('fac-name-unified');
+  if (nameInput && nameInput.value.trim()) {
+    const rawClients = typeof getAllClientsRaw === 'function' ? getAllClientsRaw() : clients;
+    const typedLower = nameInput.value.trim().toLowerCase();
+    const inTargetBranch = clients.some(c => c && (c.name || '').trim().toLowerCase() === typedLower);
+    const inOtherBranch = rawClients.some(c => c && (c.name || '').trim().toLowerCase() === typedLower && _invNormBranchId(c.branchId) !== targetBranchId);
+    if (!inTargetBranch && inOtherBranch) {
+      nameInput.value = '';
+      const nitEl = document.getElementById('fac-nit-unified');
+      const addrEl = document.getElementById('fac-address-unified');
+      const contactEl = document.getElementById('fac-contact-unified');
+      if (nitEl) nitEl.value = '';
+      if (addrEl) addrEl.value = '';
+      if (contactEl) contactEl.value = '';
+    }
+  }
+}
+window.onUnifiedFacturaBranchChange = onUnifiedFacturaBranchChange;
+
+function _applySuggestedNcfTypeOrWarn(typeSelect, targetNcf) {
+  if (!typeSelect || !targetNcf) return;
+  const info = getNextNcfInfo(targetNcf);
+  if (info.isConfigured && !info.exhausted && !info.isExpired && info.ncf) {
+    typeSelect.value = targetNcf;
+    handleUnifiedNcfChange();
+  } else {
+    typeSelect.value = '';
+    handleUnifiedNcfChange();
+    const alertBox = document.getElementById('unified-ncf-alert-box');
+    if (alertBox) {
+      if (info.exhausted) {
+        alertBox.innerHTML = `
+          <div class="ncf-danger-banner">
+            🚨 <b>Secuencia ${targetNcf} Agotada (0 disponibles):</b> Se agotaron tus comprobantes <b>${targetNcf}</b> autorizados. Debes solicitar más NCF en la <b>DGII</b> y configurarlos en <b>⚙️ Parametrizaciones NCF</b>. Mientras tanto, solo puedes emitir <b>Factura Sin Comprobante Fiscal</b>.
+          </div>
+        `;
+      } else if (info.isExpired) {
+        alertBox.innerHTML = `
+          <div class="ncf-danger-banner">
+            🚨 <b>Secuencia ${targetNcf} Vencida:</b> La secuencia <b>${targetNcf}</b> venció el <b>${info.seq?.dueDate || ''}</b>. Solicita una nueva autorización en la <b>DGII</b>. Mientras tanto, solo puedes emitir <b>Factura Sin Comprobante Fiscal</b>.
+          </div>
+        `;
+      } else {
+        alertBox.innerHTML = `
+          <div class="ncf-alert-banner">
+            ℹ️ <b>Sin secuencia ${targetNcf} activa:</b> Para emitir comprobantes fiscales <b>${targetNcf}</b> debes registrar tu secuencia autorizada por la DGII en <b>⚙️ Parametrizaciones NCF</b>. Sin secuencia NCF solo se permite facturar <b>Sin Comprobante Fiscal</b>.
+          </div>
+        `;
+      }
+    }
+  }
+}
+
 function autofillClientUnified(clientId) {
   if (!clientId) return;
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const branchId = _invNormBranchId(
+    document.getElementById('fac-branch-select-unified')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const clients = _invGetClients(branchId);
   const client = clients.find(c => c.id === clientId);
   if (client) {
     document.getElementById('fac-name-unified').value = client.name || '';
@@ -1193,7 +1418,7 @@ function autofillClientUnified(clientId) {
     document.getElementById('fac-address-unified').value = client.address || '';
     document.getElementById('fac-contact-unified').value = client.contact || client.phone || '';
     
-    // Asignar automáticamente la secuencia NCF del cliente para facturar rápido y fácil
+    // Asignar la secuencia NCF del cliente solo si tiene secuencia activa y disponible en DGII
     const typeSelect = document.getElementById('fac-ncf-type-unified');
     if (typeSelect) {
       let targetNcf = client.defaultNcf || '';
@@ -1205,16 +1430,7 @@ function autofillClientUnified(clientId) {
         }
       }
       if (targetNcf) {
-        if (!typeSelect.querySelector(`option[value="${targetNcf}"]`)) {
-          const opt = document.createElement('option');
-          opt.value = targetNcf;
-          let desc = getNcfTypeName(targetNcf);
-          desc = desc.replace(/^\d+\s*-\s*/, '').replace(/\s*\([BE]\d+\)$/, '').trim();
-          opt.textContent = `${targetNcf} - ${desc}`;
-          typeSelect.appendChild(opt);
-        }
-        typeSelect.value = targetNcf;
-        handleUnifiedNcfChange();
+        _applySuggestedNcfTypeOrWarn(typeSelect, targetNcf);
       }
     }
   }
@@ -1242,12 +1458,11 @@ async function autoFillInvoiceDGIIUnified() {
     if (data.name) document.getElementById('fac-name-unified').value = data.name;
     if (data.address) document.getElementById('fac-address-unified').value = data.address;
 
-    // Si es RNC de empresa de 9 dígitos, sugerir comprobante fiscal B01
+    // Si es RNC de empresa de 9 dígitos, sugerir B01 solo si hay secuencia B01 disponible
     const cleanId = (data.rnc || val).replace(/\D/g, '');
     const typeSelect = document.getElementById('fac-ncf-type-unified');
     if (typeSelect && cleanId.length === 9 && (!typeSelect.value || typeSelect.value === 'B02')) {
-      typeSelect.value = 'B01';
-      handleUnifiedNcfChange();
+      _applySuggestedNcfTypeOrWarn(typeSelect, 'B01');
     }
 
     showToast(t('inv.rnc_verified'), 'success');
@@ -1283,11 +1498,11 @@ function applyDGIICompanyToInvoice(company) {
   if (nameInput) nameInput.value = company.name;
   if (nitInput) nitInput.value = company.rnc;
 
-  // Auto-seleccionar Factura con Crédito Fiscal (B01) para empresas
   if (typeSelect && (!typeSelect.value || typeSelect.value === 'B02')) {
-    typeSelect.value = 'B01';
+    _applySuggestedNcfTypeOrWarn(typeSelect, 'B01');
+  } else {
+    handleUnifiedNcfChange();
   }
-  handleUnifiedNcfChange();
 
   showToast(`✅ RNC encontrado: ${company.rnc} (${company.name})`, 'success');
 }
@@ -1309,8 +1524,9 @@ function handleUnifiedNcfChange() {
   if (!ncfType) {
     if (ncfInput) {
       ncfInput.value = '';
+      ncfInput.readOnly = true;
       ncfInput.disabled = true;
-      ncfInput.placeholder = 'Sin comprobante';
+      ncfInput.placeholder = 'Sin comprobante fiscal';
     }
     if (taxInput && taxInput.value === '18') {
       taxInput.value = '0';
@@ -1318,44 +1534,52 @@ function handleUnifiedNcfChange() {
   } else {
     if (ncfInput) {
       ncfInput.disabled = false;
+      ncfInput.readOnly = true;
       const ncfInfo = getNextNcfInfo(ncfType);
 
       if (!ncfInfo.isConfigured) {
         ncfInput.value = '';
-        ncfInput.placeholder = `Sin secuencia configurada en Parametrizaciones (Opcional)`;
-      } else if (ncfInfo.exhausted) {
-        ncfInput.value = '';
-        ncfInput.placeholder = '¡Secuencia agotada!';
+        ncfInput.placeholder = 'Sin secuencia autorizada en Inventario NCF';
         if (alertBox) {
           alertBox.innerHTML = `
             <div class="ncf-danger-banner">
-              🚨 <b>Secuencia Agotada (DGII):</b> Se han emitido todos los comprobantes autorizados de tipo <b>${ncfType}</b>. Debes solicitar un nuevo lote en la DGII y configurarlo en <b>⚙️ Parametrizaciones</b>.
+              🚨 <b>Secuencia ${ncfType} no configurada (DGII):</b> No puedes emitir facturas con comprobante fiscal <b>${ncfType}</b> sin una secuencia autorizada. Solicita tus NCF en la DGII y regístralos en <b>⚙️ Parametrizaciones NCF</b>, o selecciona <b>"Sin Comprobante Fiscal"</b>.
+            </div>
+          `;
+        }
+      } else if (ncfInfo.exhausted) {
+        ncfInput.value = '';
+        ncfInput.placeholder = '¡Secuencia agotada (0 disponibles)!';
+        if (alertBox) {
+          alertBox.innerHTML = `
+            <div class="ncf-danger-banner">
+              🚨 <b>Secuencia ${ncfType} Agotada (0 disponibles):</b> Ya se emitieron todos los comprobantes autorizados hasta el límite <b>#${ncfInfo.seq.to}</b>. Debes solicitar más NCF en la <b>DGII (Oficina Virtual)</b> y actualizar tu rango en <b>⚙️ Parametrizaciones NCF</b>, o cambiar el tipo a <b>"Sin Comprobante Fiscal"</b>.
+            </div>
+          `;
+        }
+      } else if (ncfInfo.isExpired) {
+        ncfInput.value = '';
+        ncfInput.placeholder = `¡Secuencia vencida (${ncfInfo.seq.dueDate})!`;
+        if (alertBox) {
+          alertBox.innerHTML = `
+            <div class="ncf-danger-banner">
+              🚨 <b>Secuencia ${ncfType} Vencida (DGII):</b> La autorización de la secuencia <b>${ncfType}</b> venció el <b>${ncfInfo.seq.dueDate}</b>. Es ilegal emitir comprobantes vencidos; solicita un nuevo lote a la DGII o factura <b>"Sin Comprobante Fiscal"</b>.
             </div>
           `;
         }
       } else if (ncfInfo.ncf) {
         ncfInput.value = ncfInfo.ncf;
-        ncfInput.placeholder = `Ej: ${ncfInfo.ncf} (Opcional)`;
+        ncfInput.placeholder = ncfInfo.ncf;
 
-        if (ncfInfo.isExpired) {
-          if (alertBox) {
-            alertBox.innerHTML = `
-              <div class="ncf-danger-banner">
-                🚨 <b>Secuencia Vencida (DGII):</b> La autorización de la secuencia <b>${ncfType}</b> venció el <b>${ncfInfo.seq.dueDate}</b>. Se recomienda renovarla en la DGII.
-              </div>
-            `;
-          }
-        } else if (ncfInfo.remaining !== null && ncfInfo.remaining <= (ncfInfo.alertThreshold || 10)) {
+        if (ncfInfo.remaining !== null && ncfInfo.remaining <= (ncfInfo.alertThreshold || 10)) {
           if (alertBox) {
             alertBox.innerHTML = `
               <div class="ncf-alert-banner">
-                ⚠️ <b>Aviso DGII:</b> Solamente te quedan <b>${ncfInfo.remaining}</b> comprobante(s). Se recomienda ir a la DGII.
+                ⚠️ <b>Aviso DGII:</b> Solamente te quedan <b>${ncfInfo.remaining}</b> comprobante(s) de tipo <b>${ncfType}</b>. Solicita un nuevo lote en la DGII antes de que llegue a cero.
               </div>
             `;
           }
         }
-      } else {
-        ncfInput.placeholder = `Ej: ${ncfType}00000001 (Opcional)`;
       }
     }
 
@@ -1505,20 +1729,39 @@ function saveFacturaUnified() {
 
   const nit = document.getElementById('fac-nit-unified')?.value.trim() || '';
   const ncfType = document.getElementById('fac-ncf-type-unified')?.value || '';
-  const ncfInput = document.getElementById('fac-ncf-unified');
-  if (ncfInput && ncfInput.value.trim()) {
-    padNcfUnified(ncfInput);
-  }
-  const ncf = ncfInput ? ncfInput.value.trim() : '';
+  let ncf = '';
+  let ncfDueDate = '';
 
-  // Validación de ley DGII: Si se emite B01 (Crédito Fiscal), el RNC es mandatorio
-  if (ncfType === 'B01' && !nit) {
-    showToast('❌ Para Comprobantes de Crédito Fiscal (B01) el RNC del cliente es obligatorio según la DGII', 'error');
-    return;
-  }
+  if (ncfType) {
+    const ncfInfo = getNextNcfInfo(ncfType);
+    if (!ncfInfo.isConfigured) {
+      showToast(`❌ No tienes secuencia ${ncfType} configurada. Solicita tus NCF en la DGII y regístralos en ⚙️ Parametrizaciones NCF, o selecciona "Sin Comprobante Fiscal".`, 'error');
+      return;
+    }
+    if (ncfInfo.exhausted) {
+      showToast(`❌ Secuencia ${ncfType} agotada (0 disponibles). Debes solicitar más NCF en la DGII o cambiar el comprobante a "Sin Comprobante Fiscal".`, 'error');
+      return;
+    }
+    if (ncfInfo.isExpired) {
+      showToast(`❌ La secuencia ${ncfType} venció el ${ncfInfo.seq?.dueDate || ''}. Solicita una nueva autorización en la DGII o selecciona "Sin Comprobante Fiscal".`, 'error');
+      return;
+    }
+    ncf = ncfInfo.ncf || '';
+    if (!/^B\d{10}$/.test(ncf) && !/^E\d{12}$/.test(ncf)) {
+      showToast(`❌ Número de comprobante fiscal inválido (${ncf}). Verifica tu rango en ⚙️ Parametrizaciones NCF.`, 'error');
+      return;
+    }
+    ncfDueDate = ncfInfo.seq?.dueDate || '';
 
-  // Comprobar duplicado si se asigna un NCF
-  if (ncf) {
+    // Validación de ley DGII: RNC/Cédula del cliente obligatorio en Crédito Fiscal, Regímenes Especiales y Gubernamentales
+    if (ncfType === 'B01' || ncfType === 'E31' || ncfType === 'B14' || ncfType === 'E44' || ncfType === 'B15' || ncfType === 'E45') {
+      const cleanNit = nit.replace(/\D/g, '');
+      if (cleanNit.length !== 9 && cleanNit.length !== 11) {
+        showToast(`❌ Para comprobantes ${ncfType} el RNC (9 dígitos) o Cédula (11 dígitos) del cliente es obligatorio según la DGII.`, 'error');
+        return;
+      }
+    }
+
     const existingInvoices = getAllInvoices();
     const isDuplicate = existingInvoices.some(inv => inv.ncf && inv.ncf.toUpperCase() === ncf.toUpperCase());
     if (isDuplicate) {
@@ -1532,6 +1775,11 @@ function saveFacturaUnified() {
   const collaborator = document.getElementById('fac-colab-unified')?.value || '';
   const payMethod = document.getElementById('fac-pay-method-unified')?.value || 'Efectivo';
   const notes = document.getElementById('fac-notes-unified')?.value.trim() || '';
+  const branchId = _invNormBranchId(
+    document.getElementById('fac-branch-select-unified')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const branchName = _invResolveBranchName(branchId);
 
   const iscRate = parseFloat(document.getElementById('fac-isc-unified')?.value) || 0;
   const taxRate = parseFloat(document.getElementById('fac-tax-unified')?.value) || 0;
@@ -1549,23 +1797,23 @@ function saveFacturaUnified() {
     id: `FAC-${Date.now()}`,
     type: ncfType === 'B01' ? 'empresa' : 'local',
     typeName: (function() {
+      if (!ncfType) return 'Factura Comercial (Sin Comprobante Fiscal)';
       if (ncfType === 'B01') return 'Factura de Crédito Fiscal';
       if (ncfType === 'B02') return 'Factura de Consumo (Consumidor Final)';
       if (ncfType === 'B03') return 'Nota de Débito';
       if (ncfType === 'B04') return 'Nota de Crédito';
       if (ncfType === 'B14') return 'Regímenes Especiales de Tributación';
       if (ncfType === 'B15') return 'Comprobante Gubernamental';
-      if (ncfType) {
-        let name = getNcfTypeName(ncfType);
-        return name.replace(/^\d+\s*-\s*/, '').replace(/\s*\([BE]\d+\)$/, '').trim();
-      }
-      return 'Factura Estándar';
+      let name = getNcfTypeName(ncfType);
+      return name.replace(/^\d+\s*-\s*/, '').replace(/\s*\([BE]\d+\)$/, '').trim();
     })(),
-    company, nit, ncfType, ncf, address, contact, date, notes,
+    company, nit, ncfType, ncf, ncfDueDate, address, contact, date, notes,
     payMethod,
     items, subtotal: rawSubtotal, taxRate, taxAmount,
     iscRate, iscAmount, retIsrRate, retIsrAmount, retItbisRate, retItbisAmount, total,
     collaborator,
+    branchId,
+    branchName,
     createdAt: new Date().toISOString()
   };
 
@@ -1580,7 +1828,9 @@ function saveFacturaUnified() {
   if (typeof addFinanceEntry === 'function') {
     addFinanceEntry('ingreso', {
       concept: `Venta Factura ${invoice.id} – ${company}${ncf ? ' (' + ncf + ')' : ''}`,
-      amount: total, date, category: 'Ventas', ref: invoice.id
+      amount: total, date, category: 'Ventas', ref: invoice.id,
+      branchId,
+      branchName
     });
   }
 
@@ -1697,18 +1947,37 @@ function saveQuote(quote) {
   const list = getAllQuotes();
   list.unshift(quote);
   localStorage.setItem(userKey('recim_quotes'), JSON.stringify(list));
+  if (typeof window.refreshSmartAlerts === 'function') {
+    try { window.refreshSmartAlerts({ notifyNative: false }); } catch (_) {}
+  }
   if (typeof window.forceSync === 'function') {
     try { window.forceSync(); } catch (_) {}
   }
 }
 
-function initQuotesView() {
+function initQuotesView(selectedBranchOverride = null) {
   const container = document.getElementById('fac-tab-cotizaciones');
   if (!container) return;
 
+  const canSwitch = typeof canCurrentUserSwitchBranches === 'function' ? canCurrentUserSwitchBranches() : true;
+  const branches = typeof getCompanyBranches === 'function' ? getCompanyBranches() : [];
+  const selectedBranchId = _invNormBranchId(
+    selectedBranchOverride ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  if (window.currentQuotesBranchFilter === undefined) {
+    window.currentQuotesBranchFilter = canSwitch ? 'all' : selectedBranchId;
+  }
+  const activeQuoteFilter = canSwitch ? (window.currentQuotesBranchFilter || 'all') : selectedBranchId;
+
   const p = getModuleParams('cotizaciones');
-  const quotes = getAllQuotes();
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const allQuotes = getAllQuotes();
+  const quotes = activeQuoteFilter === 'all'
+    ? allQuotes
+    : allQuotes.filter(q => q && _invNormBranchId(q.branchId) === _invNormBranchId(activeQuoteFilter));
+
+  const clients = _invGetClients(selectedBranchId);
+  const materials = _invGetCustomCodes(selectedBranchId);
 
   let clientOptions = `<option value="">-- Seleccionar cliente o ingresar manualmente --</option>`;
   clients.forEach(c => {
@@ -1716,9 +1985,19 @@ function initQuotesView() {
   });
 
   const clientsDatalistHtml = `<datalist id="quote-clients-datalist">${clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('')}</datalist>`;
+  const materialsDatalistHtml = `<datalist id="quote-materials-datalist">${materials.map(m => `<option value="${m.code} - ${m.name}">${m.name} (${m.code})</option>`).join('')}</datalist>`;
+  const branchSelectorHtml = typeof renderBranchSelectorField === 'function'
+    ? renderBranchSelectorField({
+        selectId: 'quote-branch-select',
+        label: '📍 Sucursal',
+        selectedBranchId,
+        onChangeExpr: 'onQuoteBranchChange(this.value)'
+      })
+    : '';
 
   container.innerHTML = `
     ${clientsDatalistHtml}
+    ${materialsDatalistHtml}
     <div class="card" style="max-width: 960px; margin: 0 auto;">
       <div class="card-header">
         <div>
@@ -1730,8 +2009,9 @@ function initQuotesView() {
       <div style="background: var(--clr-surface-2); padding: 18px; border-radius: var(--r-md); border: 1px solid var(--clr-border); margin-bottom: 25px;">
         <h4 style="margin-top: 0; margin-bottom: 12px; color: var(--clr-text);">Nueva Cotización</h4>
 
-        <!-- Selección de Cliente Rápido -->
-        <div class="form-row" style="margin-bottom: 15px;">
+        <!-- Sucursal y Selección de Cliente Rápido -->
+        <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 15px;">
+          ${branchSelectorHtml}
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">${t('inv.select_client', 'Seleccionar Cliente Registrado')}</label>
             <select id="quote-client-select" class="form-select" onchange="autofillQuoteClient(this.value)">
@@ -1803,9 +2083,20 @@ function initQuotesView() {
       </div>
 
       <!-- Listado de Cotizaciones Emitidas -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
         <h4 style="margin: 0; color: var(--clr-text);">Historial de Cotizaciones</h4>
-        ${quotes.length > 0 ? `<button class="btn-danger" onclick="clearAllQuotes()" style="padding: 4px 10px; font-size: 0.78rem;">🗑️ Borrar Todas</button>` : ''}
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          ${canSwitch && branches.length > 0 ? `
+            <select id="quotes-filter-branch" class="form-select" style="width:auto; min-width:190px; font-size:0.82rem;" onchange="window.currentQuotesBranchFilter = this.value; initQuotesView(document.getElementById('quote-branch-select')?.value || null);">
+              <option value="all" ${activeQuoteFilter === 'all' ? 'selected' : ''}>📍 Todas las sucursales</option>
+              ${branches.map(b => {
+                const bid = _invNormBranchId(b.id);
+                return `<option value="${bid}" ${activeQuoteFilter === bid ? 'selected' : ''}>📍 ${b.name || bid}</option>`;
+              }).join('')}
+            </select>
+          ` : `<span class="badge badge--green" style="font-size:0.75rem;">📍 ${_invResolveBranchName(activeQuoteFilter)}</span>`}
+          ${quotes.length > 0 ? `<button class="btn-danger" onclick="clearAllQuotes()" style="padding: 4px 10px; font-size: 0.78rem;">🗑️ Borrar Todas</button>` : ''}
+        </div>
       </div>
       <div style="overflow-x: auto;">
         <table class="table" style="width: 100%;">
@@ -1822,9 +2113,14 @@ function initQuotesView() {
           <tbody>
             ${quotes.length === 0 ? `
               <tr><td colspan="6" style="text-align: center; color: var(--clr-text-muted); padding: 20px;">No hay cotizaciones registradas aún.</td></tr>
-            ` : quotes.map(q => `
+            ` : quotes.map(q => {
+              const qBranchName = q.branchName || _invResolveBranchName(q.branchId);
+              return `
               <tr>
-                <td><b>${q.id}</b></td>
+                <td>
+                  <b>${q.id}</b>
+                  <div style="margin-top:3px;"><span class="badge" style="background:rgba(16,185,129,0.14); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-size:0.7rem;">📍 ${qBranchName}</span></div>
+                </td>
                 <td>${q.date}</td>
                 <td>${q.client}</td>
                 <td style="font-weight: 600; color: var(--clr-primary);">${formatMoney(q.total)}</td>
@@ -1833,11 +2129,13 @@ function initQuotesView() {
                   <div style="display: flex; gap: 6px;">
                     <button class="btn-primary" onclick="convertQuoteToInvoice('${q.id}')" title="Convertir en Factura" style="padding: 4px 8px; font-size: 0.8rem;">⚡ Facturar</button>
                     <button class="btn-secondary" onclick="printQuotePDF('${q.id}')" title="Descargar PDF" style="padding: 4px 8px; font-size: 0.8rem;">📄</button>
+                    <button class="btn-secondary btn-whatsapp" onclick="shareQuoteViaWhatsApp('${q.id}')" title="Enviar Cotización por WhatsApp" style="padding: 4px 8px; font-size: 0.8rem; background:#25d366; color:#ffffff; border-color:#25d366;">💬</button>
                     <button class="btn-danger" onclick="deleteQuote('${q.id}')" title="Eliminar" style="padding: 4px 8px; font-size: 0.8rem;">🗑️</button>
                   </div>
                 </td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -1846,6 +2144,47 @@ function initQuotesView() {
 
   addQuoteItemRow();
 }
+
+function onQuoteBranchChange(branchId) {
+  const targetBranchId = _invNormBranchId(branchId);
+  const clients = _invGetClients(targetBranchId);
+  const materials = _invGetCustomCodes(targetBranchId);
+
+  const clientSelect = document.getElementById('quote-client-select');
+  if (clientSelect) {
+    let clientOptions = `<option value="">-- Seleccionar cliente o ingresar manualmente --</option>`;
+    clients.forEach(c => {
+      clientOptions += `<option value="${c.id}">${c.name} ${c.nit ? '(' + c.nit + ')' : ''}</option>`;
+    });
+    clientSelect.innerHTML = clientOptions;
+  }
+
+  const clientsDatalist = document.getElementById('quote-clients-datalist');
+  if (clientsDatalist) {
+    clientsDatalist.innerHTML = clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('');
+  }
+
+  const matDatalist = document.getElementById('quote-materials-datalist');
+  if (matDatalist) {
+    matDatalist.innerHTML = materials.map(m => `<option value="${m.code} - ${m.name}">${m.name} (${m.code})</option>`).join('');
+  }
+
+  const clientInput = document.getElementById('quote-client');
+  if (clientInput && clientInput.value.trim()) {
+    const rawClients = typeof getAllClientsRaw === 'function' ? getAllClientsRaw() : clients;
+    const typedLower = clientInput.value.trim().toLowerCase();
+    const inTargetBranch = clients.some(c => c && (c.name || '').trim().toLowerCase() === typedLower);
+    const inOtherBranch = rawClients.some(c => c && (c.name || '').trim().toLowerCase() === typedLower && _invNormBranchId(c.branchId) !== targetBranchId);
+    if (!inTargetBranch && inOtherBranch) {
+      clientInput.value = '';
+      const nitEl = document.getElementById('quote-nit');
+      const contactEl = document.getElementById('quote-contact');
+      if (nitEl) nitEl.value = '';
+      if (contactEl) contactEl.value = '';
+    }
+  }
+}
+window.onQuoteBranchChange = onQuoteBranchChange;
 
 function addQuoteItemRow(prefill = null) {
   const container = document.getElementById('quote-items-container');
@@ -1862,7 +2201,7 @@ function addQuoteItemRow(prefill = null) {
 
   div.innerHTML = `
     <div style="flex: 2 1 200px;">
-      <input type="text" class="form-input q-desc" placeholder="${isService ? 'Descripción del servicio' : 'Descripción del material o servicio'}" value="${prefill?.desc || ''}" style="margin:0;" />
+      <input type="text" class="form-input q-desc" list="quote-materials-datalist" placeholder="${isService ? 'Descripción del servicio' : 'Descripción del material o servicio'}" value="${prefill?.desc || ''}" style="margin:0;" />
     </div>
     <div class="q-qty-wrapper" style="flex: 1 1 80px; ${isService ? 'display: none;' : ''}">
       <input type="number" class="form-input q-qty" placeholder="Cantidad" min="0.01" step="0.01" value="${prefill?.qty || ''}" style="margin:0;" />
@@ -1965,18 +2304,26 @@ function handleSaveQuote() {
     return;
   }
 
+  const branchId = _invNormBranchId(
+    document.getElementById('quote-branch-select')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const branchName = _invResolveBranchName(branchId);
+
   const p = getModuleParams('cotizaciones');
   const quote = {
     id: `${p.prefix || 'COT-'}${Date.now().toString().slice(-6)}`,
     client, nit, date, validityDays, contact, notes,
     isService: isGlobalService,
     items, total,
+    branchId,
+    branchName,
     createdAt: new Date().toISOString()
   };
 
   saveQuote(quote);
   showToast(`✅ Cotización ${quote.id} guardada con éxito`, 'success');
-  initQuotesView();
+  initQuotesView(branchId);
 }
 
 function convertQuoteToInvoice(quoteId) {
@@ -1992,7 +2339,9 @@ function convertQuoteToInvoice(quoteId) {
     notes: `Basado en cotización ${q.id}. ${q.notes || ''}`,
     items: q.items,
     collaborator: q.collaborator || '',
-    payMethod: q.payMethod || 'Efectivo'
+    payMethod: q.payMethod || 'Efectivo',
+    branchId: q.branchId || '',
+    branchName: q.branchName || ''
   });
   showToast(`⚡ Cotización ${q.id} convertida a borrador de factura`, 'info');
 }
@@ -2010,10 +2359,33 @@ function printQuotePDF(quoteId) {
 
 function deleteQuote(quoteId) {
   if (!confirm(`¿Eliminar la cotización ${quoteId}?`)) return;
-  const list = getAllQuotes().filter(q => q.id !== quoteId);
+  const allQuotes = getAllQuotes();
+  const deletedQuote = allQuotes.find(q => q.id === quoteId) || null;
+  const list = allQuotes.filter(q => q.id !== quoteId);
   localStorage.setItem(userKey('recim_quotes'), JSON.stringify(list));
   initQuotesView();
   showToast('Cotización eliminada', 'info');
+  if (typeof window.recordSmartAlertEvent === 'function') {
+    window.recordSmartAlertEvent({
+      type: 'void_delete',
+      severity: 'warning',
+      title: `Cotización ${quoteId} eliminada`,
+      message: `Cliente: ${deletedQuote?.client || 'N/A'}`,
+      branchId: deletedQuote?.branchId,
+      branchName: deletedQuote?.branchName,
+      refId: quoteId
+    });
+  }
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'quote_delete',
+      entityType: 'quote',
+      entityId: quoteId,
+      summary: `Cotización eliminada: ${quoteId} (${deletedQuote?.client || 'N/A'})`,
+      branchId: deletedQuote?.branchId,
+      branchName: deletedQuote?.branchName
+    });
+  }
   if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
 }
 
@@ -2022,6 +2394,14 @@ async function clearAllQuotes() {
   if (!ok) return;
   localStorage.setItem(userKey('recim_quotes'), '[]');
   initQuotesView();
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'quotes_clear_all',
+      entityType: 'quote',
+      entityId: 'ALL',
+      summary: 'Se eliminaron todas las cotizaciones'
+    });
+  }
   showToast('Todas las cotizaciones han sido eliminadas', 'success');
   if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
 }
@@ -2038,7 +2418,11 @@ function autofillQuoteClient(clientId) {
     if (contactInput) contactInput.value = '';
     return;
   }
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const branchId = _invNormBranchId(
+    document.getElementById('quote-branch-select')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const clients = _invGetClients(branchId);
   const client = clients.find(c => c.id === clientId);
   if (client) {
     nameInput.value = client.name || '';
@@ -2149,7 +2533,7 @@ function initDispatchesView() {
   const p = getModuleParams('despachos');
   const dispatches = getAllDispatches();
   const invoices = getAllInvoices();
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const clients = _invGetClients(null);
 
   let clientOptions = `<option value="">-- Seleccionar cliente o ingresar manualmente --</option>`;
   clients.forEach(c => {
@@ -2354,12 +2738,18 @@ function handleSaveDispatch() {
     return;
   }
 
+  const refInv = invoiceRef ? getAllInvoices().find(i => i.id === invoiceRef) : null;
+  const branchId = _invNormBranchId(refInv?.branchId || (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL'));
+  const branchName = refInv?.branchName || _invResolveBranchName(branchId);
+
   const p = getModuleParams('despachos');
   const dispatch = {
     id: `${p.prefix || 'DESP-'}${Date.now().toString().slice(-6)}`,
     destination, address, date, invoiceRef,
     driver, driverId, plate, notes,
     items,
+    branchId,
+    branchName,
     createdAt: new Date().toISOString()
   };
 
@@ -2407,7 +2797,7 @@ function autofillDispatchClient(clientId) {
     if (addrInput) addrInput.value = '';
     return;
   }
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const clients = _invGetClients(null);
   const client = clients.find(c => c.id === clientId);
   if (client) {
     destInput.value = client.name || '';
@@ -2458,7 +2848,7 @@ function initReturnsView() {
   const p = getModuleParams('devoluciones');
   const returns = getAllReturns();
   const invoices = getAllInvoices();
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const clients = _invGetClients(null);
 
   let clientOptions = `<option value="">-- Seleccionar cliente / proveedor o ingresar manualmente --</option>`;
   clients.forEach(c => {
@@ -2613,7 +3003,7 @@ function autofillReturnClient(clientId) {
     clientInput.value = '';
     return;
   }
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const clients = _invGetClients(null);
   const client = clients.find(c => c.id === clientId);
   if (client) {
     clientInput.value = client.name || '';
@@ -2657,11 +3047,17 @@ function handleSaveReturn() {
     return;
   }
 
+  const refInv = invoiceRef ? getAllInvoices().find(i => i.id === invoiceRef) : null;
+  const branchId = _invNormBranchId(refInv?.branchId || (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL'));
+  const branchName = refInv?.branchName || _invResolveBranchName(branchId);
+
   const p = getModuleParams('devoluciones');
   const retDoc = {
     id: `${p.prefix || 'DEV-'}${Date.now().toString().slice(-6)}`,
     client, date, invoiceRef, reason, disposition,
     material, qty, unit, notes,
+    branchId,
+    branchName,
     createdAt: new Date().toISOString()
   };
 
@@ -2730,14 +3126,15 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
   const notes = getAllCreditNotes();
   const invoices = getAllInvoices();
   const ncfInfo = getNextNcfInfo('B04');
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const canEmitB04 = isNcfTypeAvailableForEmission('B04');
+  const clients = _invGetClients(null);
 
   let clientOptions = `<option value="">-- Seleccionar cliente o ingresar manualmente --</option>`;
   clients.forEach(c => {
-    clientOptions += `<option value="${c.id}">${c.name} ${c.nit ? '(' + c.nit + ')' : ''}</option>`;
+    clientOptions += `<option value="${_invEscapeHtml(c.id)}">${_invEscapeHtml(c.name)} ${c.nit ? '(' + _invEscapeHtml(c.nit) + ')' : ''}</option>`;
   });
 
-  const clientsDatalistHtml = `<datalist id="cn-clients-datalist">${clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('')}</datalist>`;
+  const clientsDatalistHtml = `<datalist id="cn-clients-datalist">${clients.map(c => `<option value="${_invEscapeHtml(c.name)}">${c.nit ? _invEscapeHtml(c.nit) : ''}</option>`).join('')}</datalist>`;
 
   container.innerHTML = `
     ${clientsDatalistHtml}
@@ -2755,13 +3152,21 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
       <!-- Alerta si faltan comprobantes de la secuencia autorizada -->
       ${ncfInfo.exhausted ? `
         <div class="ncf-danger-banner">
-          🚨 <b>Secuencia Agotada:</b> Se han terminado los NCF B04 autorizados. Configura un nuevo rango en <b>Parametrizaciones</b>.
+          🚨 <b>Secuencia B04 Agotada (0 disponibles):</b> Se terminaron los NCF B04 autorizados. Solicita un nuevo lote en la <b>DGII</b> y configúralo en <b>Parametrizaciones</b>, o emite como <b>Nota Interna (Sin Comprobante)</b>.
+        </div>
+      ` : (ncfInfo.isExpired ? `
+        <div class="ncf-danger-banner">
+          🚨 <b>Secuencia B04 Vencida:</b> Tu secuencia B04 venció el <b>${_invEscapeHtml(ncfInfo.seq?.dueDate || '')}</b>. Solicita renovación en la DGII o emite como <b>Nota Interna (Sin Comprobante)</b>.
+        </div>
+      ` : (!ncfInfo.isConfigured ? `
+        <div class="ncf-alert-banner">
+          ℹ️ <b>Sin secuencia B04 configurada:</b> Para emitir Notas de Crédito fiscales (B04) registra un rango autorizado por la DGII en <b>Parametrizaciones B04</b>. Sin secuencia solo puedes emitir Notas Internas (Sin Comprobante Fiscal).
         </div>
       ` : (ncfInfo.remaining !== null && ncfInfo.remaining <= 10 ? `
         <div class="ncf-alert-banner">
-          ⚠️ <b>Aviso DGII:</b> Solo quedan <b>${ncfInfo.remaining}</b> comprobante(s) de Nota de Crédito (B04). Se recomienda solicitar un nuevo lote a la DGII.
+          ⚠️ <b>Aviso DGII:</b> Solo quedan <b>${ncfInfo.remaining}</b> comprobante(s) de Nota de Crédito (B04). Solicita un nuevo lote a la DGII antes de llegar a cero.
         </div>
-      ` : '')}
+      ` : '')))}
 
       <div style="background: var(--clr-surface-2); padding: 18px; border-radius: var(--r-md); border: 1px solid var(--clr-border); margin-bottom: 25px;">
         <h4 style="margin-top: 0; margin-bottom: 12px; color: var(--clr-text);">Emitir Nota de Crédito</h4>
@@ -2771,12 +3176,12 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
             <label class="form-label">Factura Afectada / Modificada (Exigido por DGII) <span style="color: #ef4444;">*</span></label>
             <select id="cn-invoice-ref" class="form-select" onchange="autofillCreditNoteFromInvoice(this.value)">
               <option value="">-- Seleccionar Factura Original --</option>
-              ${invoices.map(inv => `<option value="${inv.id}" ${prefill?.invoiceRef === inv.id ? 'selected' : ''}>${inv.id} – ${inv.company} ${inv.ncf ? '(' + inv.ncf + ')' : ''}</option>`).join('')}
+              ${invoices.map(inv => `<option value="${_invEscapeHtml(inv.id)}" ${prefill?.invoiceRef === inv.id ? 'selected' : ''}>${_invEscapeHtml(inv.id)} – ${_invEscapeHtml(inv.company || inv.client || '')} ${inv.ncf ? '(' + _invEscapeHtml(inv.ncf) + ')' : ''}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">NCF Modificado (Original)</label>
-            <input id="cn-ncf-modified" type="text" class="form-input" placeholder="NCF de la factura original" />
+            <label class="form-label">NCF Modificado (Original) <span style="color: #ef4444;">*</span></label>
+            <input id="cn-ncf-modified" type="text" class="form-input" placeholder="NCF o ID de la factura original" />
           </div>
         </div>
 
@@ -2793,7 +3198,7 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
         <div class="form-row" style="grid-template-columns: 2fr 1fr;">
           <div class="form-group">
             <label class="form-label">Cliente / Razón Social <span style="color: #ef4444;">*</span></label>
-            <input id="cn-client" type="text" class="form-input" list="cn-clients-datalist" value="${prefill?.client || ''}" placeholder="Nombre del cliente" />
+            <input id="cn-client" type="text" class="form-input" list="cn-clients-datalist" value="${_invEscapeHtml(prefill?.client || '')}" placeholder="Nombre del cliente" />
           </div>
           <div class="form-group">
             <label class="form-label">RNC / Cédula</label>
@@ -2801,10 +3206,17 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
           </div>
         </div>
 
-        <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+        <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+          <div class="form-group">
+            <label class="form-label" for="cn-ncf-mode">Tipo de Documento</label>
+            <select id="cn-ncf-mode" class="form-select" onchange="onCreditNoteModeChange(this.value)">
+              <option value="B04" ${canEmitB04 ? 'selected' : ''}>B04 - Nota de Crédito Fiscal${canEmitB04 ? ` (${ncfInfo.remaining} disp.)` : ' (No disponible)'}</option>
+              <option value="NONE" ${!canEmitB04 ? 'selected' : ''}>Sin Comprobante Fiscal (Nota de Crédito Interna)</option>
+            </select>
+          </div>
           <div class="form-group">
             <label class="form-label">NCF Nota de Crédito (B04)</label>
-            <input id="cn-ncf" type="text" class="form-input" value="${ncfInfo.ncf || ''}" placeholder="Ej: B0400000001 (Opcional)" />
+            <input id="cn-ncf" type="text" class="form-input" value="${canEmitB04 ? _invEscapeHtml(ncfInfo.ncf) : ''}" placeholder="${canEmitB04 ? 'Secuencia B04 automática' : 'Sin comprobante (Interna)'}" readonly />
           </div>
           <div class="form-group">
             <label class="form-label">Fecha de Emisión</label>
@@ -2825,7 +3237,7 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
         <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr;">
           <div class="form-group">
             <label class="form-label">Concepto del Crédito <span style="color: #ef4444;">*</span></label>
-            <input id="cn-concept" type="text" class="form-input" value="${prefill?.concept || ''}" placeholder="Motivo o detalle del ajuste" />
+            <input id="cn-concept" type="text" class="form-input" value="${_invEscapeHtml(prefill?.concept || '')}" placeholder="Motivo o detalle del ajuste" />
           </div>
           <div class="form-group">
             <label class="form-label">Subtotal a Acreditar <span style="color: #ef4444;">*</span></label>
@@ -2870,15 +3282,15 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
               </tr>
             ` : notes.map(n => `
               <tr>
-                <td><b>${n.id}</b></td>
-                <td><span class="badge" style="background:#ef4444; color:white;">${n.ncf || 'Interna'}</span></td>
-                <td>${n.invoiceRef || '—'} ${n.ncfModified ? '(' + n.ncfModified + ')' : ''}</td>
-                <td>${n.client}</td>
+                <td><b>${_invEscapeHtml(n.id)}</b></td>
+                <td><span class="badge" style="background:#ef4444; color:white;">${_invEscapeHtml(n.ncf || 'Interna')}</span></td>
+                <td>${_invEscapeHtml(n.invoiceRef || '—')} ${n.ncfModified ? '(' + _invEscapeHtml(n.ncfModified) + ')' : ''}</td>
+                <td>${_invEscapeHtml(n.client)}</td>
                 <td style="font-weight: 700; color: #ef4444;">-${formatMoney(n.total)}</td>
                 <td style="text-align: center;">
                   <div style="display: flex; gap: 6px; justify-content: center;">
-                    <button class="btn-secondary" onclick="printCreditNotePDF('${n.id}')" title="Descargar PDF" style="padding: 6px 10px; font-size: 0.85rem;">📄</button>
-                    <button class="btn-danger" onclick="deleteCreditNote('${n.id}')" title="Eliminar" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
+                    <button class="btn-secondary" onclick="printCreditNotePDF('${_invEscapeHtml(n.id)}')" title="Descargar PDF" style="padding: 6px 10px; font-size: 0.85rem;">📄</button>
+                    <button class="btn-danger" onclick="deleteCreditNote('${_invEscapeHtml(n.id)}')" title="Eliminar" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
                   </div>
                 </td>
               </tr>
@@ -2894,6 +3306,25 @@ function initCreditNotesView(prefill = null, targetContainer = null) {
   }
 }
 
+function onCreditNoteModeChange(mode) {
+  const ncfInput = document.getElementById('cn-ncf');
+  if (!ncfInput) return;
+  if (mode === 'NONE') {
+    ncfInput.value = '';
+    ncfInput.placeholder = 'Sin comprobante fiscal (Nota Interna)';
+  } else {
+    const info = getNextNcfInfo('B04');
+    if (info.isConfigured && !info.exhausted && !info.isExpired && info.ncf) {
+      ncfInput.value = info.ncf;
+      ncfInput.placeholder = info.ncf;
+    } else {
+      ncfInput.value = '';
+      ncfInput.placeholder = info.exhausted ? '¡Secuencia B04 agotada!' : 'Sin secuencia B04 activa';
+    }
+  }
+}
+window.onCreditNoteModeChange = onCreditNoteModeChange;
+
 function autofillCreditNoteClient(clientId) {
   const clientInput = document.getElementById('cn-client');
   const nitInput = document.getElementById('cn-nit');
@@ -2903,7 +3334,7 @@ function autofillCreditNoteClient(clientId) {
     if (nitInput) nitInput.value = '';
     return;
   }
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const clients = _invGetClients(null);
   const client = clients.find(c => c.id === clientId);
   if (client) {
     clientInput.value = client.name || '';
@@ -2948,7 +3379,6 @@ function handleSaveCreditNote() {
   const ncfModified = document.getElementById('cn-ncf-modified')?.value.trim();
   const client = document.getElementById('cn-client')?.value.trim();
   const nit = document.getElementById('cn-nit')?.value.trim();
-  const ncf = document.getElementById('cn-ncf')?.value.trim();
   const date = document.getElementById('cn-date')?.value;
   const reason = document.getElementById('cn-reason')?.value;
   const concept = document.getElementById('cn-concept')?.value.trim();
@@ -2956,15 +3386,47 @@ function handleSaveCreditNote() {
   const itbis = parseFloat(document.getElementById('cn-itbis')?.value) || 0;
   const total = subtotal + itbis;
 
+  if (!invoiceRef && !ncfModified) {
+    showToast('❌ Selecciona la Factura Afectada o NCF Modificado (exigido por la DGII)', 'error');
+    return;
+  }
+
   if (!client || !concept || total <= 0) {
     showToast('❌ Completa el cliente, concepto y monto a acreditar', 'error');
     return;
   }
 
+  if (invoiceRef) {
+    const origInv = getAllInvoices().find(i => i && i.id === invoiceRef);
+    if (origInv && total > (parseFloat(origInv.total) || 0) + 0.01) {
+      showToast('❌ El monto de la Nota de Crédito no puede superar el total de la factura original', 'error');
+      return;
+    }
+  }
+
+  const modeEl = document.getElementById('cn-ncf-mode');
+  const rawNcfInput = document.getElementById('cn-ncf')?.value.trim() || '';
+  const mode = modeEl ? modeEl.value : (rawNcfInput ? 'B04' : 'NONE');
+  let ncf = '';
+  let ncfType = '';
+  let ncfDueDate = '';
+
+  if (mode === 'B04') {
+    const ncfInfo = getNextNcfInfo('B04');
+    if (!isNcfTypeAvailableForEmission('B04')) {
+      showToast('❌ Secuencia B04 no disponible o agotada. Solicita más NCF B04 en la DGII o selecciona "Sin Comprobante Fiscal (Nota Interna)".', 'error');
+      return;
+    }
+    ncf = ncfInfo.ncf;
+    ncfType = 'B04';
+    ncfDueDate = ncfInfo.seq?.dueDate || '';
+  }
+
   const cn = {
     id: `NC-${Date.now().toString().slice(-6)}`,
-    ncfType: 'B04',
+    ncfType,
     ncf,
+    ncfDueDate,
     invoiceRef, ncfModified,
     client, nit, date, reason, concept,
     subtotal, itbis, total,
@@ -2974,7 +3436,7 @@ function handleSaveCreditNote() {
   saveCreditNote(cn);
 
   // Consumir NCF de la secuencia autorizada
-  if (ncf && ncf.startsWith('B04')) {
+  if (ncf && ncfType === 'B04') {
     consumeNcfSequence('B04');
   }
 
@@ -3003,10 +3465,36 @@ function printCreditNotePDF(cnId) {
 
 function deleteCreditNote(cnId) {
   if (!confirm(`¿Eliminar la Nota de Crédito ${cnId}?`)) return;
-  const list = getAllCreditNotes().filter(n => n.id !== cnId);
+  const allNotes = getAllCreditNotes();
+  const deletedCn = allNotes.find(n => n.id === cnId) || null;
+  if (deletedCn && deletedCn.ncf) {
+    _recordCancelledNcfFor608(deletedCn.ncf, deletedCn.id, '02: Anulación de Nota de Crédito');
+  }
+  const list = allNotes.filter(n => n.id !== cnId);
   localStorage.setItem(userKey('recim_credit_notes'), JSON.stringify(list));
   initCreditNotesView();
   showToast('Nota de Crédito eliminada', 'info');
+  if (typeof window.recordSmartAlertEvent === 'function') {
+    window.recordSmartAlertEvent({
+      type: 'void_delete',
+      severity: 'warning',
+      title: `Nota de Crédito ${cnId} eliminada`,
+      message: `Cliente: ${deletedCn?.client || 'N/A'}`,
+      branchId: deletedCn?.branchId,
+      branchName: deletedCn?.branchName,
+      refId: cnId
+    });
+  }
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'credit_note_delete',
+      entityType: 'credit_note',
+      entityId: cnId,
+      summary: `Nota de Crédito eliminada: ${cnId}`,
+      branchId: deletedCn?.branchId,
+      branchName: deletedCn?.branchName
+    });
+  }
 }
 
 // =============================================
@@ -3033,14 +3521,15 @@ function initDebitNotesView(targetContainer = null) {
   const notes = getAllDebitNotes();
   const invoices = getAllInvoices();
   const ncfInfo = getNextNcfInfo('B03');
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const canEmitB03 = isNcfTypeAvailableForEmission('B03');
+  const clients = _invGetClients(null);
 
   let clientOptions = `<option value="">-- Seleccionar cliente o ingresar manualmente --</option>`;
   clients.forEach(c => {
-    clientOptions += `<option value="${c.id}">${c.name} ${c.nit ? '(' + c.nit + ')' : ''}</option>`;
+    clientOptions += `<option value="${_invEscapeHtml(c.id)}">${_invEscapeHtml(c.name)} ${c.nit ? '(' + _invEscapeHtml(c.nit) + ')' : ''}</option>`;
   });
 
-  const clientsDatalistHtml = `<datalist id="dn-clients-datalist">${clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('')}</datalist>`;
+  const clientsDatalistHtml = `<datalist id="dn-clients-datalist">${clients.map(c => `<option value="${_invEscapeHtml(c.name)}">${c.nit ? _invEscapeHtml(c.nit) : ''}</option>`).join('')}</datalist>`;
 
   container.innerHTML = `
     ${clientsDatalistHtml}
@@ -3058,13 +3547,21 @@ function initDebitNotesView(targetContainer = null) {
       <!-- Alerta si faltan comprobantes de la secuencia autorizada -->
       ${ncfInfo.exhausted ? `
         <div class="ncf-danger-banner">
-          🚨 <b>Secuencia Agotada:</b> Se han terminado los NCF B03 autorizados. Configura un nuevo rango en <b>Parametrizaciones</b>.
+          🚨 <b>Secuencia B03 Agotada (0 disponibles):</b> Se terminaron los NCF B03 autorizados. Solicita un nuevo lote en la <b>DGII</b> y configúralo en <b>Parametrizaciones</b>, o emite como <b>Nota Interna (Sin Comprobante)</b>.
+        </div>
+      ` : (ncfInfo.isExpired ? `
+        <div class="ncf-danger-banner">
+          🚨 <b>Secuencia B03 Vencida:</b> Tu secuencia B03 venció el <b>${_invEscapeHtml(ncfInfo.seq?.dueDate || '')}</b>. Solicita renovación en la DGII o emite como <b>Nota Interna (Sin Comprobante)</b>.
+        </div>
+      ` : (!ncfInfo.isConfigured ? `
+        <div class="ncf-alert-banner">
+          ℹ️ <b>Sin secuencia B03 configurada:</b> Para emitir Notas de Débito fiscales (B03) registra un rango autorizado por la DGII en <b>Parametrizaciones B03</b>. Sin secuencia solo puedes emitir Notas Internas (Sin Comprobante Fiscal).
         </div>
       ` : (ncfInfo.remaining !== null && ncfInfo.remaining <= 10 ? `
         <div class="ncf-alert-banner">
-          ⚠️ <b>Aviso DGII:</b> Solo quedan <b>${ncfInfo.remaining}</b> comprobante(s) de Nota de Débito (B03). Se recomienda solicitar un nuevo lote a la DGII.
+          ⚠️ <b>Aviso DGII:</b> Solo quedan <b>${ncfInfo.remaining}</b> comprobante(s) de Nota de Débito (B03). Solicita un nuevo lote a la DGII antes de llegar a cero.
         </div>
-      ` : '')}
+      ` : '')))}
 
       <div style="background: var(--clr-surface-2); padding: 18px; border-radius: var(--r-md); border: 1px solid var(--clr-border); margin-bottom: 25px;">
         <h4 style="margin-top: 0; margin-bottom: 12px; color: var(--clr-text);">Emitir Nota de Débito</h4>
@@ -3074,12 +3571,12 @@ function initDebitNotesView(targetContainer = null) {
             <label class="form-label">Factura Afectada / Modificada (Exigido por DGII) <span style="color: #ef4444;">*</span></label>
             <select id="dn-invoice-ref" class="form-select" onchange="autofillDebitNoteFromInvoice(this.value)">
               <option value="">-- Seleccionar Factura Original --</option>
-              ${invoices.map(inv => `<option value="${inv.id}">${inv.id} – ${inv.company} ${inv.ncf ? '(' + inv.ncf + ')' : ''}</option>`).join('')}
+              ${invoices.map(inv => `<option value="${_invEscapeHtml(inv.id)}">${_invEscapeHtml(inv.id)} – ${_invEscapeHtml(inv.company || inv.client || '')} ${inv.ncf ? '(' + _invEscapeHtml(inv.ncf) + ')' : ''}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">NCF Modificado (Original)</label>
-            <input id="dn-ncf-modified" type="text" class="form-input" placeholder="NCF de la factura original" />
+            <label class="form-label">NCF Modificado (Original) <span style="color: #ef4444;">*</span></label>
+            <input id="dn-ncf-modified" type="text" class="form-input" placeholder="NCF o ID de la factura original" />
           </div>
         </div>
 
@@ -3104,10 +3601,17 @@ function initDebitNotesView(targetContainer = null) {
           </div>
         </div>
 
-        <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+        <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+          <div class="form-group">
+            <label class="form-label" for="dn-ncf-mode">Tipo de Documento</label>
+            <select id="dn-ncf-mode" class="form-select" onchange="onDebitNoteModeChange(this.value)">
+              <option value="B03" ${canEmitB03 ? 'selected' : ''}>B03 - Nota de Débito Fiscal${canEmitB03 ? ` (${ncfInfo.remaining} disp.)` : ' (No disponible)'}</option>
+              <option value="NONE" ${!canEmitB03 ? 'selected' : ''}>Sin Comprobante Fiscal (Nota de Débito Interna)</option>
+            </select>
+          </div>
           <div class="form-group">
             <label class="form-label">NCF Nota de Débito (B03)</label>
-            <input id="dn-ncf" type="text" class="form-input" value="${ncfInfo.ncf || ''}" placeholder="Ej: B0300000001 (Opcional)" />
+            <input id="dn-ncf" type="text" class="form-input" value="${canEmitB03 ? _invEscapeHtml(ncfInfo.ncf) : ''}" placeholder="${canEmitB03 ? 'Secuencia B03 automática' : 'Sin comprobante (Interna)'}" readonly />
           </div>
           <div class="form-group">
             <label class="form-label">Fecha de Emisión</label>
@@ -3172,15 +3676,15 @@ function initDebitNotesView(targetContainer = null) {
               </tr>
             ` : notes.map(n => `
               <tr>
-                <td><b>${n.id}</b></td>
-                <td><span class="badge" style="background:var(--clr-primary); color:white;">${n.ncf || 'Interna'}</span></td>
-                <td>${n.invoiceRef || '—'} ${n.ncfModified ? '(' + n.ncfModified + ')' : ''}</td>
-                <td>${n.client}</td>
+                <td><b>${_invEscapeHtml(n.id)}</b></td>
+                <td><span class="badge" style="background:var(--clr-primary); color:white;">${_invEscapeHtml(n.ncf || 'Interna')}</span></td>
+                <td>${_invEscapeHtml(n.invoiceRef || '—')} ${n.ncfModified ? '(' + _invEscapeHtml(n.ncfModified) + ')' : ''}</td>
+                <td>${_invEscapeHtml(n.client)}</td>
                 <td style="font-weight: 700; color: var(--clr-primary);">+${formatMoney(n.total)}</td>
                 <td style="text-align: center;">
                   <div style="display: flex; gap: 6px; justify-content: center;">
-                    <button class="btn-secondary" onclick="printDebitNotePDF('${n.id}')" title="Descargar PDF" style="padding: 6px 10px; font-size: 0.85rem;">📄</button>
-                    <button class="btn-danger" onclick="deleteDebitNote('${n.id}')" title="Eliminar" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
+                    <button class="btn-secondary" onclick="printDebitNotePDF('${_invEscapeHtml(n.id)}')" title="Descargar PDF" style="padding: 6px 10px; font-size: 0.85rem;">📄</button>
+                    <button class="btn-danger" onclick="deleteDebitNote('${_invEscapeHtml(n.id)}')" title="Eliminar" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
                   </div>
                 </td>
               </tr>
@@ -3192,6 +3696,25 @@ function initDebitNotesView(targetContainer = null) {
   `;
 }
 
+function onDebitNoteModeChange(mode) {
+  const ncfInput = document.getElementById('dn-ncf');
+  if (!ncfInput) return;
+  if (mode === 'NONE') {
+    ncfInput.value = '';
+    ncfInput.placeholder = 'Sin comprobante fiscal (Nota Interna)';
+  } else {
+    const info = getNextNcfInfo('B03');
+    if (info.isConfigured && !info.exhausted && !info.isExpired && info.ncf) {
+      ncfInput.value = info.ncf;
+      ncfInput.placeholder = info.ncf;
+    } else {
+      ncfInput.value = '';
+      ncfInput.placeholder = info.exhausted ? '¡Secuencia B03 agotada!' : 'Sin secuencia B03 activa';
+    }
+  }
+}
+window.onDebitNoteModeChange = onDebitNoteModeChange;
+
 function autofillDebitNoteClient(clientId) {
   const clientInput = document.getElementById('dn-client');
   const nitInput = document.getElementById('dn-nit');
@@ -3201,7 +3724,7 @@ function autofillDebitNoteClient(clientId) {
     if (nitInput) nitInput.value = '';
     return;
   }
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+  const clients = _invGetClients(null);
   const client = clients.find(c => c.id === clientId);
   if (client) {
     clientInput.value = client.name || '';
@@ -3244,7 +3767,6 @@ function handleSaveDebitNote() {
   const ncfModified = document.getElementById('dn-ncf-modified')?.value.trim();
   const client = document.getElementById('dn-client')?.value.trim();
   const nit = document.getElementById('dn-nit')?.value.trim();
-  const ncf = document.getElementById('dn-ncf')?.value.trim();
   const date = document.getElementById('dn-date')?.value;
   const reason = document.getElementById('dn-reason')?.value;
   const concept = document.getElementById('dn-concept')?.value.trim();
@@ -3252,15 +3774,39 @@ function handleSaveDebitNote() {
   const itbis = parseFloat(document.getElementById('dn-itbis')?.value) || 0;
   const total = subtotal + itbis;
 
+  if (!invoiceRef && !ncfModified) {
+    showToast('❌ Selecciona la Factura Afectada o NCF Modificado (exigido por la DGII)', 'error');
+    return;
+  }
+
   if (!client || !concept || total <= 0) {
     showToast('❌ Completa el cliente, concepto y monto a debitar', 'error');
     return;
   }
 
+  const modeEl = document.getElementById('dn-ncf-mode');
+  const rawNcfInput = document.getElementById('dn-ncf')?.value.trim() || '';
+  const mode = modeEl ? modeEl.value : (rawNcfInput ? 'B03' : 'NONE');
+  let ncf = '';
+  let ncfType = '';
+  let ncfDueDate = '';
+
+  if (mode === 'B03') {
+    const ncfInfo = getNextNcfInfo('B03');
+    if (!isNcfTypeAvailableForEmission('B03')) {
+      showToast('❌ Secuencia B03 no disponible o agotada. Solicita más NCF B03 en la DGII o selecciona "Sin Comprobante Fiscal (Nota Interna)".', 'error');
+      return;
+    }
+    ncf = ncfInfo.ncf;
+    ncfType = 'B03';
+    ncfDueDate = ncfInfo.seq?.dueDate || '';
+  }
+
   const dn = {
     id: `ND-${Date.now().toString().slice(-6)}`,
-    ncfType: 'B03',
+    ncfType,
     ncf,
+    ncfDueDate,
     invoiceRef, ncfModified,
     client, nit, date, reason, concept,
     subtotal, itbis, total,
@@ -3269,7 +3815,7 @@ function handleSaveDebitNote() {
 
   saveDebitNote(dn);
 
-  if (ncf && ncf.startsWith('B03')) {
+  if (ncf && ncfType === 'B03') {
     consumeNcfSequence('B03');
   }
 
@@ -3297,10 +3843,36 @@ function printDebitNotePDF(dnId) {
 
 function deleteDebitNote(dnId) {
   if (!confirm(`¿Eliminar la Nota de Débito ${dnId}?`)) return;
-  const list = getAllDebitNotes().filter(n => n.id !== dnId);
+  const allNotes = getAllDebitNotes();
+  const deletedDn = allNotes.find(n => n.id === dnId) || null;
+  if (deletedDn && deletedDn.ncf) {
+    _recordCancelledNcfFor608(deletedDn.ncf, deletedDn.id, '02: Anulación de Nota de Débito');
+  }
+  const list = allNotes.filter(n => n.id !== dnId);
   localStorage.setItem(userKey('recim_debit_notes'), JSON.stringify(list));
   initDebitNotesView();
   showToast('Nota de Débito eliminada', 'info');
+  if (typeof window.recordSmartAlertEvent === 'function') {
+    window.recordSmartAlertEvent({
+      type: 'void_delete',
+      severity: 'warning',
+      title: `Nota de Débito ${dnId} eliminada`,
+      message: `Cliente: ${deletedDn?.client || 'N/A'}`,
+      branchId: deletedDn?.branchId,
+      branchName: deletedDn?.branchName,
+      refId: dnId
+    });
+  }
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'debit_note_delete',
+      entityType: 'debit_note',
+      entityId: dnId,
+      summary: `Nota de Débito eliminada: ${dnId}`,
+      branchId: deletedDn?.branchId,
+      branchName: deletedDn?.branchName
+    });
+  }
 }
 
 // =============================================
@@ -3311,6 +3883,20 @@ function saveInvoice(invoice) {
   const invoices = getAllInvoices();
   invoices.unshift(invoice);
   localStorage.setItem(userKey('recim_invoices'), JSON.stringify(invoices));
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: invoice?.type === 'basica' ? 'bitacora_create' : 'invoice_create',
+      entityType: 'invoice',
+      entityId: invoice?.id || '',
+      summary: `${invoice?.type === 'basica' ? 'Bitácora' : 'Factura'} creada: ${invoice?.id || ''} (${invoice?.company || invoice?.client || 'Cliente'})`,
+      branchId: invoice?.branchId,
+      branchName: invoice?.branchName,
+      details: { ncf: invoice?.ncf || '', total: invoice?.total || invoice?.totalCompra || 0 }
+    });
+  }
+  if (typeof window.refreshSmartAlerts === 'function') {
+    try { window.refreshSmartAlerts({ notifyNative: true }); } catch (_) {}
+  }
   if (typeof window.forceSync === 'function') {
     try { window.forceSync(); } catch (_) {}
   }
@@ -3340,11 +3926,12 @@ function getCompanyInfoForInvoices() {
     if (shared.companyName) name = shared.companyName;
   } catch (_) {}
 
-  if (!name) name = 'Reciminsa SRL';
-  if (!rnc) rnc = '133250233';
-
-  const clean = String(rnc).replace(/\D/g, '');
-  return { rnc: clean, formattedRnc: clean, name };
+  const clean = String(rnc || '').trim();
+  return {
+    rnc: clean,
+    formattedRnc: clean || 'Sin RNC',
+    name: String(name || '').trim() || 'Empresa sin configurar'
+  };
 }
 
 /**
@@ -3354,6 +3941,7 @@ function renderInvoicesPage(container, initialTab = 'cotizaciones') {
   const comp = getCompanyInfoForInvoices();
   const safeTab = (initialTab === 'nota_credito' || initialTab === 'nota_debito') ? 'facturas' : (initialTab || 'cotizaciones');
   window._currentFacturacionTab = safeTab;
+  const esc = window.escapeHtml || (v => String(v == null ? '' : v));
 
   container.innerHTML = `
     <div class="page-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
@@ -3365,10 +3953,10 @@ function renderInvoicesPage(container, initialTab = 'cotizaciones') {
         <div style="background: var(--clr-surface-2, #172017); border: 1px solid var(--clr-border, rgba(34, 197, 94, 0.2)); padding: 6px 14px; border-radius: 8px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);">
           <span style="font-size: 1.15rem; line-height: 1;">🏢</span>
           <div style="text-align: right;">
-            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--clr-text-muted, #9ca3af); font-weight: 700; letter-spacing: 0.03em;">${comp.name}</div>
+            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--clr-text-muted, #9ca3af); font-weight: 700; letter-spacing: 0.03em;">${esc(comp.name)}</div>
             <div style="display: flex; align-items: center; gap: 6px; justify-content: flex-end;">
               <span style="font-size: 0.72rem; color: var(--clr-text-secondary, #9ca3af); font-weight: 600;">RNC:</span>
-              <code style="font-weight: 800; color: var(--clr-primary, #22c55e); font-size: 0.92rem; letter-spacing: 0.5px;">${comp.formattedRnc}</code>
+              <code style="font-weight: 800; color: var(--clr-primary, #22c55e); font-size: 0.92rem; letter-spacing: 0.5px;">${esc(comp.formattedRnc)}</code>
             </div>
           </div>
         </div>

@@ -4,16 +4,22 @@
    Permite consultar RNC, Cédula o Razón Social.
    ============================================= */
 
-// Proveedor 1: Megaplus API (Pública / Sin token obligatorio)
-const MEGAPLUS_API_BASE_URL = 'https://rnc.megaplus.com.do/api';
+// Proveedor 1: Megaplus API (Resuelta desde bóveda en memoria / proxy)
+function _getMegaplusBaseUrl() {
+    return (typeof _unlockVaultSecret === 'function' && _unlockVaultSecret('DGII_MEGA_URL')) || '';
+}
 
-// Proveedor 2: Dominican Technology API (Respaldo con token)
-const DGII_API_TOKEN = 'dgii_41346f9633e04c1287001ec8aa0fde4b';
-const DGII_API_BASE_URL = 'https://api-dgii.dominicantechnology.com/api/v1';
+// Proveedor 2: Dominican Technology API (Respaldo con token protegido en bóveda / proxy)
+function _getDgiiDomBaseUrl() {
+    return (typeof _unlockVaultSecret === 'function' && _unlockVaultSecret('DGII_DOM_URL')) || '';
+}
+function _getDgiiDomToken() {
+    return (typeof _unlockVaultSecret === 'function' && _unlockVaultSecret('DGII_TOKEN')) || '';
+}
 
 /**
  * Obtiene la URL para consultar Megaplus. Si se ejecuta en localhost,
- * usa el proxy local del dev-server para evitar bloqueos de CORS en el navegador.
+ * usa el proxy local del dev-server para evitar bloqueos de CORS y ocultar la API externa.
  */
 function getMegaplusQueryUrl(endpoint, params) {
     const isLocalhost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -22,7 +28,7 @@ function getMegaplusQueryUrl(endpoint, params) {
         const origin = window.location.origin || `http://${window.location.hostname}:${window.location.port || 3000}`;
         return `${origin}/api/dgii-megaplus?${qs}`;
     }
-    return `${MEGAPLUS_API_BASE_URL}/${endpoint}?${qs}`;
+    return `${_getMegaplusBaseUrl()}/${endpoint}?${qs}`;
 }
 
 /**
@@ -96,13 +102,17 @@ async function queryMegaplusByName(term) {
  */
 async function queryDominicanTechByRNC(cleanId) {
     try {
-        const url = `${DGII_API_BASE_URL}/rnc/${cleanId}`;
+        const isLocalhost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const url = isLocalhost
+            ? `${window.location.origin}/api/dgii-domtech?rnc=${encodeURIComponent(cleanId)}`
+            : `${_getDgiiDomBaseUrl()}/rnc/${cleanId}`;
+        const headers = { 'Accept': 'application/json' };
+        if (!isLocalhost) {
+            headers['Authorization'] = `Bearer ${_getDgiiDomToken()}`;
+        }
         const res = await fetch(url, {
             method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${DGII_API_TOKEN}`,
-                'Accept': 'application/json'
-            }
+            headers
         });
 
         if (!res.ok) return null;
@@ -134,16 +144,21 @@ async function queryDominicanTechByRNC(cleanId) {
  */
 async function queryDominicanTechByName(term) {
     try {
-        const url = term.length >= 4 
-            ? `${DGII_API_BASE_URL}/buscardgi?q=${encodeURIComponent(term)}`
-            : `${DGII_API_BASE_URL}/buscar?q=${encodeURIComponent(term)}`;
+        const isLocalhost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const baseUrl = _getDgiiDomBaseUrl();
+        const url = isLocalhost
+            ? `${window.location.origin}/api/dgii-domtech?q=${encodeURIComponent(term)}`
+            : (term.length >= 4
+                ? `${baseUrl}/buscardgi?q=${encodeURIComponent(term)}`
+                : `${baseUrl}/buscar?q=${encodeURIComponent(term)}`);
 
+        const headers = { 'Accept': 'application/json' };
+        if (!isLocalhost) {
+            headers['Authorization'] = `Bearer ${_getDgiiDomToken()}`;
+        }
         const res = await fetch(url, {
             method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${DGII_API_TOKEN}`,
-                'Accept': 'application/json'
-            }
+            headers
         });
 
         if (!res.ok) return [];
@@ -187,7 +202,9 @@ async function fetchDGIIData(query) {
     const cleanId = trimmed.replace(/\D/g, ''); // Solo números
 
     // 1. Revisar si ya está guardado en el directorio local de clientes
-    const localClients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+    const localClients = (typeof getClients === 'function')
+        ? getClients()
+        : JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
     const localMatch = localClients.find(c => {
         if (cleanId && c.nit) {
             return c.nit.replace(/\D/g, '') === cleanId;
@@ -282,7 +299,9 @@ async function searchDGIICompanies(query) {
     }
 
     // 1. Revisar primero en la base local de clientes
-    const localClients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+    const localClients = (typeof getClients === 'function')
+        ? getClients()
+        : JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
     const localMatches = localClients.filter(c => c.name && c.name.toLowerCase().includes(trimmed.toLowerCase())).map(c => ({
         rnc: c.nit || '',
         formattedRnc: c.nit || '',
@@ -340,6 +359,7 @@ function openDGIICompanyPickerModal(companies, onSelect) {
         modal = document.createElement('div');
         modal.id = 'dgii-company-picker-modal';
         modal.className = 'modal-overlay';
+        modal.style.zIndex = '100000';
         document.body.appendChild(modal);
     }
 
@@ -354,27 +374,30 @@ function openDGIICompanyPickerModal(companies, onSelect) {
             </div>
 
             <div class="modal-body" style="padding: 16px 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px;">
-                ${companies.map((c, idx) => `
+                ${companies.map((c, idx) => {
+                    const esc = window.escapeHtml || (v => String(v == null ? '' : v));
+                    return `
                     <div class="card" style="padding: 12px 14px; margin: 0; cursor: pointer; transition: transform 0.15s, border-color 0.15s; border: 1px solid var(--clr-border); background: var(--clr-surface-2); display: flex; justify-content: space-between; align-items: center; gap: 12px;"
                          onclick="selectDGIICompanyItem(${idx})">
                         <div style="flex: 1;">
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <span style="font-weight: 700; font-size: 0.95rem; color: var(--clr-text);">${c.name}</span>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: var(--clr-text);">${esc(c.name)}</span>
                                 <span class="badge" style="background: ${c.status === 'ACTIVO' ? '#10b981' : '#f59e0b'}; color: white; font-size: 0.7rem; padding: 2px 7px; border-radius: 10px;">
-                                    ${c.status}
+                                    ${esc(c.status)}
                                 </span>
                                 ${c.isRST ? '<span class="badge" style="background: #3b82f6; color: white; font-size: 0.7rem; padding: 2px 7px; border-radius: 10px;">RST</span>' : ''}
                             </div>
                             <div style="font-size: 0.82rem; color: var(--clr-text-muted); margin-top: 4px;">
-                                <span style="color: var(--clr-primary); font-weight: 600;">RNC: ${c.rnc}</span>
-                                ${c.tradeName && c.tradeName !== c.name ? ` • <i>${c.tradeName}</i>` : ''}
+                                <span style="color: var(--clr-primary); font-weight: 600;">RNC: ${esc(c.rnc)}</span>
+                                ${c.tradeName && c.tradeName !== c.name ? ` • <i>${esc(c.tradeName)}</i>` : ''}
                             </div>
                         </div>
                         <button class="btn-primary" style="margin: 0; padding: 6px 12px; font-size: 0.8rem; white-space: nowrap;" type="button">
                             Seleccionar
                         </button>
                     </div>
-                `).join('')}
+                `;
+                }).join('')}
             </div>
 
             <div class="modal-footer" style="padding: 12px 20px; border-top: 1px solid var(--clr-border); display: flex; justify-content: flex-end;">

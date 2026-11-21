@@ -3077,13 +3077,17 @@ input[type="date"].form-input {
     background: rgba(0, 0, 0, 0.75);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    z-index: 10000;
+    z-index: 100050;
     opacity: 0;
+    pointer-events: none;
+    overscroll-behavior: contain;
+    touch-action: none;
     transition: opacity 0.25s ease;
 }
 
 .mobile-select-backdrop.visible {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .mobile-select-sheet {
@@ -3096,9 +3100,10 @@ input[type="date"].form-input {
     border-top: 1px solid rgba(34, 197, 94, 0.35);
     border-radius: 24px 24px 0 0;
     box-shadow: 0 -12px 45px rgba(0, 0, 0, 0.85), 0 0 35px rgba(16, 185, 129, 0.15);
-    z-index: 10001;
+    z-index: 100051;
     display: flex;
     flex-direction: column;
+    pointer-events: none;
     transform: translateY(100%);
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     padding-bottom: calc(18px + var(--safe-area-bottom));
@@ -3106,6 +3111,7 @@ input[type="date"].form-input {
 
 .mobile-select-sheet.visible {
     transform: translateY(0);
+    pointer-events: auto;
 }
 
 .mobile-select-handle {
@@ -3179,6 +3185,8 @@ input[type="date"].form-input {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -3931,6 +3939,329 @@ input[type="date"].form-input {
 }
 .is-mobile-device .page {
     padding: 16px 14px 96px 14px !important;
+}
+
+/* =============================================
+   SMART NOTIFICATIONS CENTER (TOPBAR BELL + PANEL)
+   ============================================= */
+.topbar-alerts-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-alerts-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--clr-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--clr-text);
+    cursor: pointer;
+    font-size: 1.05rem;
+    transition: all 0.2s ease;
+}
+
+.topbar-alerts-btn:hover {
+    border-color: var(--clr-primary);
+    background: rgba(16, 185, 129, 0.12);
+}
+
+.topbar-alerts-btn.has-critical {
+    border-color: rgba(239, 68, 68, 0.55);
+    animation: alertBellPulse 2.2s infinite;
+}
+
+@keyframes alertBellPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
+    50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+.topbar-alerts-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 18px;
+    text-align: center;
+    border: 2px solid #0a0f0a;
+    box-sizing: border-box;
+}
+
+.topbar-alerts-badge.hidden {
+    display: none !important;
+}
+
+.smart-alerts-panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 370px;
+    max-width: calc(100vw - 24px);
+    max-height: 74vh;
+    background: linear-gradient(175deg, #101d15 0%, #09110c 100%);
+    border: 1px solid rgba(52, 211, 153, 0.32);
+    border-radius: 16px;
+    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    z-index: 9500;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.smart-alerts-panel.hidden {
+    display: none !important;
+}
+
+.smart-alerts-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.smart-alerts-header-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #ecfdf5;
+}
+
+.smart-alerts-mark-all {
+    background: none;
+    border: none;
+    color: #34d399;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+}
+
+.smart-alerts-close-btn {
+    background: rgba(255, 255, 255, 0.07);
+    border: none;
+    color: #94a3b8;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.smart-alerts-list {
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 58vh;
+}
+
+.smart-alerts-empty {
+    text-align: center;
+    padding: 28px 14px;
+}
+
+.smart-alert-item {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left-width: 4px;
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.smart-alert-item.is-read {
+    opacity: 0.72;
+}
+
+.smart-alert-item.severity-critical {
+    border-left-color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.smart-alert-item.severity-warning {
+    border-left-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.07);
+}
+
+.smart-alert-item.severity-info {
+    border-left-color: #10b981;
+}
+
+.smart-alert-item-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.smart-alert-sev {
+    font-size: 0.64rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
+}
+
+.smart-alert-sev.sev-critical {
+    background: rgba(239, 68, 68, 0.22);
+    color: #fca5a5;
+}
+
+.smart-alert-sev.sev-warning {
+    background: rgba(245, 158, 11, 0.22);
+    color: #fcd34d;
+}
+
+.smart-alert-sev.sev-info {
+    background: rgba(16, 185, 129, 0.2);
+    color: #6ee7b7;
+}
+
+.smart-alert-branch {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.smart-alert-dismiss {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px 4px;
+}
+
+.smart-alert-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.smart-alert-msg {
+    font-size: 0.76rem;
+    color: #cbd5e1;
+    line-height: 1.38;
+}
+
+.smart-alert-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.smart-alert-go {
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #6ee7b7;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.is-mobile-device .smart-alerts-panel {
+    position: fixed;
+    top: calc(58px + var(--safe-area-top));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+}
+
+/* =============================================
+   TOPBAR SYNC STATUS PILL & OFFLINE QUEUE POPOVER
+   ============================================= */
+.topbar-sync-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-sync-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: #e2e8f0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.topbar-sync-pill:hover {
+    border-color: var(--clr-primary);
+    background: rgba(16, 185, 129, 0.12);
+}
+
+.topbar-sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    flex-shrink: 0;
+}
+
+.topbar-sync-pill[data-sync-status="syncing"] .topbar-sync-dot {
+    animation: alertBellPulse 1.4s infinite;
+}
+
+.sync-status-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 310px;
+    max-width: calc(100vw - 24px);
+    padding: 14px;
+    border-radius: 14px;
+    background: linear-gradient(175deg, #101d15 0%, #09110c 100%);
+    border: 1px solid rgba(52, 211, 153, 0.32);
+    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.78);
+    z-index: 9500;
+}
+
+.sync-status-popover.hidden {
+    display: none !important;
+}
+
+.is-mobile-device .topbar-sync-label {
+    max-width: 86px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.is-mobile-device .sync-status-popover {
+    position: fixed;
+    top: calc(58px + var(--safe-area-top));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
 }
 
 

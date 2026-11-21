@@ -5,6 +5,16 @@
 (function () {
     'use strict';
 
+    // Helper global reutilizable para escapar HTML y prevenir XSS en plantillas DOM
+    window.escapeHtml = window.escapeHtml || function (val) {
+        return String(val == null ? '' : val)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
     // ==========================================
     // 1. APPLOGGER (Sistema de Logs Interno)
     // ==========================================
@@ -201,7 +211,7 @@
                 const cancelBtn = document.getElementById('native-dialog-cancel-btn');
 
                 titleEl.textContent = title;
-                bodyEl.innerHTML = message.replace(/\n/g, '<br>');
+                bodyEl.innerHTML = window.escapeHtml(String(message == null ? '' : message)).replace(/\n/g, '<br>');
 
                 iconBg.className = 'native-dialog-icon-wrapper ' + type;
                 if (type === 'danger' || type === 'error') {
@@ -310,20 +320,21 @@
         patchWindowDialogs() {
             const self = this;
 
-            window.alert = function (msg, title) {
-                return self.alert(String(msg), title);
-            };
+            if (!window._nativeBrowserConfirm && typeof window.confirm === 'function') {
+                window._nativeBrowserConfirm = window.confirm.bind(window);
+            }
+            if (!window._nativeBrowserAlert && typeof window.alert === 'function') {
+                window._nativeBrowserAlert = window.alert.bind(window);
+            }
 
-            window.confirm = function (msg, title) {
+            // Mantener window.confirm sincrono nativo para no romper los callers con `if (!confirm(...)) return;`
+            // (una Promise siempre es truthy y ejecutaba borrados destructivos sin esperar confirmacion).
+            window.nativeConfirm = function (msg, title) {
                 return self.confirm(String(msg), title);
             };
 
-            window.nativeConfirm = function (msg, title) {
-                return self.confirm(msg, title);
-            };
-
             window.nativeAlert = function (msg, title) {
-                return self.alert(msg, title);
+                return self.alert(String(msg), title);
             };
         }
     }

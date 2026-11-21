@@ -12,12 +12,43 @@ function switchBitacoraTab(tabName) {
   if (content) content.classList.add('active');
 }
 
+function _bitNormBranchId(branchId) {
+  if (typeof normalizeBranchId === 'function') return normalizeBranchId(branchId);
+  const clean = branchId == null ? '' : String(branchId).trim();
+  return clean || 'SUC-PRINCIPAL';
+}
+
+function _bitResolveBranchName(branchId) {
+  const id = _bitNormBranchId(branchId);
+  if (typeof resolveBranchNameById === 'function') return resolveBranchNameById(id);
+  return id === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : id;
+}
+
+function _getFilteredBasicInvoicesForCount() {
+  const canSwitch = typeof canCurrentUserSwitchBranches === 'function' ? canCurrentUserSwitchBranches() : true;
+  if (window.currentBitacoraCountBranchFilter === undefined) {
+    window.currentBitacoraCountBranchFilter = canSwitch
+      ? 'all'
+      : _bitNormBranchId(typeof getUserAssignedBranch === 'function' ? getUserAssignedBranch().id : 'SUC-PRINCIPAL');
+  }
+  const activeFilter = canSwitch
+    ? (window.currentBitacoraCountBranchFilter || 'all')
+    : _bitNormBranchId(typeof getUserAssignedBranch === 'function' ? getUserAssignedBranch().id : 'SUC-PRINCIPAL');
+
+  const allBasic = getAllInvoices().filter(i => i && i.type === 'basica');
+  if (activeFilter === 'all') return allBasic;
+  return allBasic.filter(i => _bitNormBranchId(i.branchId) === _bitNormBranchId(activeFilter));
+}
+window._getFilteredBasicInvoicesForCount = _getFilteredBasicInvoicesForCount;
+
 // =============================================
 // TAB 1: CONTEO DE BITÁCORAS
 // =============================================
 function renderCountTab() {
-  const invoices = getAllInvoices();
-  const basicInvoices = invoices.filter(i => i.type === 'basica');
+  const canSwitch = typeof canCurrentUserSwitchBranches === 'function' ? canCurrentUserSwitchBranches() : true;
+  const branches = typeof getCompanyBranches === 'function' ? getCompanyBranches() : [];
+  const basicInvoices = _getFilteredBasicInvoicesForCount();
+  const activeFilter = window.currentBitacoraCountBranchFilter || 'all';
 
   const materialTotals = {};
   basicInvoices.forEach(inv => {
@@ -62,8 +93,19 @@ function renderCountTab() {
       </div>
     </div>
 
-    <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
-      <button class="btn-secondary" onclick="exportBitacorasListToExcel(getAllInvoices().filter(i => i.type === 'basica'))">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        ${canSwitch && branches.length > 0 ? `
+          <select id="bitacora-count-branch-filter" class="form-select" style="width:auto; min-width:200px;" onchange="window.currentBitacoraCountBranchFilter = this.value; refreshBitacoraCountTab();">
+            <option value="all" ${activeFilter === 'all' ? 'selected' : ''}>📍 Todas las sucursales</option>
+            ${branches.map(b => {
+              const bid = _bitNormBranchId(b.id);
+              return `<option value="${bid}" ${activeFilter === bid ? 'selected' : ''}>📍 ${b.name || bid}</option>`;
+            }).join('')}
+          </select>
+        ` : `<span class="badge badge--green" style="font-size:0.78rem; padding:5px 10px;">📍 ${_bitResolveBranchName(activeFilter)}</span>`}
+      </div>
+      <button class="btn-secondary" onclick="exportBitacorasListToExcel(_getFilteredBasicInvoicesForCount())">
         📊 Exportar Bitácora a Excel
       </button>
     </div>
@@ -96,6 +138,19 @@ function renderCountTab() {
 // TAB 2: CREACIÓN DE BITÁCORAS
 // =============================================
 function renderBasicForm() {
+  const selectedBranchId = _bitNormBranchId(typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL');
+  const branchSelectorHtml = typeof renderBranchSelectorField === 'function'
+    ? renderBranchSelectorField({
+        selectId: 'basic-branch-select',
+        label: '📍 Sucursal',
+        selectedBranchId,
+        onChangeExpr: 'onBasicBranchChange(this.value)'
+      })
+    : '';
+  const clients = typeof getClients === 'function'
+    ? getClients(selectedBranchId)
+    : JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+
   return `
     <div class="card" style="max-width: 950px; margin: 0 auto;">
       <div class="card-header">
@@ -103,7 +158,8 @@ function renderBasicForm() {
         <p class="card-subtitle">${t('inv.basic_sub')}</p>
       </div>
 
-      <div class="form-row" style="margin-bottom: 15px;">
+      <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 15px;">
+        ${branchSelectorHtml}
         <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label">${t('inv.select_client')}</label>
           <select id="basic-client-select" class="form-select" onchange="autofillBasicClient(this.value)">
@@ -117,10 +173,7 @@ function renderBasicForm() {
           <label class="form-label">${t('lbl.client')}</label>
           <input id="basic-client" type="text" class="form-input" list="basic-clients-datalist" placeholder="Nombre completo" />
           <datalist id="basic-clients-datalist">
-            ${(function() {
-              const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
-              return clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('');
-            })()}
+            ${clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('')}
           </datalist>
         </div>
         <div class="form-group">
@@ -168,20 +221,73 @@ function renderBasicForm() {
   `;
 }
 
-function populateBasicClientSelect() {
+function populateBasicClientSelect(branchIdOverride = null) {
   const select = document.getElementById('basic-client-select');
   if (!select) return;
-  
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
-  
+
+  const branchId = _bitNormBranchId(
+    branchIdOverride ||
+    document.getElementById('basic-branch-select')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const clients = typeof getClients === 'function'
+    ? getClients(branchId)
+    : JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+
   let options = `<option value="">-- Escribir datos manualmente --</option>`;
   clients.forEach(c => {
     const typeLabel = c.type === 'empresa' ? 'Empresa' : 'Persona';
     options += `<option value="${c.id}">${c.name} (${typeLabel}${c.nit ? ' - ' + c.nit : ''})</option>`;
   });
-  
+
   select.innerHTML = options;
 }
+
+function onBasicBranchChange(branchId) {
+  const targetBranchId = _bitNormBranchId(branchId);
+  populateBasicClientSelect(targetBranchId);
+
+  const branchClients = typeof getClients === 'function' ? getClients(targetBranchId) : [];
+  const datalist = document.getElementById('basic-clients-datalist');
+  if (datalist) {
+    datalist.innerHTML = branchClients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('');
+  }
+
+  const clientInput = document.getElementById('basic-client');
+  if (clientInput && clientInput.value.trim()) {
+    const rawClients = typeof getAllClientsRaw === 'function' ? getAllClientsRaw() : branchClients;
+    const typedLower = clientInput.value.trim().toLowerCase();
+    const inTargetBranch = branchClients.some(c => c && (c.name || '').trim().toLowerCase() === typedLower);
+    const inOtherBranch = rawClients.some(c => c && (c.name || '').trim().toLowerCase() === typedLower && _bitNormBranchId(c.branchId) !== targetBranchId);
+    if (!inTargetBranch && inOtherBranch) {
+      clientInput.value = '';
+    }
+  }
+
+  const branchMats = typeof getMaterialCodes === 'function' ? getMaterialCodes(targetBranchId) : [];
+  const matOptions = `<option value="" disabled selected>Seleccionar...</option>` +
+    branchMats.map(m => `<option value="${m.id}">${m.icon} ${m.name}</option>`).join('');
+
+  document.querySelectorAll('#basic-items-entry-container .bitacora-row').forEach(row => {
+    const matSelect = row.querySelector('.row-mat');
+    if (!matSelect) return;
+    const prevMatId = matSelect.value;
+    matSelect.innerHTML = matOptions;
+    if (prevMatId && branchMats.some(m => m.id === prevMatId)) {
+      matSelect.value = prevMatId;
+    } else {
+      matSelect.value = '';
+      const codeEl = row.querySelector('.row-code');
+      const pbuyEl = row.querySelector('.row-pbuy');
+      const psellEl = row.querySelector('.row-psell');
+      if (codeEl) codeEl.value = '';
+      if (pbuyEl) pbuyEl.value = '';
+      if (psellEl) psellEl.value = '';
+    }
+  });
+  calculateBatchTotals();
+}
+window.onBasicBranchChange = onBasicBranchChange;
 
 function autofillBasicClient(clientId) {
   const input = document.getElementById('basic-client');
@@ -191,8 +297,14 @@ function autofillBasicClient(clientId) {
     input.value = '';
     return;
   }
-  
-  const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+
+  const branchId = _bitNormBranchId(
+    document.getElementById('basic-branch-select')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const clients = typeof getClients === 'function'
+    ? getClients(branchId)
+    : JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
   const client = clients.find(c => c.id === clientId);
   if (client) {
     input.value = client.name;
@@ -208,7 +320,40 @@ function initBasicForm() {
     const today = new Date().toISOString().split('T')[0];
     const el = document.getElementById('basic-date');
     if (el) el.value = today;
-    populateBasicClientSelect();
+    populateBasicClientSelect(document.getElementById('basic-branch-select')?.value || null);
+
+    const prefill = window._pendingBitacoraPrefill;
+    if (prefill && typeof prefill === 'object') {
+      window._pendingBitacoraPrefill = null;
+      window._activeRouteStopIdForBitacora = prefill.routeStopId || null;
+
+      const branchSel = document.getElementById('basic-branch-select');
+      if (branchSel && prefill.branchId && !branchSel.disabled) {
+        branchSel.value = prefill.branchId;
+        if (typeof onBasicBranchChange === 'function') {
+          onBasicBranchChange(prefill.branchId);
+        }
+      }
+
+      const clientSel = document.getElementById('basic-client-select');
+      const clientEl = document.getElementById('basic-client');
+      if (clientSel && prefill.clientId) clientSel.value = prefill.clientId;
+      if (clientEl && prefill.clientName) clientEl.value = prefill.clientName;
+
+      const dateEl = document.getElementById('basic-date');
+      if (dateEl && prefill.date) dateEl.value = prefill.date;
+
+      const colabSel = document.getElementById('basic-colab');
+      if (colabSel && prefill.driverName) {
+        const matchOpt = Array.from(colabSel.options || []).find(o => o.value === prefill.driverName);
+        if (matchOpt) colabSel.value = prefill.driverName;
+      }
+
+      const notesEl = document.getElementById('basic-notes');
+      if (notesEl && prefill.notes) notesEl.value = prefill.notes;
+    } else {
+      window._activeRouteStopIdForBitacora = null;
+    }
   }
 }
 
@@ -216,7 +361,11 @@ function addBasicEntryRow() {
   const container = document.getElementById('basic-items-entry-container');
   if (!container) return;
 
-  const mats = getMaterialCodes();
+  const branchId = _bitNormBranchId(
+    document.getElementById('basic-branch-select')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const mats = getMaterialCodes(branchId);
   const options = mats.map(m => `<option value="${m.id}">${m.icon} ${m.name}</option>`).join('');
 
   const rowId = `row-${Date.now()}`;
@@ -238,7 +387,7 @@ function addBasicEntryRow() {
     <div class="form-row" style="grid-template-columns: ${isMobile ? '1fr' : '2fr 1fr'}; margin-bottom:10px;">
       <div class="form-group" style="margin-bottom:0;">
         <label class="form-label" style="font-size:12px;">Material</label>
-        <select class="form-select row-mat" onchange="const m = getMaterialCodes().find(x=>x.id===this.value); const row = this.closest('.bitacora-row'); row.querySelector('.row-code').value = m?m.code:''; const prices = (typeof getMarketPrices === 'function') ? getMarketPrices() : {}; const mPrice = m ? (prices[m.code] || { purchase: 0, sell: 0 }) : { purchase: 0, sell: 0 }; row.querySelector('.row-pbuy').value = mPrice.purchase; row.querySelector('.row-psell').value = mPrice.sell; calculateBatchTotals()">
+        <select class="form-select row-mat" onchange="const bId = document.getElementById('basic-branch-select')?.value || null; const m = getMaterialCodes(bId).find(x=>x.id===this.value); const row = this.closest('.bitacora-row'); row.querySelector('.row-code').value = m?m.code:''; const prices = (typeof getMarketPrices === 'function') ? getMarketPrices() : {}; const mPrice = m ? (prices[m.code] || { purchase: 0, sell: 0 }) : { purchase: 0, sell: 0 }; row.querySelector('.row-pbuy').value = mPrice.purchase; row.querySelector('.row-psell').value = mPrice.sell; calculateBatchTotals()">
           <option value="" disabled selected>Seleccionar...</option>
           ${options}
         </select>
@@ -257,11 +406,11 @@ function addBasicEntryRow() {
       <div class="form-group" style="margin-bottom:0;">
         <label class="form-label" style="font-size:12px;">Unidad</label>
         <select class="form-select row-unit">
-          <option value="lb" selected>libra</option>
-          <option value="kg">kg</option>
+          <option value="lb" selected>libra (lb)</option>
+          <option value="kg">kilogramo (kg)</option>
+          <option value="ton">tonelada (ton)</option>
           <option value="unidad">unidad</option>
           <option value="litros">litros</option>
-          <option value="kilos">kilos</option>
         </select>
       </div>
     </div>
@@ -310,7 +459,12 @@ function calculateBatchTotals() {
 async function saveBasicInvoiceBatch() {
   const rows = document.querySelectorAll('.bitacora-row');
   const items = [];
-  const mats = getMaterialCodes();
+  const branchId = _bitNormBranchId(
+    document.getElementById('basic-branch-select')?.value ||
+    (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
+  );
+  const branchName = _bitResolveBranchName(branchId);
+  const mats = getMaterialCodes(branchId);
 
   rows.forEach(tr => {
     const matId = tr.querySelector('.row-mat').value;
@@ -321,8 +475,9 @@ async function saveBasicInvoiceBatch() {
     if (pesoInput) {
       peso = parseFloat(pesoInput.value) || 0;
     } else {
-      if (unit === 'kg') peso = qty;
+      if (unit === 'kg' || unit === 'kilos') peso = qty;
       else if (unit === 'lb') peso = qty * 0.453592;
+      else if (unit === 'ton') peso = qty * 1000;
     }
     const pbuy = parseFloat(tr.querySelector('.row-pbuy').value) || 0;
     const psell = parseFloat(tr.querySelector('.row-psell').value) || 0;
@@ -366,17 +521,27 @@ async function saveBasicInvoiceBatch() {
     totalVenta: totalV,
     balance: balanceTotal,
     collaborator,
+    branchId,
+    branchName,
     createdAt: new Date().toISOString()
   };
 
   saveInvoice(invoice);
+
+  if (window._activeRouteStopIdForBitacora && typeof window.markRouteStopCompletedFromBitacora === 'function') {
+    const linkedStopId = window._activeRouteStopIdForBitacora;
+    window._activeRouteStopIdForBitacora = null;
+    try { window.markRouteStopCompletedFromBitacora(linkedStopId, invoice.id); } catch (_) {}
+  }
 
   // Finance entries: Las bitácoras representan compras/recogidas de materiales,
   // por lo que SOLO afectan egresos (costo de compra) y NO ingresos.
   if (totalC > 0) {
     addFinanceEntry('egreso', {
       concept: `Compra Bitácora: ${invoice.id} – ${client}`,
-      amount: totalC, date, category: 'Materiales', ref: invoice.id
+      amount: totalC, date, category: 'Materiales', ref: invoice.id,
+      branchId,
+      branchName
     });
   }
 

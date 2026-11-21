@@ -1,0 +1,16 @@
+CONTRATO DE LICENCIA DE USUARIO FINAL (EULA) Y TERMINOS DE USO - RECIMINSAAP
+Version 2026-11
+
+Al instalar o utilizar el software Reciminsaap, usted acepta los presentes terminos y la Politica de Privacidad disponible en privacidad.html (incluida en la aplicacion y en linea):
+
+1. LICENCIA LIMITADA: Se otorga una licencia limitada, no exclusiva, revocable e intransferible para uso operativo o empresarial autorizado. No esta permitida la ingenieria inversa, descompilacion o redistribucion sin autorizacion escrita.
+
+2. DESCARGO FISCAL Y CONTABLE (DGII): Reciminsaap es una herramienta tecnologica auxiliar y no presta asesoria contable, fiscal ni legal. El usuario es el unico responsable de configurar su propio RNC, razon social y secuencias NCF autorizadas, asi como de verificar con un contador autorizado los reportes 606, 607, 608, facturas y calculos antes de presentar declaraciones ante la DGII.
+
+3. CONSTANCIAS AMBIENTALES E IA: Los reportes de impacto medioambiental (CO2, arboles, energia, agua) y las respuestas del asistente ReciBot son estimaciones informativas orientativas basadas en factores promedio y datos ingresados por el usuario; no constituyen certificaciones oficiales gubernamentales, ISO ni creditos de carbono.
+
+4. PRIVACIDAD Y SEGURIDAD DE DISPOSITIVO: Para fines de auditoria corporativa de accesos, prevencion de fraude y control de licencias, la aplicacion registra el identificador tecnico del dispositivo sin fines publicitarios, conforme a la Ley 172-13 de Republica Dominicana y politicas de privacidad aplicables.
+
+5. SOFTWARE "TAL CUAL" (AS IS) Y LIMITACION DE RESPONSABILIDAD: El software se entrega "tal cual" y "segun disponibilidad", sin garantias de disponibilidad ininterrumpida. En la maxima medida permitida por la ley, el proveedor no sera responsable por danos indirectos, lucro cesante o perdida de datos, limitandose cualquier responsabilidad directa al monto efectivamente pagado por la licencia en los ultimos 12 meses.
+
+6. JURISDICCION: Este acuerdo se rige por las leyes de la Republica Dominicana. Contacto de soporte y privacidad: soporte@reciminsa.com

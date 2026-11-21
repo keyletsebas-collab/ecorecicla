@@ -36,7 +36,8 @@ function showToast(message, type = 'success') {
     else if (type === 'warning') icon = '⚠️';
     else if (type === 'info') icon = 'ℹ️';
 
-    toast.innerHTML = `<span style="font-size:1.15rem; flex-shrink:0;">${icon}</span><span style="flex:1;">${message}</span>`;
+    const escMsg = (typeof window.escapeHtml === 'function') ? window.escapeHtml(message) : String(message == null ? '' : message);
+    toast.innerHTML = `<span style="font-size:1.15rem; flex-shrink:0;">${icon}</span><span style="flex:1;">${escMsg}</span>`;
     container.appendChild(toast);
 
     setTimeout(() => {
@@ -52,6 +53,7 @@ function showToast(message, type = 'success') {
 const PAGE_TITLE_KEYS = {
     historial: 'page.historial',
     bitacoras: 'page.bitacoras',
+    rutas: 'Agenda y Rutas',
     facturas: 'page.facturas',
     nota_credito: 'Notas de Crédito (B04)',
     nota_debito: 'Notas de Débito (B03)',
@@ -60,6 +62,7 @@ const PAGE_TITLE_KEYS = {
     clientes: 'page.clientes',
     ingresos: 'page.ingresos',
     egresos: 'page.egresos',
+    parametrizaciones_empresa: 'page.parametrizaciones_empresa',
     ajustes: 'page.ajustes',
     empresas: 'page.empresas',
     ecologia: 'page.ecologia',
@@ -92,6 +95,7 @@ function rerenderCurrentPage() {
     switch (pageName) {
         case 'historial': renderHistoryPage(target); break;
         case 'bitacoras': renderBitacorasPage(target); break;
+        case 'rutas': if (typeof renderRoutesAgendaPage === 'function') renderRoutesAgendaPage(target); break;
         case 'facturas': renderInvoicesPage(target, window._currentFacturacionTab || 'cotizaciones'); break;
         case 'nota_credito': if (typeof renderCreditNotesPage === 'function') renderCreditNotesPage(target); break;
         case 'nota_debito': if (typeof renderDebitNotesPage === 'function') renderDebitNotesPage(target); break;
@@ -101,9 +105,11 @@ function rerenderCurrentPage() {
         case 'clientes': renderClientesPage(target); break;
         case 'ingresos': renderIngresosPage(target); break;
         case 'egresos': renderEgresosPage(target); break;
+        case 'parametrizaciones_empresa': if (typeof renderParametrizacionesEmpresaPage === 'function') renderParametrizacionesEmpresaPage(target); break;
         case 'ajustes': renderSettingsPage(target); break;
         case 'ecologia': renderEcologyPage(target); break;
-        case 'precios': renderPricesPage(target); break;
+        case 'precios': if (typeof renderPricesPage === 'function') renderPricesPage(target); break;
+        case 'colaboradores': if (typeof renderCollaboratorsPage === 'function') renderCollaboratorsPage(target); break;
     }
 }
 
@@ -154,6 +160,7 @@ function navigate(pageName, subTab = null) {
     switch (pageName) {
         case 'historial': renderHistoryPage(target); break;
         case 'bitacoras': renderBitacorasPage(target); break;
+        case 'rutas': if (typeof renderRoutesAgendaPage === 'function') renderRoutesAgendaPage(target); break;
         case 'facturas': renderInvoicesPage(target, subTab || 'cotizaciones'); break;
         case 'nota_credito': if (typeof renderCreditNotesPage === 'function') renderCreditNotesPage(target); break;
         case 'nota_debito': if (typeof renderDebitNotesPage === 'function') renderDebitNotesPage(target); break;
@@ -163,10 +170,11 @@ function navigate(pageName, subTab = null) {
         case 'clientes': renderClientesPage(target); break;
         case 'ingresos': renderIngresosPage(target); break;
         case 'egresos': renderEgresosPage(target); break;
+        case 'parametrizaciones_empresa': if (typeof renderParametrizacionesEmpresaPage === 'function') renderParametrizacionesEmpresaPage(target); break;
         case 'ajustes': renderSettingsPage(target); break;
         case 'ecologia': renderEcologyPage(target); break;
-        case 'precios': renderPricesPage(target); break;
-        case 'colaboradores': renderCollaboratorsPage(target); break;
+        case 'precios': if (typeof renderPricesPage === 'function') renderPricesPage(target); break;
+        case 'colaboradores': if (typeof renderCollaboratorsPage === 'function') renderCollaboratorsPage(target); break;
     }
 }
 
@@ -182,14 +190,38 @@ function setTopbarDate() {
 
 // ---- Init app after login ----
 function initApp(user) {
+    // Capturar y vincular el ID del dispositivo a la sesión en cada apertura para auditoría de usuarios
+    if (typeof getDeviceAuditInfo === 'function') {
+        try {
+            const devInfo = getDeviceAuditInfo();
+            user.deviceId = devInfo.deviceId;
+            user.rawDeviceId = devInfo.rawHardwareId;
+            user.devicePlatform = devInfo.platform;
+            localStorage.setItem('recim_session', JSON.stringify(user));
+        } catch (_) {}
+    }
+
     // Check device IMEI fingerprint and subscription state
     if (typeof checkSubscriptionAndDevice === 'function') {
         checkSubscriptionAndDevice();
     }
 
+    // Si la cuenta acaba de registrarse y tiene pendiente el formulario de empresa/sucursal, mostrarlo antes de abrir la app
+    if (user && user.onboardingPending === true && typeof openPostSignupOnboardingForm === 'function') {
+        openPostSignupOnboardingForm(user);
+        return;
+    }
+
     // Hide auth, show app
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-screen').classList.remove('hidden');
+
+    if (typeof applySettings === 'function') {
+        applySettings();
+    }
+    if (window.SyncStatus && typeof window.SyncStatus.init === 'function') {
+        try { window.SyncStatus.init(); } catch (_) {}
+    }
 
     // Populate user info
     // Clean the name from metadata like | SUB:none | EXP:0
@@ -218,30 +250,50 @@ function initApp(user) {
         }
     } catch (_) {}
     navigate(defaultPage);
+    if (typeof window.refreshSmartAlerts === 'function') {
+        try { window.refreshSmartAlerts({ notifyNative: false }); } catch (_) {}
+    }
 
-    // Pull correct data from Firebase cloud immediately on boot
+    // Pull correct data from Firebase cloud immediately on boot, then re-apply settings & record device access
     if (window.syncPullData) {
         const dbId = user.familyId ? `family_${user.familyId}` : user.accountId;
-        window.syncPullData(dbId);
+        Promise.resolve(window.syncPullData(dbId)).finally(() => {
+            if (typeof applySettings === 'function') {
+                applySettings();
+            }
+            if (typeof recordCurrentUserDeviceAccess === 'function') {
+                recordCurrentUserDeviceAccess(user);
+            }
+            if (typeof window.refreshSmartAlerts === 'function') {
+                try { window.refreshSmartAlerts({ notifyNative: true }); } catch (_) {}
+            }
+            if (typeof window.syncPickupRouteReminders === 'function') {
+                try { window.syncPickupRouteReminders(); } catch (_) {}
+            }
+        });
+    } else {
+        if (typeof recordCurrentUserDeviceAccess === 'function') {
+            recordCurrentUserDeviceAccess(user);
+        }
+        if (typeof window.syncPickupRouteReminders === 'function') {
+            try { window.syncPickupRouteReminders(); } catch (_) {}
+        }
     }
 
     // Pull Google Drive settings from Supabase on boot
     if (window.syncPullGDriveSettings) {
         window.syncPullGDriveSettings(user.accountId);
     }
-
-    // Request web notification permissions if supported
-    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-        Notification.requestPermission();
-    }
 }
 
 // ---- Restore session on load ----
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if redirecting from desktop app update check
+    // Check if redirecting from desktop app update check (solo navegadores de escritorio Windows; prohibido en Android / Google Play)
     try {
+        const ua = navigator.userAgent || '';
+        const isAndroidEnv = /android/i.test(ua) || typeof window.AndroidNotification !== 'undefined' || window.__NATIVE_PLATFORM__ === 'ANDROID';
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('dev') === 'true') {
+        if (!isAndroidEnv && urlParams.get('dev') === 'true') {
             const installedVersion = urlParams.get('installed');
             if (installedVersion) {
                 fetch('https://raw.githubusercontent.com/keyletsebas-collab/ecorecicla/main/version.json?t=' + Date.now())
@@ -369,6 +421,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             const newName = data.name || oldName;
 
                             let sessionChanged = false;
+                            if (data.role && cachedSession.role !== data.role) {
+                                cachedSession.role = data.role;
+                                sessionChanged = true;
+                            }
                             if (oldFamilyId !== newFamilyId) {
                                 cachedSession.familyId = newFamilyId;
                                 sessionChanged = true;
@@ -397,9 +453,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const newDbId = newFamilyId ? `family_${newFamilyId}` : cachedSession.accountId;
                                 showToast('🔄 Tu estado de empresa ha cambiado. Actualizando datos...', 'info');
                                 if (window.syncPullData) {
-                                    window.syncPullData(newDbId);
-                                }
-                                if (typeof getCurrentPage === 'function' && getCurrentPage() === 'ajustes') {
+                                    Promise.resolve(window.syncPullData(newDbId)).finally(() => {
+                                        if (typeof applySettings === 'function') {
+                                            applySettings();
+                                        }
+                                        if (typeof getCurrentPage === 'function' && (getCurrentPage() === 'ajustes' || getCurrentPage() === 'parametrizaciones_empresa')) {
+                                            rerenderCurrentPage();
+                                        }
+                                    });
+                                } else if (typeof getCurrentPage === 'function' && (getCurrentPage() === 'ajustes' || getCurrentPage() === 'parametrizaciones_empresa')) {
                                     rerenderCurrentPage();
                                 }
                             }

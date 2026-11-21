@@ -2,9 +2,39 @@
    CLIENTS.JS – Gestión de Clientes / Empresas
    ============================================= */
 
-function getClients() {
-  return JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+function _clientNormBranchId(branchId) {
+  if (typeof normalizeBranchId === 'function') return normalizeBranchId(branchId);
+  const clean = branchId == null ? '' : String(branchId).trim();
+  return clean || 'SUC-PRINCIPAL';
 }
+
+function _clientResolveBranchName(branchId) {
+  const id = _clientNormBranchId(branchId);
+  if (typeof resolveBranchNameById === 'function') return resolveBranchNameById(id);
+  return id === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : id;
+}
+
+function _resolveClientTargetBranchId(branchIdOverride = null) {
+  if (branchIdOverride) return _clientNormBranchId(branchIdOverride);
+  if (typeof getActiveBranchId === 'function') return _clientNormBranchId(getActiveBranchId());
+  return 'SUC-PRINCIPAL';
+}
+
+function getAllClientsRaw() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+window.getAllClientsRaw = getAllClientsRaw;
+
+function getClients(branchIdOverride = null) {
+  const targetBranchId = _resolveClientTargetBranchId(branchIdOverride);
+  return getAllClientsRaw().filter(c => c && _clientNormBranchId(c.branchId) === targetBranchId);
+}
+window.getClients = getClients;
 
 function saveClients(clients) {
   localStorage.setItem(userKey('recim_clients'), JSON.stringify(clients));
@@ -13,30 +43,85 @@ function saveClients(clients) {
   }
 }
 
-function addClient(name, nit, address, contact, type = 'local', isRst = false, defaultNcf = '') {
-  const clients = getClients();
-  const id = `cli-${Date.now()}`;
-  clients.push({ id, name, nit, address, contact, type, isRst, defaultNcf: defaultNcf || (type === 'empresa' ? 'B01' : '') });
-  saveClients(clients);
+function addClient(name, nit, address, contact, type = 'local', isRst = false, defaultNcf = '', branchIdOverride = null) {
+  const allClients = getAllClientsRaw();
+  const targetBranchId = _resolveClientTargetBranchId(branchIdOverride);
+  const targetBranchName = _clientResolveBranchName(targetBranchId);
+  const id = `cli-${targetBranchId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  allClients.push({
+    id,
+    name,
+    nit,
+    address,
+    contact,
+    type,
+    isRst,
+    defaultNcf: defaultNcf || (type === 'empresa' ? 'B01' : ''),
+    branchId: targetBranchId,
+    branchName: targetBranchName,
+    createdAt: new Date().toISOString()
+  });
+  saveClients(allClients);
   showToast(type === 'empresa' ? '✅ Empresa creada' : (t('toast.cli_add') || '✅ Cliente creado'), 'success');
   return true;
 }
 
 function deleteClient(id) {
-  const clients = getClients();
-  const client = clients.find(c => c.id === id);
-  const isEmp = client && client.type === 'empresa';
-  const filtered = clients.filter(c => c.id !== id);
+  const allClients = getAllClientsRaw();
+  const client = allClients.find(c => c && c.id === id);
+  if (!client) return;
+
+  const canSwitch = typeof canCurrentUserSwitchBranches === 'function' ? canCurrentUserSwitchBranches() : true;
+  if (!canSwitch && _clientNormBranchId(client.branchId) !== _resolveClientTargetBranchId(null)) {
+    showToast('🔒 No puedes eliminar clientes de otra sucursal.', 'error');
+    return;
+  }
+
+  const isEmp = client.type === 'empresa';
+  const filtered = allClients.filter(c => c && c.id !== id);
   saveClients(filtered);
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'client_delete',
+      entityType: 'client',
+      entityId: id,
+      summary: `${isEmp ? 'Empresa' : 'Cliente'} eliminado: ${client.name || id}`,
+      branchId: client.branchId,
+      branchName: client.branchName
+    });
+  }
   showToast(isEmp ? '🗑 Empresa eliminada' : (t('toast.cli_del') || '🗑 Cliente eliminado'), 'success');
 }
 
 function updateClient(id, name, nit, address, contact, type = 'local', isRst = false, defaultNcf = '') {
-  const clients = getClients();
-  const idx = clients.findIndex(c => c.id === id);
+  const allClients = getAllClientsRaw();
+  const idx = allClients.findIndex(c => c && c.id === id);
   if (idx === -1) return;
-  clients[idx] = { ...clients[idx], name, nit, address, contact, type, isRst, defaultNcf };
-  saveClients(clients);
+  const branchId = _clientNormBranchId(allClients[idx].branchId);
+  allClients[idx] = {
+    ...allClients[idx],
+    name,
+    nit,
+    address,
+    contact,
+    type,
+    isRst,
+    defaultNcf,
+    branchId,
+    branchName: allClients[idx].branchName || _clientResolveBranchName(branchId),
+    updatedAt: new Date().toISOString()
+  };
+  saveClients(allClients);
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'client_update',
+      entityType: 'client',
+      entityId: id,
+      summary: `Cliente actualizado: ${name}`,
+      branchId,
+      branchName: allClients[idx].branchName
+    });
+  }
   showToast(t('toast.cli_upd') || '✅ Registro actualizado', 'success');
 }
 
@@ -45,15 +130,20 @@ function updateClient(id, name, nit, address, contact, type = 'local', isRst = f
 // =============================================
 
 function renderClientesPage(container) {
-  const allClients = getClients();
+  const activeBranchId = _resolveClientTargetBranchId(null);
+  const activeBranchName = _clientResolveBranchName(activeBranchId);
+  const allClients = getClients(activeBranchId);
+  const branchBarHtml = typeof renderBranchContextBar === 'function' ? renderBranchContextBar('clientes') : '';
 
   container.innerHTML = `
     <div class="page-header">
       <div>
         <h2 class="section-title">👥 Directorio de Clientes y Empresas</h2>
-        <p class="section-subtitle">Gestiona y organiza las personas y empresas registradas para facturación.</p>
+        <p class="section-subtitle">Gestiona y organiza las personas y empresas registradas por sucursal para facturación.</p>
       </div>
     </div>
+
+    ${branchBarHtml}
 
     <div class="finance-grid">
       <!-- Form -->
@@ -129,7 +219,7 @@ function renderClientesPage(container) {
             <span class="badge badge--green" style="margin-left:8px;">${allClients.length}</span>
           </h3>
           <div id="clients-list">
-            ${renderClientsList(allClients)}
+            ${renderClientsList(allClients, activeBranchName)}
           </div>
         </div>
       </div>
@@ -153,13 +243,15 @@ function handleClientTypeChange(type) {
 }
 window.handleClientTypeChange = handleClientTypeChange;
 
-function renderClientsList(clients) {
+function renderClientsList(clients, branchNameOverride = null) {
+  const branchLabel = branchNameOverride || _clientResolveBranchName(_resolveClientTargetBranchId(null));
   if (clients.length === 0) {
-    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">Sin clientes ni empresas registradas aún.</p>`;
+    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">Sin clientes ni empresas registradas en <b>${branchLabel}</b> aún.</p>`;
   }
 
   return clients.map(c => {
     const isEmp = c.type === 'empresa';
+    const cBranchName = c.branchName || _clientResolveBranchName(c.branchId);
     return `
     <div class="material-item" id="cli-row-${c.id}" style="gap:10px;flex-wrap:wrap; align-items: flex-start; padding: 15px;">
       <div style="flex:1;">
@@ -168,6 +260,7 @@ function renderClientsList(clients) {
           ${isEmp 
             ? '<span class="badge badge--blue" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#3b82f6; color:#fff; text-transform:none;">🏢 Empresa</span>' 
             : '<span class="badge" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#64748b; color:#fff; text-transform:none;">👤 Persona</span>'}
+          <span class="badge badge--green" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; text-transform:none;">📍 ${cBranchName}</span>
           ${c.defaultNcf ? `<span class="badge" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid #10b981; text-transform:none;">⚡ NCF: ${c.defaultNcf}</span>` : ''}
           ${c.isRst ? '<span class="badge badge--green" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; text-transform:none;">RST</span>' : ''}
         </div>
@@ -263,11 +356,24 @@ function saveEditClientRow(id) {
 
   if (!name) { showToast(t('err.fill_fields') || '❌ Completa los campos requeridos', 'error'); return; }
 
-  const clients = getClients();
-  const idx = clients.findIndex(c => c.id === id);
+  const allClients = getAllClientsRaw();
+  const idx = allClients.findIndex(c => c && c.id === id);
   if (idx !== -1) {
-    clients[idx] = { ...clients[idx], name, nit, address, contact, type, isRst, defaultNcf };
-    saveClients(clients);
+    const branchId = _clientNormBranchId(allClients[idx].branchId);
+    allClients[idx] = {
+      ...allClients[idx],
+      name,
+      nit,
+      address,
+      contact,
+      type,
+      isRst,
+      defaultNcf,
+      branchId,
+      branchName: allClients[idx].branchName || _clientResolveBranchName(branchId),
+      updatedAt: new Date().toISOString()
+    };
+    saveClients(allClients);
     showToast(t('toast.cli_upd') || '✅ Registro actualizado', 'success');
   }
   refreshClientsList();

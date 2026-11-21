@@ -3,9 +3,7 @@
    ========================================================================== */
 
 const CHATBOT_API_CONFIG = {
-    url: (window.location.hostname === 'localhost' && window.location.port !== '3000' && window.location.port !== '')
-        ? 'https://ais-dev-5k7wdeb3wqrnmmvqjon4ln-495880864325.us-east1.run.app/api/chat'
-        : '/api/chat',
+    url: '',
     key: ''
 };
 
@@ -474,15 +472,18 @@ function addWelcomeMessage() {
     const messagesContainer = document.getElementById('chatbot-messages');
     if (!messagesContainer || messagesContainer.children.length > 0) return;
 
-    appendMessage('bot', '¡Hola! Soy **ReciBot** 🤖, el asistente inteligente de Reciminsa App.<br><br>Puedo resolver dudas técnicas, simular cálculos de pesajes, auditar tus materiales en vivo, calcular tu margen de ganancia o diagnosticar la salud de tu aplicación.');
+    appendMessage('bot', '¡Hola! Soy **ReciBot** 🤖, el asistente inteligente de Reciminsa App.<br><br>Puedo resolver dudas técnicas, simular cálculos de pesajes, auditar tus materiales en vivo, calcular tu margen de ganancia o diagnosticar la salud de tu aplicación.<br><br><small style="opacity:0.75;">ℹ️ Aviso: Mis respuestas y cálculos son orientativos y no sustituyen asesoría fiscal, contable ni legal profesional.</small>');
 }
 
 function appendMessage(sender, text) {
     const messagesContainer = document.getElementById('chatbot-messages');
     if (!messagesContainer) return;
 
-    let cleanText = text;
-    if (cleanText.includes('[NAVIGATE:')) {
+    const esc = window.escapeHtml || (v => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
+
+    let cleanText = String(text == null ? '' : text);
+    if (sender === 'bot' && cleanText.includes('[NAVIGATE:')) {
         const match = cleanText.match(/\[NAVIGATE:(.*?)\]/);
         if (match && match[1]) {
             const pageName = match[1].trim();
@@ -500,12 +501,16 @@ function appendMessage(sender, text) {
     }
 
     const messageBubble = document.createElement('div');
-    messageBubble.className = `chatbot-msg chatbot-msg--${sender}`;
-    
-    if (cleanText.includes('<button') || cleanText.includes('<div') || cleanText.includes('<strong>') || cleanText.includes('<p>') || cleanText.includes('<br>')) {
+    messageBubble.className = `chatbot-msg chatbot-msg--${sender === 'user' ? 'user' : 'bot'}`;
+
+    if (sender === 'user') {
+        // Nunca interpretar HTML en mensajes escritos por el usuario
+        messageBubble.textContent = cleanText;
+    } else if (cleanText.includes('<button') || cleanText.includes('<div') || cleanText.includes('<strong>') || cleanText.includes('<p>') || cleanText.includes('<br>') || cleanText.includes('<span') || cleanText.includes('<small')) {
         messageBubble.innerHTML = cleanText;
     } else {
-        let formatted = cleanText
+        const escaped = esc(cleanText);
+        const formatted = escaped
             .replace(/\n/g, '<br>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -580,10 +585,13 @@ function parseAdvancedScenarios(message) {
             if (typeof getAllInvoices === 'function') invoiceCount = getAllInvoices().length;
         } catch (_) {}
 
+        const esc = window.escapeHtml || (v => String(v == null ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
+
         return `🩺 **Diagnóstico de Salud de Reciminsa App**:<br>` +
                `- Estado de Red: **${onlineStatus}**<br>` +
-               `- Usuario Activo: **${session.name || 'Invitado'}** (Rol: ${session.role || 'Admin'})<br>` +
-               `- ID Empresa: **${session.familyId || 'Base Local'}**<br>` +
+               `- Usuario Activo: **${esc(session.name || 'Invitado')}** (Rol: ${esc(session.role || 'Admin')})<br>` +
+               `- ID Empresa: **${esc(session.familyId || 'Base Local')}**<br>` +
                `- Almacenamiento Local Utilizado: **${storageUsage} KB**<br>` +
                `- Registros en Caché: **${invoiceCount}** Bitácoras, **${clientCount}** Clientes<br>` +
                `- Estado del Sistema: **🟢 100% Funcional y Sincronizado**`;
@@ -742,6 +750,9 @@ async function getChatbotResponse(userMessage) {
     }
 
     // LIVE CONTEXT RESPONSES
+    const esc = window.escapeHtml || (v => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
+
     if (lower.includes('material') || lower.includes('codigo') || lower.includes('familia')) {
         if (lower.includes('cuanto') || lower.includes('cuantos') || lower.includes('lista') || lower.includes('tengo')) {
             if (codes.length === 0 && families.length === 0) {
@@ -749,7 +760,7 @@ async function getChatbotResponse(userMessage) {
             }
             const famList = families.map(f => {
                 const count = codes.filter(c => c.familyId === f.id).length;
-                return `- **📁 ${f.name}**: ${count} código(s)`;
+                return `- **📁 ${esc(f.name)}**: ${count} código(s)`;
             }).join('<br>');
 
             return `Tienes **${codes.length}** código(s) de material y **${families.length}** familia(s) configurada(s):<br><br>${famList || 'Sin familias agrupadas aún.'}`;
@@ -758,17 +769,17 @@ async function getChatbotResponse(userMessage) {
 
     if (lower.includes('quienes') || lower.includes('miembro') || lower.includes('equipo') || lower.includes('personas en mi')) {
         if (companyMembers.length === 0) {
-            return `Actualmente no hay otros miembros vinculados a tu empresa (ID: **${companyId}**). Puedes compartir tu ID de 10 dígitos desde **Ajustes** para unir a tu equipo.`;
+            return `Actualmente no hay otros miembros vinculados a tu empresa (ID: **${esc(companyId)}**). Puedes compartir tu código de empresa desde **Parametrizaciones de Empresa** para unir a tu equipo.`;
         }
-        const memberList = companyMembers.map(m => `- **${m.name.split(' | ')[0]}** (${m.email})`).join('<br>');
-        return `Los miembros vinculados a tu empresa (ID: **${companyId}**) son:<br>${memberList}`;
+        const memberList = companyMembers.map(m => `- **${esc((m.name || '').split(' | ')[0])}** (${esc(m.email)})`).join('<br>');
+        return `Los miembros vinculados a tu empresa (ID: **${esc(companyId)}**) son:<br>${memberList}`;
     }
 
     if (lower.includes('colaborador') || lower.includes('empleado') || lower.includes('personal') || lower.includes('trabajador')) {
         if (collaborators.length === 0) {
             return `No tienes colaboradores registrados aún. Agrégalos en **Colaboradores** (Menú ➡️ 🤝 Colaboradores).`;
         }
-        const colabList = collaborators.map(c => `- **${c.name}** (Rol: ${c.role || 'Auxiliar'})`).join('<br>');
+        const colabList = collaborators.map(c => `- **${esc(c.name)}** (Rol: ${esc(c.role || 'Auxiliar')})`).join('<br>');
         return `Tienes **${collaborators.length}** colaborador(es) registrado(s):<br>${colabList}`;
     }
 
@@ -777,7 +788,7 @@ async function getChatbotResponse(userMessage) {
             if (invoices.length === 0) {
                 return `No tienes bitácoras de recogida registradas en tu historial. Puedes crear una nueva en **Bitácoras** (Menú ➡️ 🚛 Bitácoras de Recogida).`;
             }
-            const recent = invoices.slice(0, 4).map(inv => `- [${inv.date || '—'}] ID: **${inv.id}** - Cliente: ${inv.client} - Total: RD$ ${(inv.totalCompra || 0).toLocaleString()}`).join('<br>');
+            const recent = invoices.slice(0, 4).map(inv => `- [${esc(inv.date || '—')}] ID: **${esc(inv.id)}** - Cliente: ${esc(inv.client)} - Total: RD$ ${(inv.totalCompra || 0).toLocaleString()}`).join('<br>');
             return `Tienes un total de **${invoices.length}** bitácora(s) de recogida registradas.<br><br>**Últimas registradas:**<br>${recent}`;
         }
     }
@@ -792,19 +803,15 @@ async function getChatbotResponse(userMessage) {
                `- Balance Neto: **<span style="color:${netBalance >= 0 ? '#00ffcc' : '#ff4444'};">RD$ ${netBalance.toLocaleString('es-DO', {minimumFractionDigits:2})}</span>**`;
     }
 
-    // QUERY REMOTE API IF CONFIGURED
+    // QUERY REMOTE API IF CONFIGURED EXPLICITLY
     if (url) {
         try {
             const contextPrompt = `
 [CONTRATO DE IA - RECI_BOT]
-Eres ReciBot, el asistente inteligente oficial de Reciminsa App.
+Eres ReciBot, el asistente inteligente de Reciminsa App.
 [DATOS EN TIEMPO REAL]:
-- ID Empresa: ${companyId}
-- Usuario activo: ${myName}
 - Conteo de Materiales: ${codes.length} | Familias: ${families.length}
 - Registros de Bitácoras: ${invoices.length}
-- Total Ingresos: RD$ ${incomes.reduce((s,i) => s + (parseFloat(i.amount)||0), 0)}
-- Total Egresos: RD$ ${expenses.reduce((s,i) => s + (parseFloat(i.amount)||0), 0)}
 
 Consulta del usuario: ${userMessage}
 `;
@@ -818,7 +825,7 @@ Consulta del usuario: ${userMessage}
             if (response.ok) {
                 const data = await response.json();
                 const reply = data.reply || data.response || data.text || '';
-                if (reply) return reply;
+                if (reply) return esc(reply).replace(/\n/g, '<br>');
             }
         } catch (e) {
             console.error('Error connecting to remote AI API:', e);

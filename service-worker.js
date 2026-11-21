@@ -3,33 +3,54 @@
 // v14: Upgrade Excel exports with styling, currencies, auto column widths, formulas
 // =============================================
 
-const CACHE_NAME = 'reciminsaap-v26';
+const CACHE_NAME = 'reciminsaap-v40';
 
 const SAME_ORIGIN_ASSETS = [
   './',
   './index.html',
+  './privacidad.html',
+  './terminos.html',
   './css/main.css',
   './css/auth.css',
   './css/app.css',
   './css/index.css',
-  './js/app.js',
-  './js/auth.js',
-  './js/sync.js',
+  './css/chatbot.css',
+  './js/logger-messages.js',
+  './js/supabase-config.js',
+  './js/default-logo.js',
+  './js/logo-data.js',
+  './js/pdf-utils.js',
   './js/i18n.js',
+  './js/auth.js',
+  './js/biometric-auth.js',
+  './js/security.js',
   './js/materials.js',
   './js/clients.js',
+  './js/collaborators.js',
   './js/bitacoras.js',
+  './js/routes-agenda.js',
+  './js/dgii-api.js',
+  './js/dgii-reports.js',
   './js/invoices.js',
   './js/history.js',
   './js/finance.js',
   './js/settings.js',
+  './js/storage-engine.js',
+  './js/sync-status.js',
+  './js/audit-log.js',
+  './js/company-settings.js',
+  './js/qr-vector.js',
+  './js/eco-pdf-engine.js',
   './js/ecology.js',
+  './js/whatsapp-share.js',
   './js/prices.js',
-  './js/security.js',
   './js/sidebar.js',
-  './js/supabase-config.js',
   './js/excel-utils.js',
-  './js/pdf-utils.js',
+  './js/smart-alerts.js',
+  './js/app.js',
+  './js/mobile-select-picker.js',
+  './js/sync.js',
+  './js/chatbot.js',
   './js/native-bridge.js',
   './manifest.json',
   './icon-192.png',
@@ -74,26 +95,24 @@ self.addEventListener('fetch', event => {
   //    Just returning here lets the browser handle them natively with no SW interference.
   if (url.origin !== self.location.origin) return;
 
-  // 3. Same-origin assets: Cache First → Network fallback
+  // 3. Same-origin assets: Network First → Cache fallback (garantiza código actualizado cuando hay red y soporte 100% offline)
   event.respondWith(
-    caches.match(req).then(cached => {
-      if (cached) return cached;
-
-      return fetch(req).then(networkResp => {
-        // Cache fresh successful responses for future offline use
+    fetch(req)
+      .then(networkResp => {
         if (networkResp && networkResp.status === 200) {
           const clone = networkResp.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
         }
         return networkResp;
-      }).catch(() => {
-        // Offline fallback: return cached index.html for navigation
-        if (req.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-        // For other assets, just fail gracefully
-        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-      });
-    })
+      })
+      .catch(() => {
+        return caches.match(req, { ignoreSearch: true }).then(cached => {
+          if (cached) return cached;
+          if (req.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+          return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+        });
+      })
   );
 });

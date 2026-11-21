@@ -5,59 +5,123 @@
    ============================================= */
 
 (function initMobileSelectEnhancer() {
+    /** Escapa caracteres especiales HTML para interpolación segura en plantillas. */
+    function escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     function isMobileDevice() {
         return window.innerWidth <= 768 ||
             document.documentElement.classList.contains('is-mobile-device') ||
             /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
     }
 
-    // Handle delegated pointerdown on <select> to prevent native dialog and show sheet
-    document.addEventListener('pointerdown', (e) => {
-        const select = e.target.closest('select');
-        if (!select) return;
-        if (!isMobileDevice()) return;
-        if (select.dataset.native === 'true') return;
-        if (select.disabled) return;
+    function isEnhancedSelect(el) {
+        return Boolean(
+            el &&
+            el.tagName === 'SELECT' &&
+            isMobileDevice() &&
+            el.dataset.native !== 'true' &&
+            !el.disabled &&
+            !el.multiple
+        );
+    }
 
-        // Prevent Android WebView single-choice dialog
+    function getSelectElement(target) {
+        if (!target || typeof target.closest !== 'function') return null;
+        return target.closest('select');
+    }
+
+    // Cancelar el diálogo nativo en mousedown (desktop/WebView2/Chromium) sin bloquear scroll en pointerdown ni abrir el sheet antes del click final.
+    document.addEventListener('mousedown', (e) => {
+        const select = getSelectElement(e.target);
+        if (!isEnhancedSelect(select)) return;
+
         e.preventDefault();
         e.stopPropagation();
-        select.blur();
+        if (document.activeElement === select && typeof select.blur === 'function') {
+            select.blur();
+        }
+    }, true);
+
+    // Abrir el Bottom Sheet únicamente en click para evitar que pointerdown inserte el backdrop debajo del dedo y cause auto-cierre al soltar.
+    document.addEventListener('click', (e) => {
+        const select = getSelectElement(e.target);
+        if (!isEnhancedSelect(select)) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') {
+            e.stopImmediatePropagation();
+        }
 
         openMobileSelectSheet(select);
     }, true);
 
-    // Also guard on click for browsers that trigger on click
-    document.addEventListener('click', (e) => {
-        const select = e.target.closest('select');
-        if (!select) return;
-        if (!isMobileDevice()) return;
-        if (select.dataset.native === 'true') return;
-        if (select.disabled) return;
+    // Soporte de teclado: Escape cierra el sheet activo y las teclas de activación abren el selector en móvil/hybrid.
+    document.addEventListener('keydown', (e) => {
+        if (window._activeMobileSheet && e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            closeActiveSheet({ reason: 'escape' });
+            return;
+        }
 
-        e.preventDefault();
-        e.stopPropagation();
-        select.blur();
+        const select = getSelectElement(e.target);
+        if (isEnhancedSelect(select) && [' ', 'Enter', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
+            e.preventDefault();
+            e.stopPropagation();
+            openMobileSelectSheet(select);
+        }
     }, true);
 
-    function openMobileSelectSheet(select) {
-        closeActiveSheet();
+    function resolveSelectTitle(select) {
+        let title = '';
 
-        // Determine title
-        let title = 'Seleccionar opción';
         if (select.id) {
-            const lbl = document.querySelector(`label[for="${select.id}"]`) ||
-                        select.closest('.form-group')?.querySelector('.form-label');
-            if (lbl) {
-                title = lbl.textContent.replace(/[#*]/g, '').trim();
-            }
+            const escapedId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
+                ? CSS.escape(select.id)
+                : select.id.replace(/["\\]/g, '\\$&');
+            const lbl = document.querySelector(`label[for="${escapedId}"]`);
+            if (lbl) title = lbl.textContent.replace(/[#*]/g, '').trim();
         }
-        if (!title && select.title) title = select.title;
-        if (!title && select.name) title = select.name;
 
-        // Read options
-        const rawOptions = Array.from(select.options);
+        if (!title) {
+            const groupLabel = select.closest('.form-group')?.querySelector('.form-label');
+            if (groupLabel) title = groupLabel.textContent.replace(/[#*]/g, '').trim();
+        }
+
+        if (!title && select.title) title = String(select.title).trim();
+        if (!title && select.name) title = String(select.name).trim();
+        return title || 'Seleccionar opción';
+    }
+
+    function openMobileSelectSheet(select) {
+        if (
+            window._activeMobileSheet &&
+            window._activeMobileSheet.select === select &&
+            (Date.now() - window._activeMobileSheet.openedAt) < 200
+        ) {
+            return;
+        }
+
+        const rawOptions = Array.from(select.options || []);
         if (rawOptions.length === 0) return;
+
+        closeActiveSheet({ immediate: true, reason: 'reopen' });
+
+        // Quitar foco de campos previos una vez completado el toque de apertura para ocultar el teclado virtual sin mover el sheet luego.
+        const activeEl = document.activeElement;
+        if (activeEl && activeEl !== document.body && /^(INPUT|TEXTAREA|SELECT)$/i.test(activeEl.tagName)) {
+            try { activeEl.blur(); } catch (_) {}
+        }
+
+        const title = resolveSelectTitle(select);
 
         const backdrop = document.createElement('div');
         backdrop.className = 'mobile-select-backdrop';
@@ -65,23 +129,25 @@
         const sheet = document.createElement('div');
         sheet.className = 'mobile-select-sheet';
 
-        const showSearch = rawOptions.length > 5;
+        const visibleCount = rawOptions.filter(opt => !opt.hidden).length;
+        const showSearch = visibleCount > 5;
 
         sheet.innerHTML = `
             <div class="mobile-select-handle"></div>
             <div class="mobile-select-header">
-                <span class="mobile-select-title">${title}</span>
-                <button type="button" class="mobile-select-close" id="mobile-sheet-close-btn" aria-label="Cerrar">✕</button>
+                <span class="mobile-select-title">${escapeHtml(title)}</span>
+                <button type="button" class="mobile-select-close" aria-label="Cerrar">✕</button>
             </div>
             ${showSearch ? `
                 <div class="mobile-select-search-wrap">
-                    <input type="text" class="mobile-select-search" id="mobile-sheet-search-input" placeholder="🔍 Buscar opción..." autocomplete="off" />
+                    <input type="text" class="mobile-select-search" placeholder="🔍 Buscar opción..." autocomplete="off" />
                 </div>
             ` : ''}
-            <div class="mobile-select-list" id="mobile-sheet-list"></div>
+            <div class="mobile-select-list"></div>
         `;
 
-        const listContainer = sheet.querySelector('#mobile-sheet-list');
+        const listContainer = sheet.querySelector('.mobile-select-list');
+        let selectionCommitted = false;
 
         function renderItems(filterText = '') {
             listContainer.innerHTML = '';
@@ -89,8 +155,8 @@
 
             let matchedCount = 0;
             rawOptions.forEach(opt => {
+                if (opt.hidden) return;
                 if (!opt.value && (opt.text.toLowerCase().includes('seleccione') || opt.text.trim() === '')) {
-                    // Header/placeholder option: skip unless it is the only one
                     if (rawOptions.length > 1) return;
                 }
 
@@ -105,7 +171,6 @@
                 item.className = `mobile-select-item ${isSelected ? 'selected' : ''}`;
                 if (opt.disabled) item.style.opacity = '0.45';
 
-                // Extract code badges e.g. "(B01)" or "01 - " or "B01"
                 let codeBadge = '';
                 let cleanText = optText;
 
@@ -124,18 +189,27 @@
 
                 item.innerHTML = `
                     <div class="mobile-select-item-content">
-                        ${codeBadge ? `<span class="mobile-select-badge">${codeBadge}</span>` : ''}
-                        <span class="mobile-select-item-text">${cleanText || optText}</span>
+                        ${codeBadge ? `<span class="mobile-select-badge">${escapeHtml(codeBadge)}</span>` : ''}
+                        <span class="mobile-select-item-text">${escapeHtml(cleanText || optText)}</span>
                     </div>
                     <div class="mobile-select-check">${isSelected ? '✓' : ''}</div>
                 `;
 
                 if (!opt.disabled) {
-                    item.addEventListener('click', () => {
-                        select.value = opt.value;
-                        select.dispatchEvent(new Event('change', { bubbles: true }));
-                        select.dispatchEvent(new Event('input', { bubbles: true }));
-                        closeActiveSheet();
+                    item.addEventListener('click', (ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        if (selectionCommitted) return;
+                        selectionCommitted = true;
+
+                        const chosenValue = opt.value;
+                        closeActiveSheet({ reason: 'select' });
+
+                        select.value = chosenValue;
+                        if (select.isConnected) {
+                            select.dispatchEvent(new Event('input', { bubbles: true }));
+                            select.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
                     });
                 }
 
@@ -154,44 +228,99 @@
         renderItems();
 
         if (showSearch) {
-            const searchInput = sheet.querySelector('#mobile-sheet-search-input');
-            searchInput.addEventListener('input', (e) => {
-                renderItems(e.target.value);
-            });
-            setTimeout(() => {
-                // Keep virtual keyboard from jumping violently
-                try { searchInput.focus(); } catch (_) {}
-            }, 300);
+            const searchInput = sheet.querySelector('.mobile-select-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', (ev) => {
+                    renderItems(ev.target.value);
+                });
+            }
         }
 
-        backdrop.addEventListener('click', closeActiveSheet);
-        const closeBtn = sheet.querySelector('#mobile-sheet-close-btn');
-        if (closeBtn) closeBtn.addEventListener('click', closeActiveSheet);
+        // Evitar que eventos dentro del panel se propaguen al backdrop o a overlays padres.
+        sheet.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+        sheet.addEventListener('click', (ev) => ev.stopPropagation());
+
+        // Cierre por backdrop solo tras un toque deliberado iniciado sobre el backdrop después de la apertura.
+        const openedAt = Date.now();
+        let backdropPressStarted = false;
+
+        backdrop.addEventListener('pointerdown', (ev) => {
+            backdropPressStarted = (ev.target === backdrop && (Date.now() - openedAt) >= 200);
+        });
+        backdrop.addEventListener('pointercancel', () => {
+            backdropPressStarted = false;
+        });
+        backdrop.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (ev.target === backdrop && (Date.now() - openedAt) >= 350 && backdropPressStarted) {
+                backdropPressStarted = false;
+                closeActiveSheet({ reason: 'backdrop' });
+            }
+        });
+
+        const closeBtn = sheet.querySelector('.mobile-select-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                closeActiveSheet({ reason: 'close_btn' });
+            });
+        }
+
+        const sheetState = { backdrop, sheet, select, openedAt, removeTimer: null };
+        window._activeMobileSheet = sheetState;
 
         document.body.appendChild(backdrop);
         document.body.appendChild(sheet);
 
-        // Animate in
         requestAnimationFrame(() => {
+            if (window._activeMobileSheet !== sheetState) return;
             backdrop.classList.add('visible');
             sheet.classList.add('visible');
-        });
 
-        window._activeMobileSheet = { backdrop, sheet };
+            const selectedItem = listContainer.querySelector('.mobile-select-item.selected');
+            if (selectedItem && typeof selectedItem.scrollIntoView === 'function') {
+                try { selectedItem.scrollIntoView({ block: 'nearest' }); } catch (_) {}
+            }
+        });
     }
 
-    function closeActiveSheet() {
-        if (!window._activeMobileSheet) return;
-        const { backdrop, sheet } = window._activeMobileSheet;
+    function closeActiveSheet(options = {}) {
+        const state = window._activeMobileSheet;
+        if (!state) return;
         window._activeMobileSheet = null;
 
+        if (state.removeTimer) {
+            clearTimeout(state.removeTimer);
+            state.removeTimer = null;
+        }
+
+        const { backdrop, sheet } = state;
+        backdrop.style.pointerEvents = 'none';
+        sheet.style.pointerEvents = 'none';
         backdrop.classList.remove('visible');
         sheet.classList.remove('visible');
 
-        setTimeout(() => {
+        const removeNodes = () => {
             if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
             if (sheet && sheet.parentNode) sheet.parentNode.removeChild(sheet);
-        }, 280);
+        };
+
+        if (options.immediate) {
+            removeNodes();
+        } else {
+            state.removeTimer = setTimeout(removeNodes, 280);
+        }
+
+        if (options.reason !== 'reopen') {
+            const closeReason = options.reason || 'dismiss';
+            setTimeout(() => {
+                if (typeof window.flushDeferredSyncRerender === 'function') {
+                    window.flushDeferredSyncRerender({ reason: closeReason });
+                }
+            }, 60);
+        }
     }
 
     window.closeMobileSelectSheet = closeActiveSheet;

@@ -4,9 +4,36 @@
 
 const DEFAULT_MATERIALS = [];
 
-function getCustomCodes() {
-  const local = JSON.parse(localStorage.getItem(userKey('recim_material_codes')) || '[]');
-  return local;
+function _matNormBranchId(branchId) {
+  if (typeof normalizeBranchId === 'function') return normalizeBranchId(branchId);
+  const clean = branchId == null ? '' : String(branchId).trim();
+  return clean || 'SUC-PRINCIPAL';
+}
+
+function _matResolveBranchName(branchId) {
+  const id = _matNormBranchId(branchId);
+  if (typeof resolveBranchNameById === 'function') return resolveBranchNameById(id);
+  return id === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : id;
+}
+
+function _resolveMaterialTargetBranchId(branchIdOverride = null) {
+  if (branchIdOverride) return _matNormBranchId(branchIdOverride);
+  if (typeof getActiveBranchId === 'function') return _matNormBranchId(getActiveBranchId());
+  return 'SUC-PRINCIPAL';
+}
+
+function getAllCustomCodesRaw() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(userKey('recim_material_codes')) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function getCustomCodes(branchIdOverride = null) {
+  const targetBranchId = _resolveMaterialTargetBranchId(branchIdOverride);
+  return getAllCustomCodesRaw().filter(c => c && _matNormBranchId(c.branchId) === targetBranchId);
 }
 
 function saveCustomCodes(codes) {
@@ -20,9 +47,18 @@ function saveCustomCodes(codes) {
 // Do NOT add on('value') listeners here — they bypass delete logic and restore deleted data.
 
 // Families of materials helper functions
-function getMaterialFamilies() {
-  const local = JSON.parse(localStorage.getItem(userKey('recim_material_families')) || '[]');
-  return local;
+function getAllMaterialFamiliesRaw() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(userKey('recim_material_families')) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function getMaterialFamilies(branchIdOverride = null) {
+  const targetBranchId = _resolveMaterialTargetBranchId(branchIdOverride);
+  return getAllMaterialFamiliesRaw().filter(f => f && _matNormBranchId(f.branchId) === targetBranchId);
 }
 
 function saveMaterialFamilies(families) {
@@ -32,70 +68,150 @@ function saveMaterialFamilies(families) {
   }
 }
 
-function addMaterialFamily(name) {
+function addMaterialFamily(name, branchIdOverride = null) {
   if (!name || name.trim() === '') return false;
-  const families = getMaterialFamilies();
-  if (families.some(f => f.name.toLowerCase() === name.toLowerCase().trim())) {
-    showToast('❌ Ya existe una familia con ese nombre', 'error');
+  const targetBranchId = _resolveMaterialTargetBranchId(branchIdOverride);
+  const branchFamilies = getMaterialFamilies(targetBranchId);
+  if (branchFamilies.some(f => f.name.toLowerCase() === name.toLowerCase().trim())) {
+    showToast('❌ Ya existe una familia con ese nombre en esta sucursal', 'error');
     return false;
   }
-  const id = `fam-${Date.now()}`;
-  families.push({ id, name: name.trim() });
-  saveMaterialFamilies(families);
+  const allFamilies = getAllMaterialFamiliesRaw();
+  const id = `fam-${targetBranchId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  allFamilies.push({
+    id,
+    name: name.trim(),
+    branchId: targetBranchId,
+    branchName: _matResolveBranchName(targetBranchId),
+    createdAt: new Date().toISOString()
+  });
+  saveMaterialFamilies(allFamilies);
   showToast('📁 Familia de materiales creada con éxito', 'success');
   return true;
 }
 
 function deleteMaterialFamily(id) {
-  let families = getMaterialFamilies();
-  families = families.filter(f => f.id !== id);
-  saveMaterialFamilies(families);
+  let allFamilies = getAllMaterialFamiliesRaw();
+  const targetFam = allFamilies.find(f => f && f.id === id);
+  if (!targetFam) return;
 
-  const codes = getCustomCodes();
+  const canSwitch = typeof canCurrentUserSwitchBranches === 'function' ? canCurrentUserSwitchBranches() : true;
+  if (!canSwitch && _matNormBranchId(targetFam.branchId) !== _resolveMaterialTargetBranchId(null)) {
+    showToast('🔒 No puedes eliminar familias de otra sucursal.', 'error');
+    return;
+  }
+
+  allFamilies = allFamilies.filter(f => f && f.id !== id);
+  saveMaterialFamilies(allFamilies);
+
+  const allCodes = getAllCustomCodesRaw();
   let updated = false;
-  codes.forEach(c => {
-    if (c.familyId === id) {
+  allCodes.forEach(c => {
+    if (c && c.familyId === id) {
       c.familyId = '';
       updated = true;
     }
   });
   if (updated) {
-    saveCustomCodes(codes);
+    saveCustomCodes(allCodes);
+  }
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'material_family_delete',
+      entityType: 'material_family',
+      entityId: id,
+      summary: `Familia de materiales eliminada: ${targetFam.name || id}`,
+      branchId: targetFam.branchId,
+      branchName: targetFam.branchName
+    });
   }
   showToast('🗑️ Familia eliminada con éxito', 'success');
 }
 
-function getMaterialCodes() {
-  const custom = getCustomCodes();
+function getMaterialCodes(branchIdOverride = null) {
+  const custom = getCustomCodes(branchIdOverride);
   return custom.length > 0 ? [...custom, ...DEFAULT_MATERIALS] : DEFAULT_MATERIALS;
 }
 
-function addMaterialCode(name, code, familyId = '') {
-  const codes = getCustomCodes();
-  if (codes.some(c => c.code === code.toUpperCase())) {
+function addMaterialCode(name, code, familyId = '', branchIdOverride = null) {
+  const targetBranchId = _resolveMaterialTargetBranchId(branchIdOverride);
+  const branchCodes = getCustomCodes(targetBranchId);
+  const upperCode = code.toUpperCase();
+  if (branchCodes.some(c => c.code === upperCode)) {
     showToast(t('err.dup_code'), 'error'); return false;
   }
-  const id = `mat-${Date.now()}`;
-  codes.push({ id, code: code.toUpperCase(), name, icon: '♻️', unit: 'kg', familyId });
-  saveCustomCodes(codes);
+  const allCodes = getAllCustomCodesRaw();
+  const id = `mat-${targetBranchId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  allCodes.push({
+    id,
+    code: upperCode,
+    name,
+    icon: '♻️',
+    unit: 'kg',
+    familyId,
+    branchId: targetBranchId,
+    branchName: _matResolveBranchName(targetBranchId),
+    createdAt: new Date().toISOString()
+  });
+  saveCustomCodes(allCodes);
   showToast(t('toast.code_add'), 'success');
   return true;
 }
 
 function deleteMaterialCode(id) {
-  const codes = getCustomCodes().filter(c => c.id !== id);
-  saveCustomCodes(codes);
+  const allCodes = getAllCustomCodesRaw();
+  const target = allCodes.find(c => c && c.id === id);
+  if (!target) return;
+
+  const canSwitch = typeof canCurrentUserSwitchBranches === 'function' ? canCurrentUserSwitchBranches() : true;
+  if (!canSwitch && _matNormBranchId(target.branchId) !== _resolveMaterialTargetBranchId(null)) {
+    showToast('🔒 No puedes eliminar materiales de otra sucursal.', 'error');
+    return;
+  }
+
+  const remaining = allCodes.filter(c => c && c.id !== id);
+  saveCustomCodes(remaining);
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'material_delete',
+      entityType: 'material',
+      entityId: id,
+      summary: `Material eliminado: ${target.code} - ${target.name}`,
+      branchId: target.branchId,
+      branchName: target.branchName
+    });
+  }
   showToast(t('toast.code_del'), 'success');
 }
 
 function updateMaterialCode(id, name, code, familyId = '') {
-  const codes = getCustomCodes();
-  const idx = codes.findIndex(c => c.id === id);
+  const allCodes = getAllCustomCodesRaw();
+  const idx = allCodes.findIndex(c => c && c.id === id);
   if (idx === -1) return;
-  const dup = codes.find((c, i) => c.code === code.toUpperCase() && i !== idx);
+  const itemBranchId = _matNormBranchId(allCodes[idx].branchId);
+  const upperCode = code.toUpperCase();
+  const dup = allCodes.find((c, i) => i !== idx && c && _matNormBranchId(c.branchId) === itemBranchId && c.code === upperCode);
   if (dup) { showToast(t('err.dup_code'), 'error'); return; }
-  codes[idx] = { ...codes[idx], name, code: code.toUpperCase(), familyId };
-  saveCustomCodes(codes);
+  allCodes[idx] = {
+    ...allCodes[idx],
+    name,
+    code: upperCode,
+    familyId,
+    branchId: itemBranchId,
+    branchName: allCodes[idx].branchName || _matResolveBranchName(itemBranchId),
+    updatedAt: new Date().toISOString()
+  };
+  saveCustomCodes(allCodes);
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'material_update',
+      entityType: 'material',
+      entityId: id,
+      summary: `Material actualizado: ${upperCode} - ${name}`,
+      branchId: itemBranchId,
+      branchName: allCodes[idx].branchName
+    });
+  }
   showToast('✅ Código actualizado', 'success');
 }
 
@@ -104,8 +220,11 @@ function updateMaterialCode(id, name, code, familyId = '') {
 // =============================================
 
 function renderCodigosPage(container) {
-  const codes = getCustomCodes();
-  const families = getMaterialFamilies();
+  const activeBranchId = _resolveMaterialTargetBranchId(null);
+  const activeBranchName = _matResolveBranchName(activeBranchId);
+  const codes = getCustomCodes(activeBranchId);
+  const families = getMaterialFamilies(activeBranchId);
+  const branchBarHtml = typeof renderBranchContextBar === 'function' ? renderBranchContextBar('materiales y grupos') : '';
 
   container.innerHTML = `
     <div class="page-header">
@@ -114,6 +233,8 @@ function renderCodigosPage(container) {
         <p class="section-subtitle">${t('mat.subtitle')}</p>
       </div>
     </div>
+
+    ${branchBarHtml}
 
     <div class="finance-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start;">
       <!-- Left Column: Forms -->
@@ -176,8 +297,9 @@ function renderCodigosPage(container) {
 }
 
 function renderCustomCodesList(codes) {
+  const activeBranchName = _matResolveBranchName(_resolveMaterialTargetBranchId(null));
   if (codes.length === 0) {
-    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">No tienes códigos creados.</p>`;
+    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">No tienes códigos de materiales creados en <b>${activeBranchName}</b>.</p>`;
   }
 
   const families = getMaterialFamilies();
@@ -206,8 +328,9 @@ function renderCustomCodesList(codes) {
 }
 
 function renderMaterialFamiliesList(families, codes) {
+  const activeBranchName = _matResolveBranchName(_resolveMaterialTargetBranchId(null));
   if (families.length === 0) {
-    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">No tienes familias de materiales creadas.</p>`;
+    return `<p style="color:var(--clr-text-muted);font-size:0.85rem;">No tienes familias de materiales creadas en <b>${activeBranchName}</b>.</p>`;
   }
 
   return families.map(f => {
@@ -415,14 +538,22 @@ function askMaterialFamilyAssignment(name, code) {
       if (newNameEl) newNameEl.focus();
       return;
     }
-    const targetFamId = `fam-${Date.now()}`;
-    const familiesList = getMaterialFamilies();
-    if (familiesList.some(f => f.name.toLowerCase() === newName.toLowerCase())) {
-      showToast('❌ Ya existe una familia con ese nombre', 'error');
+    const targetBranchId = _resolveMaterialTargetBranchId(null);
+    const targetFamId = `fam-${targetBranchId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const branchFamiliesList = getMaterialFamilies(targetBranchId);
+    if (branchFamiliesList.some(f => f.name.toLowerCase() === newName.toLowerCase())) {
+      showToast('❌ Ya existe una familia con ese nombre en esta sucursal', 'error');
       return;
     }
-    familiesList.push({ id: targetFamId, name: newName });
-    saveMaterialFamilies(familiesList);
+    const allFamiliesList = getAllMaterialFamiliesRaw();
+    allFamiliesList.push({
+      id: targetFamId,
+      name: newName,
+      branchId: targetBranchId,
+      branchName: _matResolveBranchName(targetBranchId),
+      createdAt: new Date().toISOString()
+    });
+    saveMaterialFamilies(allFamiliesList);
     showToast('📁 Familia de materiales creada con éxito', 'success');
     finishAddMaterial(targetFamId);
   };
@@ -477,12 +608,14 @@ window.handleDeleteCode = handleDeleteCode;
 window.handleCreateFamilyFromForm = handleCreateFamilyFromForm;
 window.handleDeleteFamily = handleDeleteFamily;
 window.askMaterialFamilyAssignment = askMaterialFamilyAssignment;
+window.getAllCustomCodesRaw = getAllCustomCodesRaw;
 window.getCustomCodes = getCustomCodes;
 window.saveCustomCodes = saveCustomCodes;
 window.getMaterialCodes = getMaterialCodes;
 window.addMaterialCode = addMaterialCode;
 window.deleteMaterialCode = deleteMaterialCode;
 window.updateMaterialCode = updateMaterialCode;
+window.getAllMaterialFamiliesRaw = getAllMaterialFamiliesRaw;
 window.getMaterialFamilies = getMaterialFamilies;
 window.saveMaterialFamilies = saveMaterialFamilies;
 window.addMaterialFamily = addMaterialFamily;

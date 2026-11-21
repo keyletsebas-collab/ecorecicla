@@ -71,14 +71,84 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  let reqPath = decodeURI(req.url.split('?')[0]);
+  // Proxy para DominicanTech DGII (requiere variable de entorno DGII_API_TOKEN)
+  if (req.url.startsWith('/api/dgii-domtech')) {
+    const https = require('https');
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const rnc = parsedUrl.searchParams.get('rnc');
+    const q = parsedUrl.searchParams.get('q');
+    const domToken = (process.env.DGII_API_TOKEN || '').trim();
+    if (!domToken) {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ exito: false, mensaje: 'DGII_API_TOKEN no configurado en el servidor.' }));
+      return;
+    }
+    const domBase = 'https://api-dgii.dominicantechnology.com/api/v1';
+
+    let targetUrl = '';
+    if (rnc) {
+      targetUrl = `${domBase}/rnc/${encodeURIComponent(rnc)}`;
+    } else if (q) {
+      targetUrl = q.length >= 4
+        ? `${domBase}/buscardgi?q=${encodeURIComponent(q)}`
+        : `${domBase}/buscar?q=${encodeURIComponent(q)}`;
+    } else {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ exito: false, mensaje: 'Parámetro rnc o q faltante' }));
+      return;
+    }
+
+    https.get(targetUrl, {
+      headers: {
+        'Authorization': `Bearer ${domToken}`,
+        'Accept': 'application/json'
+      }
+    }, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*'
+      });
+      proxyRes.pipe(res);
+    }).on('error', (err) => {
+      res.writeHead(502, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ exito: false, mensaje: err.message }));
+    });
+    return;
+  }
+
+  let reqPath = '/';
+  try {
+    reqPath = decodeURIComponent(req.url.split('?')[0]);
+  } catch (_) {
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
   if (reqPath === '/' || reqPath === '') {
     reqPath = '/index.html';
   }
 
-  const filePath = path.join(ROOT, reqPath);
+  const relativePath = reqPath.replace(/^\/+/, '');
+  const filePath = path.resolve(ROOT, relativePath);
 
-  if (!filePath.startsWith(ROOT)) {
+  if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {
+    res.writeHead(403);
+    res.end('Access Denied');
+    return;
+  }
+
+  const blockedTopSegments = new Set([
+    '.git', '.env', 'node_modules', 'ReciminsaApp', 'android',
+    'main.js', 'dev-server.js', 'build.js', 'package.json',
+    'package-lock.json', 'n8nac-config.json', 'InnoSetupScript_MAUI.iss',
+    'forge.config.js', 'LICENSE.txt'
+  ]);
+  const topSegment = path.relative(ROOT, filePath).split(path.sep)[0] || '';
+  if (
+    topSegment.startsWith('.env') ||
+    blockedTopSegments.has(topSegment) ||
+    filePath.toLowerCase().endsWith('.sql')
+  ) {
     res.writeHead(403);
     res.end('Access Denied');
     return;

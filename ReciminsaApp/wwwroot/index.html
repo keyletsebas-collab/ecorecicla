@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <script>
     (function() {
       var isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent || '') || 
@@ -33,7 +33,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="css/main.css?v=201" />
-  <link rel="stylesheet" href="css/app.css?v=203" />
+  <link rel="stylesheet" href="css/app.css?v=206" />
   <link rel="stylesheet" href="css/index.css?v=201" />
   <link rel="stylesheet" href="css/chatbot.css?v=201" />
   <link rel="stylesheet" href="css/auth.css?v=201" />
@@ -501,6 +501,24 @@
             <button type="button" class="password-toggle" onclick="togglePassword('signup-password', this)">👁</button>
           </div>
         </div>
+        <div class="form-group" style="margin-top: 6px; margin-bottom: 12px;">
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.28); border-radius: 13px; padding: 11px 13px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: 0.8rem; color: #e2e8f0; font-weight: 600; margin: 0;"
+                     onclick="event.preventDefault(); openSignupLegalConsentModal({ autoSubmitOnAccept: false });">
+                <input type="checkbox" id="signup-accept-legal" style="width: 17px; height: 17px; accent-color: #10b981; flex-shrink: 0; cursor: pointer;" />
+                <span>Términos, Condiciones y Privacidad</span>
+              </label>
+              <span id="signup-legal-status-badge" style="font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.16); border: 1px solid rgba(245, 158, 11, 0.45); color: #fcd34d;">
+                Pendiente de lectura
+              </span>
+            </div>
+            <button type="button" id="signup-open-legal-btn" onclick="openSignupLegalConsentModal({ autoSubmitOnAccept: false })"
+                    style="width: 100%; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(52, 211, 153, 0.35); background: rgba(16, 185, 129, 0.12); color: #6ee7b7; font-size: 0.78rem; font-weight: 600; cursor: pointer; text-align: center;">
+              📄 Leer y aceptar Términos y Condiciones y Privacidad
+            </button>
+          </div>
+        </div>
         <p class="auth-error hidden" id="signup-error"></p>
         <button type="submit" class="btn-primary" id="signup-btn">
           <span>Crear Cuenta</span>
@@ -525,6 +543,134 @@
         <div class="form-actions-back text-center">
           <a href="javascript:void(0)" class="back-link" onclick="cancelSignupVerification(event)">← Volver al registro</a>
         </div>
+      </form>
+
+      <!-- Post-Signup Company & Branch Onboarding Form -->
+      <form id="signup-step-onboarding" class="auth-form hidden" onsubmit="handleCompleteOnboarding(event)">
+        <h3 class="auth-form-title" style="margin-bottom: 6px;">🏢 Configuración de Empresa</h3>
+        <p class="auth-step-description" style="margin-bottom: 16px;">Configura tu empresa o únete a una existente para comenzar a usar la plataforma.</p>
+
+        <!-- Checkbox: ¿Quieres crear una empresa nueva? -->
+        <div class="form-group" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 13px; padding: 12px 14px; margin-bottom: 16px;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; margin: 0; font-size: 0.9rem; font-weight: 600; color: #e2e8f0;">
+            <input type="checkbox" id="onboard-create-company-cb" checked onchange="toggleOnboardingCompanyMode()" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;" />
+            <span>¿Quieres crear una empresa nueva?</span>
+          </label>
+        </div>
+
+        <!-- SECCIÓN A: SÍ -> CREAR EMPRESA NUEVA (Nombre + RNC vinculados por DGII) -->
+        <div id="onboard-new-company-section">
+          <p style="font-size: 0.78rem; color: #94a3b8; margin: 0 0 12px 0; line-height: 1.4;">
+            Ingresa el <b>Nombre de la empresa (Razón Social)</b> o el <b>RNC</b>. El sistema consultará la API de la <b>DGII</b> automáticamente para vincular ambos datos obligatoriamente.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="onboard-company-name">Nombre de la Empresa (Razón Social) <span style="color:#34d399;">*</span></label>
+            <div style="display: flex; gap: 8px;">
+              <input id="onboard-company-name" type="text" class="form-input" placeholder="Ej: Reciminsa SRL" style="flex: 1;"
+                     oninput="onOnboardingNameInput(this.value)"
+                     onchange="lookupOnboardingDGIIByName()"
+                     onkeydown="if(event.key==='Enter'){ event.preventDefault(); lookupOnboardingDGIIByName(); }" />
+              <button type="button" class="btn-secondary" onclick="lookupOnboardingDGIIByName()" title="Buscar RNC por Nombre en DGII"
+                      style="padding: 0 14px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.12); color: #34d399; font-weight: 700; cursor: pointer;">
+                🔍
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="onboard-company-rnc">RNC de la Empresa <span style="color:#34d399;">*</span></label>
+            <div style="display: flex; gap: 8px;">
+              <input id="onboard-company-rnc" type="text" class="form-input" placeholder="Ej: 131XXXXXX (9 u 11 dígitos)" style="flex: 1;"
+                     oninput="onOnboardingRncInput(this.value)"
+                     onchange="lookupOnboardingDGIIByRNC()"
+                     onkeydown="if(event.key==='Enter'){ event.preventDefault(); lookupOnboardingDGIIByRNC(); }" />
+              <button type="button" class="btn-secondary" onclick="lookupOnboardingDGIIByRNC()" title="Consultar RNC en DGII"
+                      style="padding: 0 14px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.12); color: #34d399; font-weight: 700; cursor: pointer;">
+                🔍
+              </button>
+            </div>
+          </div>
+
+          <div id="onboard-dgii-status" class="hidden" style="margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; font-size: 0.8rem; line-height: 1.4;"></div>
+        </div>
+
+        <!-- SECCIÓN B: NO -> UNIRSE CON CÓDIGO DE EMPRESA Y SUCURSAL -->
+        <div id="onboard-join-company-section" class="hidden">
+          <div class="form-group">
+            <label class="form-label" for="onboard-company-code">Código de Empresa <span style="color:#34d399;">*</span></label>
+            <div style="display: flex; gap: 8px;">
+              <input id="onboard-company-code" type="text" class="form-input" placeholder="Ej: 1234567890 o código personalizado" maxlength="32" style="flex: 1; font-family: monospace; letter-spacing: 0.06em;"
+                     oninput="onOnboardingCompanyCodeInput(this.value);"
+                     onkeydown="if(event.key==='Enter'){ event.preventDefault(); validateOnboardingCompanyCode(); }" />
+              <button type="button" id="onboard-validate-code-btn" class="btn-secondary" onclick="validateOnboardingCompanyCode()"
+                      style="padding: 0 14px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.12); color: #34d399; font-weight: 600; font-size: 0.82rem; cursor: pointer; white-space: nowrap;">
+                Validar
+              </button>
+            </div>
+          </div>
+
+          <div id="onboard-code-status" class="hidden" style="margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; font-size: 0.8rem;"></div>
+
+          <!-- Sub-sección de Sucursal (aparece tras validar el código de empresa) -->
+          <div id="onboard-branch-section" class="hidden" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+            <div class="form-group" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 13px; padding: 12px 14px; margin-bottom: 14px;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; margin: 0; font-size: 0.88rem; font-weight: 600; color: #e2e8f0;">
+                <input type="checkbox" id="onboard-new-branch-cb" onchange="toggleOnboardingBranchMode()" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;" />
+                <span>¿Es una nueva sucursal?</span>
+              </label>
+              <p style="margin: 4px 0 0 28px; font-size: 0.75rem; color: #94a3b8;">
+                Marca la casilla para registrar una nueva sucursal, o déjala desmarcada para unirte a una sucursal ya creada.
+              </p>
+            </div>
+
+            <!-- Campos para Nueva Sucursal -->
+            <div id="onboard-new-branch-fields" class="hidden">
+              <div class="form-group">
+                <label class="form-label" for="onboard-branch-name">Nombre de la Sucursal <span style="color:#34d399;">*</span></label>
+                <input id="onboard-branch-name" type="text" class="form-input" placeholder="Ej: Sucursal Santiago / Planta Norte" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="onboard-branch-code">Código de acceso de la sucursal <span style="color:#34d399;">*</span></label>
+                <input id="onboard-branch-code" type="text" class="form-input" placeholder="Ej: SUC-NORTE01 — Contraseña para unirse a esta sucursal" style="font-family: monospace; text-transform: uppercase;" />
+                <p style="margin: 4px 0 0 2px; font-size: 0.74rem; color: #94a3b8;">
+                  Se pedirá como contraseña cuando otros usuarios quieran unirse a esta sucursal.
+                </p>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="onboard-branch-location">¿Dónde está ubicada esa sucursal? <span style="color:#34d399;">*</span></label>
+                <input id="onboard-branch-location" type="text" class="form-input" placeholder="Ej: Av. Estrella Sadhalá #45, Santiago" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="onboard-branch-phone">Número de Teléfono de la Sucursal <span style="color:#34d399;">*</span></label>
+                <input id="onboard-branch-phone" type="tel" class="form-input" placeholder="Ej: 809-555-0101" />
+              </div>
+            </div>
+
+            <!-- Selector para Sucursal Antigua / Existente -->
+            <div id="onboard-existing-branch-fields">
+              <div class="form-group">
+                <label class="form-label" for="onboard-existing-branch-select">Selecciona una Sucursal ya creada <span style="color:#34d399;">*</span></label>
+                <select id="onboard-existing-branch-select" class="form-input" style="width: 100%; cursor: pointer;">
+                  <option value="">-- Selecciona una sucursal --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="onboard-existing-branch-code">Código de acceso de la sucursal (contraseña) <span style="color:#34d399;">*</span></label>
+                <div class="input-password-wrap">
+                  <input id="onboard-existing-branch-code" type="password" class="form-input" placeholder="Ingresa el código de la sucursal" autocomplete="off" />
+                  <button type="button" class="password-toggle" onclick="togglePassword('onboard-existing-branch-code', this)" aria-label="Mostrar código de sucursal">👁</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="auth-error hidden" id="onboard-error"></p>
+        <button type="submit" class="btn-primary" id="onboard-submit-btn">
+          <span>Finalizar y Entrar</span>
+          <div class="btn-spinner hidden"></div>
+        </button>
       </form>
 
       <!-- Forgot Password Form -->
@@ -583,6 +729,14 @@
           <a href="javascript:void(0)" class="back-link" onclick="backToLogin(event)">← Volver al inicio de sesión</a>
         </div>
       </form>
+
+      <div class="auth-legal-footer" style="margin-top: 18px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: center; font-size: 0.75rem; color: #94a3b8; line-height: 1.5;">
+        <a href="privacidad.html" target="_blank" rel="noopener noreferrer" style="color: #6ee7b7; text-decoration: none;">Política de Privacidad</a>
+        <span style="margin: 0 6px;">·</span>
+        <a href="terminos.html" target="_blank" rel="noopener noreferrer" style="color: #6ee7b7; text-decoration: none;">Términos y EULA</a>
+        <span style="margin: 0 6px;">·</span>
+        <a href="mailto:soporte@reciminsa.com" style="color: #94a3b8; text-decoration: none;">Soporte</a>
+      </div>
     </div>
 
     <!-- Modal Cuenta Guardada Elegante (Reemplazo Autofill) -->
@@ -649,6 +803,10 @@
           <span class="sidebar-icon">🚛</span>
           <span class="sidebar-label">Bitácoras de Recogida</span>
         </a>
+        <a href="javascript:void(0)" class="sidebar-link" data-page="rutas" onclick="navigate('rutas')">
+          <span class="sidebar-icon">🗺️</span>
+          <span class="sidebar-label">Agenda y Rutas</span>
+        </a>
 
         <!-- Dropdown: Facturación y Finanzas -->
         <div class="sidebar-section-title">Finanzas & Facturación</div>
@@ -706,6 +864,10 @@
         </a>
 
         <div class="sidebar-section-title">Sistema</div>
+        <a href="javascript:void(0)" class="sidebar-link" data-page="parametrizaciones_empresa" onclick="navigate('parametrizaciones_empresa')">
+          <span class="sidebar-icon">🏢</span>
+          <span class="sidebar-label">Parametrizaciones de Empresa</span>
+        </a>
         <a href="javascript:void(0)" class="sidebar-link" data-page="ajustes" onclick="navigate('ajustes')">
           <span class="sidebar-icon">⚙️</span>
           <span class="sidebar-label">Ajustes</span>
@@ -729,12 +891,25 @@
           <span></span><span></span><span></span>
         </button>
         <h2 class="topbar-title" id="topbar-title">Historial</h2>
+        <div class="topbar-sync-wrap">
+          <button type="button" id="topbar-sync-pill" class="topbar-sync-pill" onclick="window.SyncStatus && window.SyncStatus.togglePopover()" title="Estado de sincronización y cola offline">
+            <span class="topbar-sync-dot"></span>
+            <span class="topbar-sync-label">Sincronizado</span>
+          </button>
+        </div>
+        <div class="topbar-alerts-wrap">
+          <button type="button" class="topbar-alerts-btn" id="topbar-alerts-btn" onclick="toggleSmartAlertsPanel()" aria-label="Notificaciones inteligentes" aria-expanded="false" title="Centro de Alertas">
+            <span>🔔</span>
+            <span class="topbar-alerts-badge hidden" id="topbar-alerts-badge">0</span>
+          </button>
+        </div>
         <div class="topbar-date" id="topbar-date"></div>
       </header>
 
       <!-- Pages -->
       <div id="page-historial" class="page hidden"></div>
       <div id="page-bitacoras" class="page hidden"></div>
+      <div id="page-rutas" class="page hidden"></div>
       <div id="page-facturas" class="page hidden"></div>
       <div id="page-nota_credito" class="page hidden"></div>
       <div id="page-nota_debito" class="page hidden"></div>
@@ -745,6 +920,7 @@
       <div id="page-egresos" class="page hidden"></div>
       <div id="page-ecologia" class="page hidden"></div>
       <div id="page-colaboradores" class="page hidden"></div>
+      <div id="page-parametrizaciones_empresa" class="page hidden"></div>
 
       <div id="page-ajustes" class="page hidden"></div>
     </main>
@@ -781,35 +957,43 @@
 
   <!-- Scripts (Supabase SDK & App Logic) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/logger-messages.js?v=33"></script>
-  <script src="js/supabase-config.js?v=31"></script>
+  <script src="js/logger-messages.js?v=34"></script>
+  <script src="js/supabase-config.js?v=33"></script>
   <script src="js/default-logo.js?v=31"></script>
   <script src="js/logo-data.js?v=31"></script>
-  <script src="js/pdf-utils.js?v=31"></script>
+  <script src="js/pdf-utils.js?v=34"></script>
   <script src="js/i18n.js?v=31"></script>
-  <script src="js/auth.js?v=31"></script>
-  <script src="js/biometric-auth.js?v=31"></script>
-  <script src="js/security.js?v=31"></script>
-  <script src="js/materials.js?v=31"></script>
-  <script src="js/clients.js?v=32"></script>
-  <script src="js/collaborators.js?v=31"></script>
-  <script src="js/bitacoras.js?v=32"></script>
-  <script src="js/dgii-api.js?v=31"></script>
-  <script src="js/dgii-reports.js?v=5"></script>
-  <script src="js/invoices.js?v=35"></script>
-  <script src="js/history.js?v=32"></script>
+  <script src="js/auth.js?v=36"></script>
+  <script src="js/biometric-auth.js?v=32"></script>
+  <script src="js/security.js?v=34"></script>
+  <script src="js/materials.js?v=33"></script>
+  <script src="js/clients.js?v=34"></script>
+  <script src="js/collaborators.js?v=34"></script>
+  <script src="js/bitacoras.js?v=35"></script>
+  <script src="js/routes-agenda.js?v=1"></script>
+  <script src="js/dgii-api.js?v=35"></script>
+  <script src="js/dgii-reports.js?v=8"></script>
+  <script src="js/invoices.js?v=40"></script>
+  <script src="js/history.js?v=36"></script>
   <script src="js/finance.js?v=31"></script>
-  <script src="js/settings.js?v=36"></script>
-  <script src="js/eco-pdf-engine.js?v=35"></script>
-  <script src="js/ecology.js?v=31"></script>
+  <script src="js/settings.js?v=44"></script>
+  <script src="js/storage-engine.js?v=1"></script>
+  <script src="js/sync-status.js?v=1"></script>
+  <script src="js/audit-log.js?v=1"></script>
+  <script src="js/company-settings.js?v=6"></script>
+  <script src="js/qr-vector.js?v=1"></script>
+  <script src="js/eco-pdf-engine.js?v=37"></script>
+  <script src="js/ecology.js?v=33"></script>
+  <script src="js/whatsapp-share.js?v=1"></script>
   <script src="js/sidebar.js?v=33"></script>
 
 
   <script src="js/excel-utils.js?v=32"></script>
-  <script src="js/app.js?v=34"></script>
-  <script src="js/mobile-select-picker.js?v=1"></script>
-  <script src="js/sync.js?v=32"></script>
-  <script src="js/chatbot.js?v=31"></script>
+  <script src="js/smart-alerts.js?v=2"></script>
+  <script src="js/app.js?v=41"></script>
+  <script src="js/mobile-select-picker.js?v=2"></script>
+  <script src="js/sync.js?v=40"></script>
+  <script src="js/chatbot.js?v=32"></script>
 </body>
 
 </html>

@@ -3,6 +3,83 @@
    Soporta Formato Corporativo (Carta) y Formato Ticket (POS 80mm)
    ========================================================================= */
 
+function getActiveCompanyIssuerInfo() {
+    let settings = {};
+    try {
+        if (typeof getSettings === 'function') {
+            settings = getSettings() || {};
+        }
+    } catch (_) {}
+
+    if (!settings || Object.keys(settings).length === 0) {
+        try {
+            const sessionStr = localStorage.getItem('recim_session');
+            let accountId = 'default';
+            if (sessionStr) {
+                accountId = JSON.parse(sessionStr).accountId || 'default';
+            }
+            const key = typeof userKey === 'function' ? userKey('recim_settings') : `recim_settings_${accountId}`;
+            settings = JSON.parse(localStorage.getItem(key) || '{}');
+            if (!settings.companyName) {
+                settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
+            }
+        } catch (e) {
+            console.error("Error reading settings in PDF:", e);
+        }
+    }
+
+    let companyName = settings.companyName || '';
+    let companyAddr = settings.companyAddress || '';
+    let companyRNC = settings.companyRNC || settings.rnc || settings.companyRnc || '';
+    let companyTel = settings.companyPhone || settings.userPhone || '';
+    let companyEmail = settings.companyEmail || settings.userEmail || '';
+    let companySlogan = settings.companySlogan || '';
+    let companyLogo = (typeof getCachedCompanyLogo === 'function' ? getCachedCompanyLogo() : null) ||
+                      settings.companyLogo ||
+                      window.DEFAULT_APP_LOGO || '';
+
+    if (typeof userKey === 'function') {
+        try {
+            const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
+            if (sharedSettings.companyName) companyName = sharedSettings.companyName;
+            if (sharedSettings.companyRNC) companyRNC = sharedSettings.companyRNC;
+            if (sharedSettings.companyPhone || sharedSettings.userPhone) companyTel = sharedSettings.companyPhone || sharedSettings.userPhone;
+            if (sharedSettings.companyEmail || sharedSettings.userEmail) companyEmail = sharedSettings.companyEmail || sharedSettings.userEmail;
+            if (sharedSettings.companyAddress) companyAddr = sharedSettings.companyAddress;
+            if (sharedSettings.companySlogan) companySlogan = sharedSettings.companySlogan;
+            if (sharedSettings.companyLogo) companyLogo = sharedSettings.companyLogo;
+        } catch (e) {
+            console.error('Error loading shared settings in PDF:', e);
+        }
+    }
+
+    return {
+        companyName: companyName || 'Empresa No Configurada',
+        companyAddr: companyAddr || '',
+        companyRNC: String(companyRNC || '').trim(),
+        companyTel: companyTel || '',
+        companyEmail: companyEmail || '',
+        companySlogan: companySlogan || '',
+        companyLogo
+    };
+}
+window.getActiveCompanyIssuerInfo = getActiveCompanyIssuerInfo;
+
+function _resolveInvoiceNcfDueDateFormatted(docObj) {
+    let raw = docObj?.ncfDueDate || '';
+    if (!raw && typeof getNcfSequences === 'function' && docObj?.ncfType) {
+        try {
+            const seqs = getNcfSequences() || {};
+            raw = seqs[docObj.ncfType]?.dueDate || '';
+        } catch (_) {}
+    }
+    raw = String(raw || '').trim();
+    if (!raw) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    return raw;
+}
+
 function safeFormatMoney(amount) {
     if (typeof formatMoney === 'function') {
         return formatMoney(amount);
@@ -205,8 +282,8 @@ function calculateTicketHeight(invoice, jsPDFConstructor, logoHeight = 0) {
     return height;
 }
 
-function generateInvoicePDF(invoice, format = null) {
-    if (!invoice) return;
+function generateInvoicePDF(invoice, format = null, options = {}) {
+    if (!invoice) return null;
 
     let determinedFormat = format;
     if (!determinedFormat) {
@@ -220,10 +297,10 @@ function generateInvoicePDF(invoice, format = null) {
         }
     }
 
-    proceedWithPDF(invoice, determinedFormat);
+    return proceedWithPDF(invoice, determinedFormat, options);
 }
 
-async function proceedWithPDF(invoice, format) {
+async function proceedWithPDF(invoice, format, options = {}) {
     // Normalizar factura básica de forma segura sin mutar el original (NCF opcional)
     if (invoice.type === 'basica') {
         invoice = {
@@ -249,41 +326,17 @@ async function proceedWithPDF(invoice, format) {
         return;
     }
 
-    // Configuración de marca blanca
-    let settings = {};
-    try {
-        const sessionStr = localStorage.getItem('recim_session');
-        let accountId = 'default';
-        if (sessionStr) {
-            accountId = JSON.parse(sessionStr).accountId || 'default';
-        }
-        const key = typeof userKey === 'function' ? userKey('recim_settings') : `recim_settings_${accountId}`;
-        settings = JSON.parse(localStorage.getItem(key) || '{}');
-        if (!settings.companyName) {
-            settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
-        }
-    } catch(e) {
-        console.error("Error reading settings in PDF:", e);
-    }
+    // Configuración de empresa emisora (sin RNC ni datos fiscales predeterminados de terceros)
+    const issuer = getActiveCompanyIssuerInfo();
+    const companyName = issuer.companyName;
+    let companyAddr = issuer.companyAddr;
+    const companyLogo = issuer.companyLogo;
+    let companyRNC = issuer.companyRNC;
+    let companyTel = issuer.companyTel;
+    let companyEmail = issuer.companyEmail;
 
-    const companyName  = settings.companyName  || 'RECIMINSA, SRL';
-    const companyAddr  = settings.companyAddress || 'Calle Principal #01, Santo Domingo, Rep. Dom.';
-    const companyLogo  = settings.companyLogo || window.DEFAULT_APP_LOGO || '';
-
-    let companyRNC = settings.companyRNC || '133250233';
-    let companyTel = settings.companyPhone || settings.userPhone || '+1 (849) 585-0386';
-    let companyEmail = settings.companyEmail || settings.userEmail || 'contacto@reciminsa.com';
-
-    if (typeof userKey === 'function') {
-        try {
-            const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
-            if (sharedSettings.companyRNC) companyRNC = sharedSettings.companyRNC;
-            if (sharedSettings.companyPhone || sharedSettings.userPhone) companyTel = sharedSettings.companyPhone || sharedSettings.userPhone;
-            if (sharedSettings.companyEmail || sharedSettings.userEmail) companyEmail = sharedSettings.companyEmail || sharedSettings.userEmail;
-            if (sharedSettings.companyAddress) companyAddr = sharedSettings.companyAddress;
-        } catch (e) {
-            console.error('Error loading shared settings in PDF:', e);
-        }
+    if (!companyRNC && invoice.ncfType && typeof showToast === 'function') {
+        showToast('⚠️ Configura el RNC y razón social de tu empresa en Parametrizaciones de Empresa antes de emitir comprobantes fiscales.', 'warning');
     }
 
     // Datos de factura
@@ -373,10 +426,12 @@ async function proceedWithPDF(invoice, format) {
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(30, 41, 59);
-        doc.text(`RNC: ${companyRNC}`, 40, y, { align: 'center' });
+        doc.text(`RNC: ${companyRNC || 'Sin configurar'}`, 40, y, { align: 'center' });
         y += 3.5;
-        doc.text(`Tel: ${companyTel}`, 40, y, { align: 'center' });
-        y += 3.5;
+        if (companyTel) {
+            doc.text(`Tel: ${companyTel}`, 40, y, { align: 'center' });
+            y += 3.5;
+        }
 
         if (companyEmail) {
             doc.text(`Email: ${companyEmail}`, 40, y, { align: 'center' });
@@ -404,18 +459,18 @@ async function proceedWithPDF(invoice, format) {
         doc.setFont('Helvetica', 'bold');
         doc.setFontSize(8.5);
         
-        let ticketTitle = "RECIBO INTERNO";
-        if (invoice.ncfType === 'B02') {
+        let ticketTitle = "FACTURA SIN COMPROBANTE FISCAL";
+        if (invoice.notes && invoice.notes.toUpperCase().includes("COTIZACION")) {
+            ticketTitle = "COTIZACIÓN";
+        } else if (invoice.ncfType === 'B02') {
             ticketTitle = "FACTURA DE CONSUMIDOR FINAL";
         } else if (invoice.ncfType === 'B01') {
             ticketTitle = "FACTURA DE CRÉDITO FISCAL";
         } else if (invoice.ncfType === 'B14') {
-            ticketTitle = "REGIMEN ESPECIAL";
+            ticketTitle = "RÉGIMEN ESPECIAL";
         } else if (invoice.ncfType === 'B15') {
-            ticketTitle = "GUBERNAMENTAL";
-        } else if (invoice.notes && invoice.notes.toUpperCase().includes("COTIZACION")) {
-            ticketTitle = "COTIZACIÓN";
-        } else if (invoice.typeName) {
+            ticketTitle = "COMPROBANTE GUBERNAMENTAL";
+        } else if (invoice.ncf && invoice.typeName) {
             if (invoice.typeName.toLowerCase() === 'empresarial') {
                 ticketTitle = "FACTURA DE CRÉDITO FISCAL";
             } else {
@@ -435,8 +490,11 @@ async function proceedWithPDF(invoice, format) {
         if (invoice.ncf) {
             doc.setFont('Helvetica', 'bold');
             doc.text(`NCF: ${invoice.ncf}`, 2, y);
-            doc.setFont('Helvetica', 'normal');
-            doc.text("Vence: 31/12/2027", 78, y, { align: 'right' });
+            const dueFmt = _resolveInvoiceNcfDueDateFormatted(invoice);
+            if (dueFmt) {
+                doc.setFont('Helvetica', 'normal');
+                doc.text(`Vence: ${dueFmt}`, 78, y, { align: 'right' });
+            }
             y += 3.5;
         }
 
@@ -630,10 +688,12 @@ async function proceedWithPDF(invoice, format) {
         doc.setTextColor(71, 85, 105);
         
         let emisorTextY = y + logoHeightToUse + 4;
-        doc.text(`RNC: ${companyRNC}`, 15, emisorTextY);
+        doc.text(`RNC: ${companyRNC || 'Sin configurar'}`, 15, emisorTextY);
         emisorTextY += 3.8;
-        doc.text(`Tel: ${companyTel}`, 15, emisorTextY);
-        emisorTextY += 3.8;
+        if (companyTel) {
+            doc.text(`Tel: ${companyTel}`, 15, emisorTextY);
+            emisorTextY += 3.8;
+        }
         
         if (companyEmail) {
             doc.text(`Email: ${companyEmail}`, 15, emisorTextY);
@@ -649,7 +709,9 @@ async function proceedWithPDF(invoice, format) {
         }
 
         // Bloque del Comprobante (Ficha Derecha Destacada)
-        let blockTitle = "FACTURA DE CRÉDITO FISCAL";
+        let blockTitle = (!invoice.ncf && !invoice.ncfType)
+            ? "FACTURA SIN COMPROBANTE FISCAL"
+            : "FACTURA DE CRÉDITO FISCAL";
         if (isBasica) {
             blockTitle = "FACTURA BÁSICA";
         } else if (invoice.ncfType === 'B01') {
@@ -660,7 +722,7 @@ async function proceedWithPDF(invoice, format) {
             blockTitle = "FACTURA GUBERNAMENTAL";
         } else if (invoice.ncfType === 'B02') {
             blockTitle = "FACTURA DE CONSUMIDOR FINAL";
-        } else if (invoice.typeName) {
+        } else if (invoice.ncf && invoice.typeName) {
             if (invoice.typeName.toLowerCase() === 'empresarial') {
                 blockTitle = "FACTURA DE CRÉDITO FISCAL";
             } else {
@@ -701,11 +763,14 @@ async function proceedWithPDF(invoice, format) {
             doc.text(invoice.ncf, 155, dataY);
             dataY += 4.2;
 
-            doc.setFont('Helvetica', 'bold');
-            doc.text(`Vence:`, 128, dataY);
-            doc.setFont('Helvetica', 'normal');
-            doc.text("31/12/2027", 155, dataY);
-            dataY += 4.2;
+            const dueFmt = _resolveInvoiceNcfDueDateFormatted(invoice);
+            if (dueFmt) {
+                doc.setFont('Helvetica', 'bold');
+                doc.text(`Vence:`, 128, dataY);
+                doc.setFont('Helvetica', 'normal');
+                doc.text(dueFmt, 155, dataY);
+                dataY += 4.2;
+            }
         }
 
         doc.setFont('Helvetica', 'bold');
@@ -1027,12 +1092,20 @@ async function proceedWithPDF(invoice, format) {
     }
 
     // === ENVIAR O DESCARGAR EL PDF GENERADO ===
-    if (typeof showToast === 'function') {
+    if (!(options && options.returnResult) && typeof showToast === 'function') {
         showToast('Generando y procesando PDF...', 'info');
     }
 
     const pdfBase64 = doc.output('datauristring');
     const base64Data = pdfBase64.split(',')[1];
+
+    if (options && options.returnResult === true) {
+        return {
+            filename: `Factura_${invoice.id}.pdf`,
+            base64Data,
+            blob: base64ToBlob(base64Data, 'application/pdf')
+        };
+    }
 
     // --- PUENTE NATIVO MOBILE (Capacitor) ---
     if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.Plugins) {
@@ -1258,8 +1331,8 @@ async function deliverGenericPDF(doc, filename, label = 'Documento') {
 // =============================================
 // PDF: COTIZACIÓN / PRESUPUESTO (MODELO OFICIAL RECIMINSA)
 // =============================================
-function generateQuotePDF(quote) {
-    if (!quote) return;
+function generateQuotePDF(quote, options = {}) {
+    if (!quote) return null;
     const jsPDFConstructor = getJsPDFConstructor();
     if (!jsPDFConstructor) {
         showToast('Error: jsPDF no está cargado', 'error');
@@ -1301,34 +1374,15 @@ function generateQuotePDF(quote) {
         return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // 1. Datos Emisor (Ajustes de Empresa con Valores por Defecto Oficiales)
-    let settings = {};
-    try {
-        settings = (typeof getSettings === 'function' ? getSettings() : null) || 
-                   (JSON.parse(localStorage.getItem(userKey('recim_settings')) || '{}'));
-    } catch (_) {}
-
-    let companyName = settings.companyName || 'Reciclado Minyetty Santos';
-    let companyAddr = settings.companyAddress || 'Carretera hato nuevo 25 , km14 ,\nlos alcarrizos , Santo Domingo , Rep Dom';
-    let companyRNC = settings.companyRNC || '133250233';
-    let companyTel = settings.companyPhone || settings.userPhone || '8495850386';
-    let companyEmail = settings.companyEmail || settings.userEmail || 'Gerenciareciminsasrl@gmail.com';
-    let companySlogan = settings.companySlogan || 'Un respiro al planeta , Un residuo a la vez.';
-
-    try {
-        const sharedSettings = JSON.parse(localStorage.getItem(userKey('recim_company_shared_settings')) || '{}');
-        if (sharedSettings.companyName) companyName = sharedSettings.companyName;
-        if (sharedSettings.companyRNC) companyRNC = sharedSettings.companyRNC;
-        if (sharedSettings.companyPhone || sharedSettings.userPhone) companyTel = sharedSettings.companyPhone || sharedSettings.userPhone;
-        if (sharedSettings.companyEmail || sharedSettings.userEmail) companyEmail = sharedSettings.companyEmail || sharedSettings.userEmail;
-        if (sharedSettings.companyAddress) companyAddr = sharedSettings.companyAddress;
-        if (sharedSettings.companySlogan) companySlogan = sharedSettings.companySlogan;
-    } catch (_) {}
-
-    const companyLogo = (typeof getCachedCompanyLogo === 'function' ? getCachedCompanyLogo() : null) ||
-                       window.RECIMINSA_OFFICIAL_LOGO ||
-                       settings.companyLogo ||
-                       window.DEFAULT_APP_LOGO || '';
+    // 1. Datos Emisor configurados por la empresa activa
+    const issuer = getActiveCompanyIssuerInfo();
+    const companyName = issuer.companyName;
+    const companyAddr = issuer.companyAddr;
+    const companyRNC = issuer.companyRNC;
+    const companyTel = issuer.companyTel;
+    const companyEmail = issuer.companyEmail;
+    const companySlogan = issuer.companySlogan;
+    const companyLogo = issuer.companyLogo;
 
     // 2. Datos Receptor / Cliente (Dinámicos)
     const clientName = quote.client || quote.clientName || 'Cliente General';
@@ -1338,7 +1392,9 @@ function generateQuotePDF(quote) {
 
     if ((!clientAddress || !clientNit || !clientContact) && clientName) {
         try {
-            const clients = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+            const clients = (typeof getClients === 'function')
+                ? getClients(quote.branchId || null)
+                : JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
             const found = clients.find(c => 
                 (c.name && c.name.trim().toLowerCase() === clientName.trim().toLowerCase()) ||
                 (clientNit && c.nit && c.nit.trim() === clientNit.trim())
@@ -1382,22 +1438,31 @@ function generateQuotePDF(quote) {
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(55, 65, 81);
-    const splitCompAddr = doc.splitTextToSize(companyAddr, 80);
-    doc.text(splitCompAddr, 22, leftY);
-    leftY += splitCompAddr.length * 3.8;
+    if (companyAddr) {
+        const splitCompAddr = doc.splitTextToSize(companyAddr, 80);
+        doc.text(splitCompAddr, 22, leftY);
+        leftY += splitCompAddr.length * 3.8;
+    }
 
-    doc.text(`RNC: ${companyRNC} Teléfono: ${companyTel}`, 22, leftY);
+    const rncTelParts = [];
+    rncTelParts.push(`RNC: ${companyRNC || 'Sin configurar'}`);
+    if (companyTel) rncTelParts.push(`Teléfono: ${companyTel}`);
+    doc.text(rncTelParts.join('  '), 22, leftY);
     leftY += 4;
 
-    doc.setTextColor(37, 99, 235); // Azul enlace
-    doc.text(companyEmail, 22, leftY);
-    leftY += 5;
+    if (companyEmail) {
+        doc.setTextColor(37, 99, 235); // Azul enlace
+        doc.text(companyEmail, 22, leftY);
+        leftY += 5;
+    }
 
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(22, 163, 74); // Verde institucional
-    doc.text(companySlogan, 22, leftY);
-    leftY += 4;
+    if (companySlogan) {
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(22, 163, 74); // Verde institucional
+        doc.text(companySlogan, 22, leftY);
+        leftY += 4;
+    }
 
     // Columna Derecha: Cliente
     let rightY = 47;
@@ -1627,25 +1692,49 @@ function generateQuotePDF(quote) {
     });
 
     // 10. Pie de Página Centrado (y = 252 a 268)
-    doc.setFont('Helvetica', 'italic');
-    doc.setFontSize(8.5);
-    doc.setTextColor(22, 163, 74); // Verde institucional
-    doc.text(companySlogan, pageCenter, 252, { align: 'center' });
+    if (companySlogan) {
+        doc.setFont('Helvetica', 'italic');
+        doc.setFontSize(8.5);
+        doc.setTextColor(22, 163, 74);
+        doc.text(companySlogan, pageCenter, 252, { align: 'center' });
+    }
 
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(55, 65, 81);
-    const oneLineAddr = (companyAddr && companyAddr.includes('#25')) 
-        ? companyAddr.replace(/\n/g, ' , ').replace(/\s+/g, ' ') 
-        : 'Carretera Hato Nuevo #25, La Cienega, Los Alcarrizos, Santo Domingo, R.D.';
-    doc.text(oneLineAddr, pageCenter, 258, { align: 'center' });
+    if (companyAddr) {
+        const oneLineAddr = companyAddr.replace(/\n/g, ' , ').replace(/\s+/g, ' ');
+        doc.text(oneLineAddr, pageCenter, 258, { align: 'center' });
+    }
 
-    doc.text(`Teléfono: ${companyTel} Correo: ${companyEmail}, IG: Recicladominyettysantos.`, pageCenter, 263, { align: 'center' });
+    const footerContactParts = [];
+    if (companyTel) footerContactParts.push(`Teléfono: ${companyTel}`);
+    if (companyEmail) footerContactParts.push(`Correo: ${companyEmail}`);
+    if (footerContactParts.length > 0) {
+        doc.text(footerContactParts.join('  '), pageCenter, 263, { align: 'center' });
+    }
     
-    const formattedRNC = companyRNC ? companyRNC.replace(/-/g, '').replace(/(\d{3})(\d{5})(\d{1})/, '$1-$2-$3') : '133-25023-3';
-    doc.text(`RNC-${formattedRNC}`, pageCenter, 268, { align: 'center' });
+    if (companyRNC) {
+        const cleanDigits = companyRNC.replace(/\D/g, '');
+        const formattedRNC = cleanDigits.length === 9
+            ? cleanDigits.replace(/(\d{3})(\d{5})(\d{1})/, '$1-$2-$3')
+            : companyRNC;
+        doc.text(`RNC-${formattedRNC}`, pageCenter, 268, { align: 'center' });
+    } else {
+        doc.text('RNC: Sin configurar (configurar en Parametrizaciones de Empresa)', pageCenter, 268, { align: 'center' });
+    }
 
-    deliverGenericPDF(doc, `Cotizacion_${quote.id || 'borrador'}.pdf`, 'Cotización');
+    const quoteFilename = `Cotizacion_${quote.id || 'borrador'}.pdf`;
+    if (options && options.returnResult === true) {
+        const quoteBase64 = (doc.output('datauristring').split(',')[1] || '');
+        return {
+            filename: quoteFilename,
+            base64Data: quoteBase64,
+            blob: base64ToBlob(quoteBase64, 'application/pdf')
+        };
+    }
+
+    deliverGenericPDF(doc, quoteFilename, 'Cotización');
 }
 
 // =============================================
@@ -1659,6 +1748,13 @@ function generateDispatchPDF(dispatch) {
         return;
     }
 
+    const issuer = getActiveCompanyIssuerInfo();
+    const issuerLine = [
+        `RNC: ${issuer.companyRNC || 'Sin configurar'}`,
+        issuer.companyTel ? `Tel: ${issuer.companyTel}` : '',
+        issuer.companyAddr ? issuer.companyAddr.replace(/\n/g, ', ') : ''
+    ].filter(Boolean).join(' | ');
+
     const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     let y = 15;
 
@@ -1666,11 +1762,11 @@ function generateDispatchPDF(dispatch) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(14);
     doc.setTextColor(30, 41, 59);
-    doc.text("RECIMINSA SRL", 15, y + 6);
+    doc.text(issuer.companyName, 15, y + 6);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
-    doc.text("RNC: 133250233 | Tel: (809) 372-7000 | Santo Domingo, R.D.", 15, y + 11);
+    doc.text(issuerLine, 15, y + 11);
 
     // Tarjeta Conduce
     doc.setFillColor(248, 250, 252);
@@ -1749,7 +1845,7 @@ function generateDispatchPDF(dispatch) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);
-    doc.text("DESPACHADO POR (RECIMINSA)", 57.5, y + 5, { align: 'center' });
+    doc.text(`DESPACHADO POR (${issuer.companyName.toUpperCase().slice(0, 26)})`, 57.5, y + 5, { align: 'center' });
     doc.text("RECIBIDO CONFORME (CLIENTE)", 157.5, y + 5, { align: 'center' });
 
     doc.setFont('Helvetica', 'normal');
@@ -1772,6 +1868,11 @@ function generateCreditNotePDF(creditNote) {
         return;
     }
 
+    const issuer = getActiveCompanyIssuerInfo();
+    if (!issuer.companyRNC && typeof showToast === 'function') {
+        showToast('⚠️ Configura el RNC y razón social de tu empresa en Parametrizaciones de Empresa antes de emitir notas fiscales.', 'warning');
+    }
+
     const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     let y = 15;
 
@@ -1779,21 +1880,23 @@ function generateCreditNotePDF(creditNote) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(14);
     doc.setTextColor(220, 38, 38);
-    doc.text("RECIMINSA SRL", 15, y + 6);
+    doc.text(issuer.companyName, 15, y + 6);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
-    doc.text("RNC: 133250233 | Tel: (809) 372-7000", 15, y + 11);
-    doc.text("Santo Domingo, República Dominicana", 15, y + 15);
+    doc.text(`RNC: ${issuer.companyRNC || 'Sin configurar'}${issuer.companyTel ? ` | Tel: ${issuer.companyTel}` : ''}`, 15, y + 11);
+    if (issuer.companyAddr) {
+        doc.text(issuer.companyAddr.replace(/\n/g, ', ').slice(0, 65), 15, y + 15);
+    }
 
     // Tarjeta Nota de Crédito
     doc.setFillColor(254, 242, 242);
     doc.setDrawColor(252, 165, 165);
     doc.roundedRect(120, y, 81, 30, 1.5, 1.5, 'FD');
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(creditNote.ncf ? 10 : 8.5);
     doc.setTextColor(220, 38, 38);
-    doc.text("NOTA DE CRÉDITO (B04)", 160.5, y + 6, { align: 'center' });
+    doc.text(creditNote.ncf ? "NOTA DE CRÉDITO FISCAL (B04)" : "NOTA DE CRÉDITO INTERNA (SIN NCF)", 160.5, y + 6, { align: 'center' });
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);
@@ -1864,6 +1967,11 @@ function generateDebitNotePDF(debitNote) {
         return;
     }
 
+    const issuer = getActiveCompanyIssuerInfo();
+    if (!issuer.companyRNC && typeof showToast === 'function') {
+        showToast('⚠️ Configura el RNC y razón social de tu empresa en Parametrizaciones de Empresa antes de emitir notas fiscales.', 'warning');
+    }
+
     const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     let y = 15;
 
@@ -1871,20 +1979,25 @@ function generateDebitNotePDF(debitNote) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(14);
     doc.setTextColor(22, 163, 74);
-    doc.text("RECIMINSA SRL", 15, y + 6);
+    doc.text(issuer.companyName, 15, y + 6);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
-    doc.text("RNC: 133250233 | Tel: (809) 372-7000 | Santo Domingo, R.D.", 15, y + 11);
+    const dnMetaLine = [
+        `RNC: ${issuer.companyRNC || 'Sin configurar'}`,
+        issuer.companyTel ? `Tel: ${issuer.companyTel}` : '',
+        issuer.companyAddr ? issuer.companyAddr.replace(/\n/g, ', ').slice(0, 45) : ''
+    ].filter(Boolean).join(' | ');
+    doc.text(dnMetaLine, 15, y + 11);
 
     // Tarjeta Nota de Débito
     doc.setFillColor(240, 253, 244);
     doc.setDrawColor(187, 247, 208);
     doc.roundedRect(120, y, 81, 30, 1.5, 1.5, 'FD');
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(debitNote.ncf ? 10 : 8.5);
     doc.setTextColor(22, 163, 74);
-    doc.text("NOTA DE DÉBITO (B03)", 160.5, y + 6, { align: 'center' });
+    doc.text(debitNote.ncf ? "NOTA DE DÉBITO FISCAL (B03)" : "NOTA DE DÉBITO INTERNA (SIN NCF)", 160.5, y + 6, { align: 'center' });
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);

@@ -14,9 +14,24 @@ public class MainActivity : MauiAppCompatActivity
     {
         base.OnCreate(savedInstanceState);
 
+#if DEBUG
         try
         {
             global::Android.Webkit.WebView.SetWebContentsDebuggingEnabled(true);
+        }
+        catch { }
+#endif
+
+        try
+        {
+            if (OperatingSystem.IsAndroidVersionAtLeast(33))
+            {
+                const string postNotif = global::Android.Manifest.Permission.PostNotifications;
+                if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(this, postNotif) != Permission.Granted)
+                {
+                    AndroidX.Core.App.ActivityCompat.RequestPermissions(this, new[] { postNotif }, 1001);
+                }
+            }
         }
         catch { }
 

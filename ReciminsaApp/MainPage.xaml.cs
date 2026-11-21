@@ -71,8 +71,10 @@ public partial class MainPage : ContentPage
             webView.ImportantForAutofill = global::Android.Views.ImportantForAutofill.NoExcludeDescendants;
         }
 
-        // Habilitar depuración de DevTools para inspección si fuera necesario
+#if DEBUG
+        // Habilitar depuración de DevTools únicamente en compilaciones DEBUG (Cumplimiento OWASP MASVS / Google Play)
         global::Android.Webkit.WebView.SetWebContentsDebuggingEnabled(true);
+#endif
 
         // Puente window.AndroidNative usado por pdf-utils.js, excel-utils.js, biometric-auth.js, etc.
         // Se pasa el WebView para que la biometría pueda devolver el resultado a JS (onBiometricAuthResult).
@@ -97,18 +99,52 @@ public partial class MainPage : ContentPage
 #endif
 
 #if WINDOWS
+    private static string GetWindowsHardwareId()
+    {
+        try
+        {
+            string rawId = string.Empty;
+            using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography"))
+            {
+                rawId = key?.GetValue("MachineGuid")?.ToString() ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(rawId))
+            {
+                rawId = $"{Environment.MachineName}|{Environment.UserName}|{Environment.ProcessorCount}|{Environment.OSVersion}";
+            }
+
+            byte[] hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(rawId.Trim().ToLowerInvariant()));
+            string hex = Convert.ToHexString(hash);
+            return $"PC-{hex[..8]}-{hex.Substring(8, 8)}";
+        }
+        catch
+        {
+            return $"PC-{Environment.MachineName.ToUpperInvariant()}";
+        }
+    }
+
     private static async void ConfigureWindowsWebView(Microsoft.Web.WebView2.Core.CoreWebView2 core)
     {
+#if DEBUG
         core.Settings.AreDevToolsEnabled = true;
         core.Settings.AreDefaultContextMenusEnabled = true;
+#else
+        core.Settings.AreDevToolsEnabled = false;
+        core.Settings.AreDefaultContextMenusEnabled = false;
+#endif
         core.NavigationStarting += CoreWebView2_NavigationStarting;
         core.NewWindowRequested += CoreWebView2_NewWindowRequested;
 
         try
         {
+            string pcHardwareId = GetWindowsHardwareId();
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(
+                $"window.__NATIVE_DEVICE_ID__ = '{pcHardwareId}'; window.__NATIVE_PLATFORM__ = 'WINDOWS_PC';");
+
             // Forzar limpieza de Service Workers y Cache que puedan estar causando que se vea la versión antigua
             await core.Profile.ClearBrowsingDataAsync(Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.ServiceWorkers | Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.CacheStorage);
-            await core.ExecuteScriptAsync("if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); }");
+            await core.ExecuteScriptAsync($"window.__NATIVE_DEVICE_ID__ = '{pcHardwareId}'; if ('serviceWorker' in navigator) {{ navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); }}");
         }
         catch (Exception ex)
         {
@@ -223,13 +259,31 @@ public partial class MainPage : ContentPage
 #endif
             Directory.CreateDirectory(downloadsPath); // Asegurar que la carpeta Descargas exista
 
-            string safeFileName = message.Filename.Replace("/", "_").Replace("\\", "_");
+            string rawName = Path.GetFileName((message.Filename ?? "archivo.pdf").Trim());
+            if (string.IsNullOrWhiteSpace(rawName))
+            {
+                rawName = "archivo.pdf";
+            }
+
+            foreach (char c in Path.GetInvalidFileNameChars())
+            {
+                rawName = rawName.Replace(c, '_');
+            }
+
+            string extension = Path.GetExtension(rawName).ToLowerInvariant();
+            string[] allowedExtensions = [".pdf", ".xlsx", ".xls", ".csv", ".txt", ".json", ".png", ".jpg", ".jpeg"];
+            if (!allowedExtensions.Contains(extension))
+            {
+                System.Diagnostics.Debug.WriteLine($"Extensión bloqueada por seguridad en SaveDownloadAsync: {extension}");
+                return;
+            }
+
+            string safeFileName = rawName;
             string filePath = Path.Combine(downloadsPath, safeFileName);
 
             // Asegurar nombre único
             int count = 1;
             string fileNameOnly = Path.GetFileNameWithoutExtension(safeFileName);
-            string extension = Path.GetExtension(safeFileName);
             while (File.Exists(filePath))
             {
                 filePath = Path.Combine(downloadsPath, $"{fileNameOnly} ({count}){extension}");
@@ -239,7 +293,7 @@ public partial class MainPage : ContentPage
             byte[] fileBytes = Convert.FromBase64String(message.Data);
             await File.WriteAllBytesAsync(filePath, fileBytes);
 
-            // Intentar abrir con el programa por defecto del sistema
+            // Intentar abrir únicamente documentos/imágenes permitidos con el programa por defecto
             try
             {
 #if WINDOWS
@@ -270,15 +324,18 @@ public partial class MainPage : ContentPage
     }
 
     // =============================================
-    // ACTUALIZACIONES
+    // ACTUALIZACIONES (SOLO WINDOWS DESKTOP — PROHIBIDO EN GOOGLE PLAY / ANDROID)
     // =============================================
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
+#if WINDOWS
         CheckForUpdatesAsync();
+#endif
     }
 
+#if WINDOWS
     private async void CheckForUpdatesAsync()
     {
         try
@@ -309,6 +366,7 @@ public partial class MainPage : ContentPage
             System.Diagnostics.Debug.WriteLine($"CheckForUpdatesAsync failed: {ex.Message}");
         }
     }
+#endif
 
     private static bool IsNewerVersion(string remoteVersion, string localVersion)
     {

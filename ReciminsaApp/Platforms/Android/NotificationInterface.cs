@@ -1,7 +1,9 @@
 #nullable enable
 #if ANDROID
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Android.Webkit;
 using Plugin.LocalNotification;
@@ -29,6 +31,25 @@ public class NotificationInterface : Java.Lang.Object
         }
 
         [JavascriptInterface]
+        [Java.Interop.Export("GetAndroidId")]
+        public string GetAndroidId()
+        {
+            try
+            {
+                var context = global::Android.App.Application.Context;
+                var androidId = global::Android.Provider.Settings.Secure.GetString(
+                    context.ContentResolver,
+                    global::Android.Provider.Settings.Secure.AndroidId);
+                return androidId ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en GetAndroidId: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        [JavascriptInterface]
         [Java.Interop.Export("NavigateHome")]
         public void NavigateHome()
         {
@@ -52,24 +73,170 @@ public class NotificationInterface : Java.Lang.Object
         [Java.Interop.Export("ShowNotification")]
         public void ShowNotification(string title, string body)
         {
+            ShowNotificationOnChannel(title, body, "reciminsa_alerts");
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("ShowNotificationOnChannel")]
+        public void ShowNotificationOnChannel(string title, string body, string channelId)
+        {
             try
             {
+                string resolvedChannel = string.IsNullOrWhiteSpace(channelId) ? "reciminsa_alerts" : channelId.Trim();
                 var request = new NotificationRequest
                 {
-                    NotificationId = Random.Shared.Next(1000, 9999),
-                    Title = title ?? "Notificación",
+                    NotificationId = Random.Shared.Next(1000, 199999),
+                    Title = string.IsNullOrWhiteSpace(title) ? "Notificación" : title,
                     Description = body ?? string.Empty,
-                    Schedule = new NotificationRequestSchedule
+                    Android = new Plugin.LocalNotification.AndroidOption.AndroidOptions
                     {
-                        NotifyTime = DateTime.Now.AddSeconds(1)
+                        ChannelId = resolvedChannel,
+                        Priority = Plugin.LocalNotification.AndroidOption.AndroidPriority.High,
+                        AutoCancel = true,
+                        LaunchAppWhenTapped = true
                     }
                 };
 
-                LocalNotificationCenter.Current.Show(request);
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    try
+                    {
+                        await LocalNotificationCenter.Current.Show(request);
+                    }
+                    catch (Exception showEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error mostrando notificación inmediata: {showEx.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error en ShowNotification: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error en ShowNotificationOnChannel: {ex.Message}");
+            }
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("ScheduleNotification")]
+        public void ScheduleNotification(int notificationId, string title, string body, string triggerEpochMsStr, string channelId)
+        {
+            try
+            {
+                if (notificationId <= 0 ||
+                    !long.TryParse(triggerEpochMsStr, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long epochMs))
+                {
+                    return;
+                }
+
+                var notifyLocal = DateTimeOffset.FromUnixTimeMilliseconds(epochMs).LocalDateTime;
+                if (notifyLocal <= DateTime.Now.AddSeconds(5))
+                {
+                    return;
+                }
+
+                string resolvedChannel = string.IsNullOrWhiteSpace(channelId) ? "reciminsa_routes" : channelId.Trim();
+                var request = new NotificationRequest
+                {
+                    NotificationId = notificationId,
+                    Title = string.IsNullOrWhiteSpace(title) ? "Recordatorio Reciminsaap" : title,
+                    Description = body ?? string.Empty,
+                    Schedule = new NotificationRequestSchedule
+                    {
+                        NotifyTime = notifyLocal,
+                        Android = new Plugin.LocalNotification.AndroidOption.AndroidScheduleOptions
+                        {
+                            AlarmType = Plugin.LocalNotification.AndroidOption.AndroidAlarmType.RtcWakeup
+                        }
+                    },
+                    Android = new Plugin.LocalNotification.AndroidOption.AndroidOptions
+                    {
+                        ChannelId = resolvedChannel,
+                        Priority = Plugin.LocalNotification.AndroidOption.AndroidPriority.High,
+                        AutoCancel = true,
+                        LaunchAppWhenTapped = true
+                    }
+                };
+
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    try
+                    {
+                        LocalNotificationCenter.Current.Cancel(notificationId);
+                        await LocalNotificationCenter.Current.Show(request);
+                    }
+                    catch (Exception schedEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error programando notificación {notificationId}: {schedEx.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en ScheduleNotification: {ex.Message}");
+            }
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("CancelScheduledNotification")]
+        public void CancelScheduledNotification(int notificationId)
+        {
+            try
+            {
+                if (notificationId <= 0) return;
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    try
+                    {
+                        LocalNotificationCenter.Current.Cancel(notificationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error cancelando notificación {notificationId}: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en CancelScheduledNotification: {ex.Message}");
+            }
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("RequestNotificationPermission")]
+        public void RequestNotificationPermission()
+        {
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try
+                {
+                    if (!await LocalNotificationCenter.Current.AreNotificationsEnabled())
+                    {
+                        await LocalNotificationCenter.Current.RequestNotificationPermission(new NotificationPermission
+                        {
+                            AskPermission = true
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error en RequestNotificationPermission: {ex.Message}");
+                }
+            });
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("AreNotificationsEnabled")]
+        public bool AreNotificationsEnabled()
+        {
+            try
+            {
+                return AndroidX.Core.App.NotificationManagerCompat
+                    .From(global::Android.App.Application.Context)
+                    ?.AreNotificationsEnabled() ?? false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en AreNotificationsEnabled: {ex.Message}");
+                return false;
             }
         }
 
@@ -79,6 +246,28 @@ public class NotificationInterface : Java.Lang.Object
         {
             try
             {
+                string safeName = System.IO.Path.GetFileName((filename ?? "archivo.pdf").Trim());
+                if (string.IsNullOrWhiteSpace(safeName))
+                {
+                    safeName = "archivo.pdf";
+                }
+                foreach (char c in System.IO.Path.GetInvalidFileNameChars())
+                {
+                    safeName = safeName.Replace(c, '_');
+                }
+
+                string ext = System.IO.Path.GetExtension(safeName).ToLowerInvariant();
+                var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ".pdf", ".xlsx", ".xls", ".csv", ".txt", ".json", ".png", ".jpg", ".jpeg"
+                };
+                if (!allowedExtensions.Contains(ext))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Extensión bloqueada en DownloadFile: {ext}");
+                    return;
+                }
+                filename = safeName;
+
                 byte[] fileBytes = Convert.FromBase64String(base64Data);
 
                 // 1. Guardar en CacheDirectory para que Launcher / FileProvider puedan abrirlo y compartirlo
@@ -276,11 +465,143 @@ public class NotificationInterface : Java.Lang.Object
         {
             try
             {
-                MainThread.BeginInvokeOnMainThread(async () => await Launcher.Default.OpenAsync(new Uri(url)));
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                    !(uri.Scheme is "https" or "http" or "mailto" or "tel"))
+                {
+                    System.Diagnostics.Debug.WriteLine($"URL bloqueada por esquema no permitido: {url}");
+                    return;
+                }
+
+                MainThread.BeginInvokeOnMainThread(async () => await Launcher.Default.OpenAsync(uri));
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error in OpenUrl: " + ex.Message);
+            }
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("ShareFileToWhatsApp")]
+        public void ShareFileToWhatsApp(string filename, string base64Data, string text, string phone)
+        {
+            try
+            {
+                string safeName = System.IO.Path.GetFileName((filename ?? "documento.pdf").Trim());
+                if (string.IsNullOrWhiteSpace(safeName))
+                {
+                    safeName = "documento.pdf";
+                }
+                foreach (char c in System.IO.Path.GetInvalidFileNameChars())
+                {
+                    safeName = safeName.Replace(c, '_');
+                }
+
+                string ext = System.IO.Path.GetExtension(safeName).ToLowerInvariant();
+                var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ".pdf", ".xlsx", ".xls", ".csv", ".txt", ".json", ".png", ".jpg", ".jpeg"
+                };
+                if (!allowedExtensions.Contains(ext))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Extensión bloqueada en ShareFileToWhatsApp: {ext}");
+                    return;
+                }
+
+                byte[] fileBytes = Convert.FromBase64String(base64Data ?? string.Empty);
+                string cacheFilePath = System.IO.Path.Combine(FileSystem.Current.CacheDirectory, safeName);
+                System.IO.File.WriteAllBytes(cacheFilePath, fileBytes);
+
+                string mime = GetMimeType(safeName);
+                string shareText = text ?? string.Empty;
+                var digitsBuilder = new System.Text.StringBuilder();
+                if (!string.IsNullOrEmpty(phone))
+                {
+                    foreach (char ch in phone)
+                    {
+                        if (char.IsDigit(ch)) digitsBuilder.Append(ch);
+                    }
+                }
+                string digitsPhone = digitsBuilder.ToString();
+
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    try
+                    {
+                        var context = global::Android.App.Application.Context;
+                        var javaFile = new Java.IO.File(cacheFilePath);
+                        var contentUri = AndroidX.Core.Content.FileProvider.GetUriForFile(
+                            context,
+                            $"{context.PackageName}.fileProvider",
+                            javaFile);
+
+                        if (contentUri != null)
+                        {
+                            global::Android.Content.Intent BuildShareIntent(string? targetPackage)
+                            {
+                                var intent = new global::Android.Content.Intent(global::Android.Content.Intent.ActionSend);
+                                intent.SetType(mime);
+                                intent.PutExtra(global::Android.Content.Intent.ExtraStream, contentUri);
+                                intent.PutExtra(global::Android.Content.Intent.ExtraText, shareText);
+                                intent.ClipData = global::Android.Content.ClipData.NewRawUri(safeName, contentUri);
+                                intent.AddFlags(global::Android.Content.ActivityFlags.GrantReadUriPermission);
+                                intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+                                if (!string.IsNullOrWhiteSpace(targetPackage))
+                                {
+                                    intent.SetPackage(targetPackage);
+                                }
+                                if (digitsPhone.Length >= 7)
+                                {
+                                    intent.PutExtra("jid", $"{digitsPhone}@s.whatsapp.net");
+                                }
+                                return intent;
+                            }
+
+                            foreach (var pkg in new[] { "com.whatsapp", "com.whatsapp.w4b" })
+                            {
+                                try
+                                {
+                                    var waIntent = BuildShareIntent(pkg);
+                                    context.StartActivity(waIntent);
+                                    return;
+                                }
+                                catch (global::Android.Content.ActivityNotFoundException)
+                                {
+                                    // Probar siguiente variante o chooser del sistema
+                                }
+                            }
+
+                            try
+                            {
+                                var genericIntent = BuildShareIntent(null);
+                                var chooser = global::Android.Content.Intent.CreateChooser(genericIntent, $"Compartir {safeName}");
+                                if (chooser != null)
+                                {
+                                    chooser.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+                                    context.StartActivity(chooser);
+                                    return;
+                                }
+                            }
+                            catch (Exception chooserEx)
+                            {
+                                Console.WriteLine("Error abriendo selector para compartir PDF: " + chooserEx.Message);
+                            }
+                        }
+
+                        await Share.Default.RequestAsync(new ShareFileRequest
+                        {
+                            Title = safeName,
+                            File = new ShareFile(cacheFilePath, mime)
+                        });
+                    }
+                    catch (Exception shareEx)
+                    {
+                        Console.WriteLine("Error compartiendo archivo a WhatsApp: " + shareEx.Message);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error general en ShareFileToWhatsApp: " + ex.Message);
             }
         }
 
@@ -408,30 +729,8 @@ public class NotificationInterface : Java.Lang.Object
                     }
                     else
                     {
-                        // Android 8 y anterior: usar KeyguardManager que soporta PIN/patrón/contraseña
-                        var keyguardManager = (global::Android.App.KeyguardManager?)activity.GetSystemService(global::Android.Content.Context.KeyguardService);
-                        if (keyguardManager?.IsKeyguardSecure is true)
-                        {
-                            #pragma warning disable CA1422
-                            var intent = keyguardManager.CreateConfirmDeviceCredentialIntent(
-                                string.IsNullOrEmpty(title) ? "Confirmar Identidad" : title,
-                                string.IsNullOrEmpty(subtitle) ? "Usa tu método de seguridad para continuar" : subtitle
-                            );
-                            #pragma warning restore CA1422
-                            if (intent != null)
-                            {
-                                activity.StartActivity(intent);
-                                SendBiometricResultToJS(true, "");
-                            }
-                            else
-                            {
-                                SendBiometricResultToJS(false, "No hay método de seguridad configurado en el dispositivo.");
-                            }
-                        }
-                        else
-                        {
-                            SendBiometricResultToJS(false, "El dispositivo no tiene bloqueo de pantalla configurado. Configura un PIN, patrón o huella en Ajustes.");
-                        }
+                        // Android < 9: evitar falsos positivos sin verificacion real de resultado de actividad
+                        SendBiometricResultToJS(false, "La autenticación biométrica requiere Android 9 o superior. Inicia sesión con tu contraseña.");
                     }
                 }
                 catch (Exception ex)
@@ -446,8 +745,8 @@ public class NotificationInterface : Java.Lang.Object
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                string safeErr = error.Replace("'", "\\'").Replace("\n", " ");
-                string script = $"if (typeof window.onBiometricAuthResult === 'function') {{ window.onBiometricAuthResult({(success ? "true" : "false")}, '{safeErr}'); }}";
+                string safeErrJson = JsonSerializer.Serialize(error ?? string.Empty);
+                string script = $"if (typeof window.onBiometricAuthResult === 'function') {{ window.onBiometricAuthResult({(success ? "true" : "false")}, {safeErrJson}); }}";
 
                 if (_webView != null)
                 {

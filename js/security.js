@@ -5,22 +5,179 @@
 
 const SUBSCRIPTION_STATE_KEY = 'recim_subscription_state';
 
-// Generate or retrieve persistent Device UUID (emulating IMEI check)
-function getDeviceUUID() {
-    let uuid = localStorage.getItem('recim_device_uuid');
-    if (!uuid) {
-        // Generate secure persistent random UUID
-        const array = new Uint32Array(4);
-        (window.crypto || window.msCrypto).getRandomValues(array);
-        let hex = '';
-        for (let i = 0; i < array.length; i++) {
-            hex += array[i].toString(16).padStart(8, '0');
+/**
+ * Genera una huella de hardware determinista para Navegadores Web (Canvas + WebGL GPU + CPU/Pantalla)
+ * cuando la app no corre dentro del contenedor nativo de Android o PC.
+ */
+function computeBrowserHardwareFingerprint() {
+    const components = [];
+
+    // 1. Perfil invariante de CPU, RAM y Arquitectura del sistema (no cambia al cambiar idioma o monitor)
+    try {
+        components.push(`plat:${navigator.platform || ''}`);
+        components.push(`cores:${navigator.hardwareConcurrency || ''}`);
+        components.push(`mem:${navigator.deviceMemory || ''}`);
+        components.push(`touch:${navigator.maxTouchPoints || 0}`);
+    } catch (_) {}
+
+    // 2. Tarjeta Gráfica Física y Límites de Silicio de la GPU (WebGL Vendor, Renderer y registros de hardware)
+    try {
+        const glCanvas = document.createElement('canvas');
+        const gl = glCanvas.getContext('webgl') || glCanvas.getContext('experimental-webgl');
+        if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+            const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+            const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || '';
+            const maxCube = gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE) || '';
+            const maxRender = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || '';
+            const maxAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS) || '';
+            components.push(`gpu:${vendor || ''}|${renderer || ''}|${maxTex}|${maxCube}|${maxRender}|${maxAttribs}`);
         }
-        uuid = 'DEV-' + hex.substring(0, 8).toUpperCase() + '-' + hex.substring(8, 16).toUpperCase();
-        localStorage.setItem('recim_device_uuid', uuid);
+    } catch (_) {}
+
+    // 3. Huella de Rasterización 2D de la GPU / Sistema Operativo (Canvas Fingerprint)
+    try {
+        const c = document.createElement('canvas');
+        c.width = 220;
+        c.height = 40;
+        const ctx = c.getContext('2d');
+        if (ctx) {
+            ctx.textBaseline = 'top';
+            ctx.font = '14px "Arial"';
+            ctx.fillStyle = '#10b981';
+            ctx.fillRect(10, 4, 80, 24);
+            ctx.fillStyle = '#0a0f1d';
+            ctx.fillText('Reciminsa-HW-ID:#2026', 6, 10);
+            components.push(`cvs:${c.toDataURL()}`);
+        }
+    } catch (_) {}
+
+    const rawFingerprint = components.join('||');
+    let hex = '';
+    if (typeof fallbackSHA256 === 'function') {
+        hex = fallbackSHA256(rawFingerprint).toUpperCase();
+    } else {
+        // Hash FNV-1a de 64 bits de respaldo si auth.js aún no cargó
+        let h1 = 0x811c9dc5, h2 = 0x55106bb3;
+        for (let i = 0; i < rawFingerprint.length; i++) {
+            const ch = rawFingerprint.charCodeAt(i);
+            h1 = Math.imul(h1 ^ ch, 16777619);
+            h2 = Math.imul(h2 ^ ch, 10995116);
+        }
+        hex = ((h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0')).toUpperCase();
     }
-    return uuid;
+
+    return `WEB-${hex.substring(0, 8)}-${hex.substring(8, 16)}`;
 }
+
+/**
+ * Obtiene y actualiza en cada apertura de la app el identificador real del dispositivo:
+ * - Android Nativo: ANDROID_ID del sistema (AND-XXXXXXXX-XXXXXXXX)
+ * - PC (Windows MAUI / Linux-Windows Electron): MachineGuid / Machine-ID (PC-XXXXXXXX-XXXXXXXX)
+ * - Navegador Web: Huella de Hardware WebGL + Canvas + CPU/Pantalla (WEB-XXXXXXXX-XXXXXXXX)
+ */
+function getDeviceUUID() {
+    const previousStored = localStorage.getItem('recim_device_uuid') || '';
+    let resolvedId = '';
+    let rawHex16 = '';
+    let platform = 'WEB_BROWSER';
+    let platformLabel = 'Navegador Web (Hardware Fingerprint)';
+
+    // 1. ANDROID NATIVO: Tomar siempre el ANDROID_ID real del sistema operativo
+    try {
+        if (window.AndroidNative && typeof window.AndroidNative.GetAndroidId === 'function') {
+            const rawAndroidId = (window.AndroidNative.GetAndroidId() || '').trim();
+            if (rawAndroidId) {
+                const cleanHex = rawAndroidId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().padEnd(16, '0');
+                rawHex16 = cleanHex.substring(0, 16).toLowerCase();
+                resolvedId = `AND-${cleanHex.substring(0, 8)}-${cleanHex.substring(8, 16)}`;
+                platform = 'ANDROID';
+                platformLabel = 'Android Nativo (ANDROID_ID)';
+                localStorage.setItem('recim_hardware_android_id', rawAndroidId);
+            }
+        }
+    } catch (e) {
+        console.warn('Aviso leyendo AndroidId nativo:', e);
+    }
+
+    // 2. PC NATIVO (Windows .NET MAUI / Electron Desktop): Tomar el identificador de máquina inyectado
+    if (!resolvedId && window.__NATIVE_DEVICE_ID__) {
+        resolvedId = String(window.__NATIVE_DEVICE_ID__).trim();
+        rawHex16 = resolvedId.replace(/^PC-/, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 16);
+        platform = window.__NATIVE_PLATFORM__ || 'PC_DESKTOP';
+        platformLabel = 'PC Escritorio (Machine ID)';
+    }
+
+    // 3. NAVEGADOR WEB: Calcular huella determinista de hardware del navegador (WebGL GPU + Canvas + CPU + Pantalla)
+    if (!resolvedId) {
+        resolvedId = computeBrowserHardwareFingerprint();
+        rawHex16 = resolvedId.replace(/^WEB-/, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 16);
+        platform = 'WEB_BROWSER';
+        platformLabel = 'Navegador Web (GPU/Canvas Fingerprint)';
+    }
+
+    // Guardar metadatos completos para el sistema de auditoría de usuarios por dispositivo
+    const auditInfo = {
+        deviceId: resolvedId,
+        rawHardwareId: rawHex16,
+        platform: platform,
+        platformLabel: platformLabel,
+        userAgent: typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '',
+        lastCapturedAt: new Date().toISOString()
+    };
+    try {
+        localStorage.setItem('recim_device_audit_info', JSON.stringify(auditInfo));
+    } catch (_) {}
+
+    // Si el dispositivo tenía un ID aleatorio antiguo (DEV-...) o cambió a su ID de hardware real,
+    // actualizar automáticamente la firma registrada en este mismo dispositivo para no bloquear al propietario
+    if (resolvedId && previousStored !== resolvedId) {
+        localStorage.setItem('recim_device_uuid', resolvedId);
+        try {
+            document.cookie = `recim_device_uuid=${encodeURIComponent(resolvedId)}; path=/; max-age=315360000; SameSite=Lax`;
+        } catch (_) {}
+
+        try {
+            if (typeof userKey === 'function') {
+                const subKey = userKey(SUBSCRIPTION_STATE_KEY);
+                const rawSub = localStorage.getItem(subKey);
+                if (rawSub) {
+                    const subState = JSON.parse(rawSub);
+                    if (!subState.registeredDeviceId || subState.registeredDeviceId === previousStored || subState.registeredDeviceId.startsWith('DEV-')) {
+                        subState.registeredDeviceId = resolvedId;
+                        localStorage.setItem(subKey, JSON.stringify(subState));
+                    }
+                }
+            }
+        } catch (_) {}
+    }
+
+    return resolvedId;
+}
+
+function getDeviceAuditInfo() {
+    getDeviceUUID();
+    try {
+        const raw = localStorage.getItem('recim_device_audit_info');
+        if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    const id = localStorage.getItem('recim_device_uuid') || '';
+    return {
+        deviceId: id,
+        rawHardwareId: id.replace(/^(AND|PC|WEB|DEV)-/, '').replace(/-/g, '').toLowerCase(),
+        platform: 'UNKNOWN',
+        platformLabel: 'Dispositivo',
+        lastCapturedAt: new Date().toISOString()
+    };
+}
+
+function refreshDeviceUUID() {
+    return getDeviceUUID();
+}
+window.getDeviceUUID = getDeviceUUID;
+window.getDeviceAuditInfo = getDeviceAuditInfo;
+window.refreshDeviceUUID = refreshDeviceUUID;
 
 // Get subscription state for the logged-in user
 function getSubscriptionState() {
@@ -258,6 +415,20 @@ let validatedTrialDays = 0;
 
 let paypalInitialized = false;
 
+function isAndroidStoreEnvironment() {
+    const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
+    const capPlatform = (typeof Capacitor !== 'undefined' && typeof Capacitor.getPlatform === 'function')
+        ? Capacitor.getPlatform()
+        : '';
+    return (
+        typeof window.AndroidNative !== 'undefined' ||
+        typeof window.AndroidNotification !== 'undefined' ||
+        window.__NATIVE_PLATFORM__ === 'ANDROID' ||
+        capPlatform === 'android' ||
+        /Android/i.test(ua)
+    );
+}
+
 // Render Netflix-style Paywall Lock Screen
 function renderPaywallLock(container) {
     const state = getSubscriptionState();
@@ -331,11 +502,14 @@ function renderPaywallLock(container) {
                 </div>
             </div>
 
-            <!-- PayPal Smart Buttons Container -->
+            <!-- Billing / Activation Container (Cumplimiento Políticas Google Play y Microsoft Store) -->
             <div id="paypal-buttons-wrapper" style="display:flex; flex-direction:column; gap:8px;">
-                <label style="font-size:0.65rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom: 2px;">Método de Pago Seguro (PayPal, Tarjeta o Google Pay)</label>
-                <div id="paypal-button-container" style="width:100%; min-height: 100px;"></div>
-                <div style="text-align: center; color: #64748b; font-size: 0.7rem; font-weight: 500; margin-top: -5px;">Desarrollado por Reciminsa studio</div>
+                <label style="font-size:0.65rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom: 2px;">Activación de Licencia y Suscripción</label>
+                <div id="paypal-button-container" style="width:100%; min-height: 76px;"></div>
+                <div style="text-align: center; color: #64748b; font-size: 0.7rem; font-weight: 500;">
+                    <a href="privacidad.html" target="_blank" rel="noopener noreferrer" style="color:#34d399; text-decoration:none;">Privacidad</a> ·
+                    <a href="terminos.html" target="_blank" rel="noopener noreferrer" style="color:#34d399; text-decoration:none;">Términos de Uso</a> · Reciminsa S.R.L.
+                </div>
             </div>
 
             <!-- Footer Action Buttons -->
@@ -361,12 +535,37 @@ function selectPaywallPlan(planId) {
     if (overlay) renderPaywallLock(overlay);
 }
 
-// Dynamically load PayPal Script and render buttons
+// Renderizado de pasarela conforme a políticas de Google Play y Web
 function initPayPalButtons() {
     const container = document.getElementById('paypal-button-container');
     if (!container) return;
 
-    loadPayPalScript(() => {
+    // Cumplimiento Google Play Billing Policy: nunca inyectar SDK de pago externo ni PayPal dentro de Android
+    if (isAndroidStoreEnvironment()) {
+        container.innerHTML = `
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 14px; font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; text-align: center;">
+                <strong style="color:#34d399; display:block; margin-bottom:4px;">📱 Licenciamiento en Dispositivo Android</strong>
+                Activa la aplicación con la <b>Prueba Gratuita de 10 días</b> o ingresa tu <b>Código Promocional / Licencia Corporativa</b> asignada por tu empresa arriba. Para planes empresariales, contacta a <a href="mailto:soporte@reciminsa.com" style="color:#6ee7b7;">soporte@reciminsa.com</a>.
+            </div>
+        `;
+        return;
+    }
+
+    const liveClientId = (typeof window.RECIM_PAYPAL_CLIENT_ID === 'string' && window.RECIM_PAYPAL_CLIENT_ID.trim() && window.RECIM_PAYPAL_CLIENT_ID.trim().toLowerCase() !== 'test')
+        ? window.RECIM_PAYPAL_CLIENT_ID.trim()
+        : '';
+
+    if (!liveClientId) {
+        container.innerHTML = `
+            <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 14px; font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; text-align: center;">
+                <strong style="color:#34d399; display:block; margin-bottom:4px;">🔑 Activación mediante Licencia Corporativa</strong>
+                Puedes iniciar tu <b>Prueba Gratuita de 10 días</b> abajo, aplicar tu código promocional/licencia arriba o solicitar activación comercial en <a href="mailto:soporte@reciminsa.com" style="color:#6ee7b7;">soporte@reciminsa.com</a>.
+            </div>
+        `;
+        return;
+    }
+
+    loadPayPalScript(liveClientId, () => {
         if (paypalInitialized) return;
         paypalInitialized = true;
 
@@ -375,14 +574,7 @@ function initPayPalButtons() {
         paypal.Buttons({
             createOrder: function(data, actions) {
                 const selectedPlan = BASE_PLANS[activeSelectedPlanId];
-                // Apply promo discounts
                 const finalPriceRD = selectedPlan.price * (1 - currentAppliedDiscount / 100);
-                
-                // Convert to exact USD amount based on user's exact specifications
-                // 2046.49 RD$ -> 35.00 USD
-                // 5000.00 RD$ -> 85.51 USD
-                // 9000.00 RD$ -> 153.92 USD
-                // Exchange rate is approximately 58.4711
                 const priceUSD = (finalPriceRD / 58.4711).toFixed(2);
 
                 return actions.order.create({
@@ -423,7 +615,6 @@ function initPayPalButtons() {
 
                     saveSubscriptionState(updatedState);
                     
-                    // Mark promo code as used if one was applied
                     if (validatedPromoCode) {
                         const promoCodes = getPromoCodesList();
                         const match = promoCodes.find(p => p.code === validatedPromoCode);
@@ -433,7 +624,6 @@ function initPayPalButtons() {
                         }
                     }
                     
-                    // Dispatch welcome subscription email in background
                     sendSubscriptionEmailNotification(updatedState);
 
                     const overlay = document.getElementById('security-guard-overlay');
@@ -451,8 +641,12 @@ function initPayPalButtons() {
     });
 }
 
-// Dynamically load PayPal Script tag
-function loadPayPalScript(callback) {
+// Dynamically load PayPal Script tag solo cuando existe Client ID real de producción en entorno no-Android
+function loadPayPalScript(clientId, callback) {
+    if (isAndroidStoreEnvironment() || !clientId || clientId.toLowerCase() === 'test') {
+        return;
+    }
+
     if (window.paypal) {
         callback();
         return;
@@ -464,7 +658,7 @@ function loadPayPalScript(callback) {
     if (!script) {
         script = document.createElement('script');
         script.id = scriptId;
-        script.src = 'https://www.paypal.com/sdk/js?client-id=test&currency=USD';
+        script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD`;
         script.onload = () => callback();
         script.onerror = () => showToast("❌ Error al cargar pasarela de pagos PayPal.", "error");
         document.head.appendChild(script);
@@ -611,7 +805,9 @@ async function sendSubscriptionEmailNotification(state) {
         
         if (!userEmail) return;
 
-        const scriptUrl = 'https://script.google.com/macros/s/AKfycby2o1BlkEncZt_FvByn_XosXCwyqYJ4Ti3wzOakN9KcMsq4lN4y1Fz82PNyl8VweC2E/exec';
+        const scriptUrl = (typeof getAppsScriptUrl === 'function')
+            ? getAppsScriptUrl()
+            : ((typeof _unlockVaultSecret === 'function' && _unlockVaultSecret('GAS_URL')) || '');
         
         let planLabel = state.plan === 'trial_10d' ? 'Prueba Gratuita (10 Días)' : (BASE_PLANS[state.plan]?.name || state.plan);
         let expiresText = state.expiresAt === 'lifetime' ? 'De Por Vida (Acceso Ilimitado)' : new Date(state.expiresAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });

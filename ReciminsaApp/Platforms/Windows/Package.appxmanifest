@@ -6,7 +6,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
 
-  <Identity Name="com.companyname.reciminsaapp" Publisher="CN=Reciminsa" Version="1.16.0.0" />
+  <Identity Name="com.companyname.reciminsaapp" Publisher="CN=Reciminsa" Version="1.18.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="4200BEDB-683A-4C73-88D3-230B08DFF014" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -29,7 +29,7 @@
     <Application Id="App" Executable="Reciminsa.exe" EntryPoint="ReciminsaApp.WinUI.App">
       <uap:VisualElements
         DisplayName="Reciminsa"
-        Description="Reciminsa App"
+        Description="Reciminsaap – Plataforma empresarial de gestión de reciclaje, bitácoras y facturación."
         Square150x150Logo="Resources\AppIcon\appicon.png"
         Square44x44Logo="Resources\AppIcon\appicon.png"
         BackgroundColor="transparent">
@@ -40,6 +40,7 @@
   </Applications>
 
   <Capabilities>
+    <Capability Name="internetClient" />
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>
 

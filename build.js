@@ -29,7 +29,7 @@ if (fs.existsSync('www')) {
 fs.mkdirSync('www', { recursive: true });
 
 console.log("📦 Copiando archivos web a 'www' y 'ReciminsaApp/wwwroot'...");
-const filesToCopy = ['index.html', 'service-worker.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'logo-white-lines.png', 'logo-no-white-lines.png'];
+const filesToCopy = ['index.html', 'privacidad.html', 'terminos.html', 'service-worker.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'logo-white-lines.png', 'logo-no-white-lines.png'];
 const targets = ['www', path.join('ReciminsaApp', 'wwwroot')];
 
 targets.forEach(target => {

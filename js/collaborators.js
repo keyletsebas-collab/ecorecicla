@@ -38,19 +38,66 @@ function isCurrentUserAdminOrFounder() {
     return true;
   }
 
-  // Verificación de rol firmado en sesión (CEO, Master, Admin)
-  if (session.role === 'master' || session.role === 'admin' || session.role === 'ceo' || session.isMaster === true) {
+  // Verificación de rol firmado en sesión (CEO, Master, Admin, Fundador)
+  if (session.role === 'master' || session.role === 'admin' || session.role === 'ceo' || session.isMaster === true || session.isFounder === true) {
     return true;
   }
 
-  // Verificación de colaborador administrador registrado
+  // Verificación de creador / administrador principal de la empresa (recim_company_admin y ajustes compartidos)
+  let companyAdminId = null;
+  let shared = {};
+  const sharedKey = typeof userKey === 'function' ? userKey('recim_company_shared_settings') : 'recim_company_shared_settings';
+  try {
+    companyAdminId = localStorage.getItem(userKey('recim_company_admin'));
+    if (companyAdminId && companyAdminId.startsWith('"') && companyAdminId.endsWith('"')) {
+      try { companyAdminId = JSON.parse(companyAdminId); } catch (_) {}
+    }
+    if (companyAdminId && session.accountId && companyAdminId === session.accountId) {
+      return true;
+    }
+
+    shared = JSON.parse(localStorage.getItem(sharedKey) || '{}');
+    if (session.accountId) {
+      if (shared.founderId && shared.founderId === session.accountId) {
+        return true;
+      }
+      if (Array.isArray(shared.companyAdmins) && shared.companyAdmins.includes(session.accountId)) {
+        return true;
+      }
+    }
+  } catch (_) {}
+
+  // Verificación de colaborador registrado en la empresa
   try {
     const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
     const linked = colabs.find(c => (session.accountId && c.linkedAccountId === session.accountId) || (c.email && session.email && c.email.toLowerCase() === session.email.toLowerCase()));
-    if (linked && linked.isAdminColab === true) {
-      return true;
+    if (linked) {
+      if (linked.isAdminColab === true) {
+        return true;
+      }
+      // Está vinculado explícitamente como empleado sin privilegios de administrador
+      return false;
     }
   } catch (_) {}
+
+  // Auto-reparación para cuentas nuevas que crearon su empresa y aún no tenían recim_company_admin persistido:
+  // Si la empresa no tiene otro fundador asignado y el usuario no ingresó con rol 'colaborador',
+  // se registra automáticamente como fundador/CEO de su empresa.
+  if (!companyAdminId && !shared.founderId && session.role !== 'colaborador' && session.accountId) {
+    try {
+      localStorage.setItem(userKey('recim_company_admin'), session.accountId);
+      shared.founderId = session.accountId;
+      if (!Array.isArray(shared.companyAdmins)) shared.companyAdmins = [];
+      if (!shared.companyAdmins.includes(session.accountId)) {
+        shared.companyAdmins.push(session.accountId);
+      }
+      localStorage.setItem(sharedKey, JSON.stringify(shared));
+      if (typeof updateCurrentSession === 'function') {
+        updateCurrentSession({ role: 'ceo', isFounder: true });
+      }
+    } catch (_) {}
+    return true;
+  }
 
   return false;
 }
@@ -217,7 +264,7 @@ async function renderCollaboratorsPage(container) {
         <p style="color: var(--clr-text-muted); font-size: 0.9rem; max-width: 500px; margin: 0 auto 20px auto;">
           Para gestionar colaboradores, primero debes estar registrado y activo dentro de una Empresa.
         </p>
-        <button class="btn-primary" style="margin:0 auto; justify-content:center;" onclick="navigate('ajustes')">🏢 Ir a Ajustes de Empresa</button>
+        <button class="btn-primary" style="margin:0 auto; justify-content:center;" onclick="navigate('parametrizaciones_empresa')">🏢 Ir a Parametrizaciones de Empresa</button>
       </div>
     `;
     return;
@@ -345,20 +392,29 @@ function renderCollaboratorsTable() {
     const originalIndex = colabs.findIndex(x => x.id === c.id);
     const statusText = c.status || 'ACTIVO';
     const badgeColor = statusText === 'ACTIVO' ? '#10b981' : (statusText === 'INACTIVO' ? '#ef4444' : '#f59e0b');
+    const branchInfo = _resolveColabCurrentBranch(c);
     
     html += `
       <tr style="border-bottom:1px solid var(--clr-border);">
-        <td data-label="${isEn ? 'Code' : 'Código'}" style="padding:14px 16px; font-weight:600; font-family:monospace; color:var(--clr-text-secondary);">${c.code || 'EMPL-00000'}</td>
-        <td data-label="${isEn ? 'National ID' : 'Cédula'}" style="padding:14px 16px; color:var(--clr-text);">${c.cedula || '000-0000000-0'}</td>
-        <td data-label="${isEn ? 'Full Name' : 'Nombre Completo'}" style="padding:14px 16px; font-weight:600; color:var(--clr-text); text-transform: capitalize;">${c.name || 'Sin nombre'}</td>
-        <td data-label="${isEn ? 'Position' : 'Cargo'}" style="padding:14px 16px; color:var(--clr-text-secondary);">${c.role || 'Operario'}</td>
+        <td data-label="${isEn ? 'Code' : 'Código'}" style="padding:14px 16px; font-weight:600; font-family:monospace; color:var(--clr-text-secondary);">${_colabEscapeHtml(c.code || 'EMPL-00000')}</td>
+        <td data-label="${isEn ? 'National ID' : 'Cédula'}" style="padding:14px 16px; color:var(--clr-text);">${_colabEscapeHtml(c.cedula || '000-0000000-0')}</td>
+        <td data-label="${isEn ? 'Full Name' : 'Nombre Completo'}" style="padding:14px 16px; font-weight:600; color:var(--clr-text); text-transform: capitalize;">
+          <div>${_colabEscapeHtml(c.name || 'Sin nombre')}</div>
+          <div style="margin-top:4px;">
+            <span class="badge badge--green" style="font-size:0.7rem; padding:2px 7px;">📍 ${_colabEscapeHtml(branchInfo.name)}</span>
+          </div>
+        </td>
+        <td data-label="${isEn ? 'Position' : 'Cargo'}" style="padding:14px 16px; color:var(--clr-text-secondary);">${_colabEscapeHtml(c.role || 'Operario')}</td>
         <td data-label="${isEn ? 'Status & Situation' : 'Estado y Situación'}" style="padding:14px 16px;">
           <span class="badge" style="background-color:rgba(${hexToRgb(badgeColor)}, 0.15); color:${badgeColor}; font-size:0.75rem; padding:4px 8px; border-radius:4px; font-weight:700;">
-            ${statusText}
+            ${_colabEscapeHtml(statusText)}
           </span>
         </td>
         <td data-label="${isEn ? 'Actions' : 'Acciones'}" style="padding:14px 16px; text-align:center; display:flex; justify-content:center; gap:8px;">
           ${hasEditPermissions ? `
+          <button class="btn-icon" onclick="openColabBranchPickerModal(${originalIndex})" style="background:transparent; border:none; cursor:pointer; color:#34d399; font-size:1.1rem; padding:4px;" title="Añadir a una sucursal">
+            📍
+          </button>
           <button class="btn-icon" onclick="showColabForm(${originalIndex})" style="background:transparent; border:none; cursor:pointer; color:var(--clr-primary-light); font-size:1.1rem; padding:4px;" title="Editar">
             ✏️
           </button>
@@ -449,15 +505,19 @@ async function showColabForm(colabIndex = null) {
   const linkedAccountId = colab.linkedAccountId || '';
   const isAdminColab = colab.isAdminColab === true;
   const modules = colab.modules || {};
+  const branchInfo = _resolveColabCurrentBranch(colab);
 
   contentDiv.innerHTML = `
-    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:20px;">
       <div>
         <h2 class="section-title" style="margin:0; font-size:1.6rem; font-weight:700;">
           ${isEdit ? (isEn ? 'Edit Collaborator' : 'Editar Colaborador') : (isEn ? 'New Collaborator' : 'Nuevo Colaborador')}
         </h2>
       </div>
-      <div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn-primary" id="btn-colab-header-branch" onclick="openColabBranchPickerModal(${isEdit ? colabIndex : 'null'})" style="background:rgba(16, 185, 129, 0.16); color:#34d399; border:1px solid rgba(16, 185, 129, 0.45); gap:6px; font-size:0.84rem; font-weight:700;">
+          📍 ${isEn ? 'Add to a Branch' : 'Añadir a una Sucursal'}
+        </button>
         <button class="btn-secondary" onclick="showColabsList()" style="gap:6px; font-size:0.85rem; font-weight:600;">
           ← ${isEn ? 'Back' : 'Volver'}
         </button>
@@ -466,6 +526,17 @@ async function showColabForm(colabIndex = null) {
 
     <!-- Contenedor del Formulario con Pestañas -->
     <div class="card card--elevated colab-card-wrapper" style="padding:24px;">
+
+      <!-- Barra de Sucursal Asignada del Empleado -->
+      <div style="margin-bottom: 18px; padding: 12px 16px; background: rgba(16, 185, 129, 0.07); border: 1px solid rgba(16, 185, 129, 0.32); border-radius: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--clr-text);">📍 Sucursal del empleado:</span>
+          <span id="colab-current-branch-badge" class="badge badge--green" style="font-size: 0.8rem; padding: 4px 10px;">${_colabEscapeHtml(branchInfo.name)}</span>
+        </div>
+        <button type="button" class="btn-primary" id="btn-colab-add-to-branch" onclick="openColabBranchPickerModal(${isEdit ? colabIndex : 'null'})" style="padding: 7px 14px; font-size: 0.82rem; font-weight: 700; gap: 6px;">
+          📍 Añadir a una Sucursal
+        </button>
+      </div>
       
       <!-- Pestañas -->
       <div class="colab-tabs-container">
@@ -476,6 +547,8 @@ async function showColabForm(colabIndex = null) {
       </div>
 
       <form id="colab-details-form" onsubmit="event.preventDefault();">
+        <input type="hidden" id="colab-branch-id" value="${_colabEscapeHtml(branchInfo.id)}" />
+        <input type="hidden" id="colab-branch-name" value="${_colabEscapeHtml(branchInfo.name)}" />
         
         <!-- PESTAÑA 1: IDENTIDAD -->
         <div id="tab-sec-identidad" class="colab-form-section active">
@@ -805,6 +878,8 @@ function saveCollaborator() {
 
   const linkedAccountId = document.getElementById('colab-linked-account')?.value || '';
   const isAdminColab = document.getElementById('colab-is-admin-colab-select')?.value === 'true';
+  const branchId = (document.getElementById('colab-branch-id')?.value || '').trim() || _resolveColabCurrentBranch({}).id;
+  const branchName = (document.getElementById('colab-branch-name')?.value || '').trim() || _resolveColabCurrentBranch({ branchId }).name;
 
   // Módulos
   const modules = {};
@@ -815,6 +890,7 @@ function saveCollaborator() {
   });
 
   const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+  let savedColab = null;
 
   if (currentEditingIndex === null) {
     // NUEVO
@@ -849,6 +925,8 @@ function saveCollaborator() {
       bankName,
       bankAccount,
       salary,
+      branchId,
+      branchName,
       linkedAccountId,
       isAdminColab,
       modules,
@@ -856,7 +934,8 @@ function saveCollaborator() {
     };
 
     colabs.unshift(newColab);
-    showToast('👥 Colaborador registrado con éxito', 'success');
+    savedColab = newColab;
+    showToast(`👥 Colaborador registrado en ${branchName}`, 'success');
   } else {
     // EDICIÓN
     const code = colabs[currentEditingIndex].code;
@@ -885,15 +964,24 @@ function saveCollaborator() {
       bankName,
       bankAccount,
       salary,
+      branchId,
+      branchName,
       linkedAccountId,
       isAdminColab,
       modules,
       updatedAt: new Date().toISOString()
     };
-    showToast('👥 Colaborador actualizado con éxito', 'success');
+    savedColab = colabs[currentEditingIndex];
+    showToast(`👥 Colaborador actualizado (${branchName})`, 'success');
   }
 
   localStorage.setItem(userKey('recim_collaborators'), JSON.stringify(colabs));
+  if (savedColab) {
+    _syncCollaboratorWithBranchMembers(savedColab);
+  }
+  if (typeof window.syncPushData === 'function') {
+    try { window.syncPushData(true); } catch (_) {}
+  }
 
   // Actualizar menús y vistas
   if (typeof applyModuleVisibility === 'function') {
@@ -956,6 +1044,262 @@ function canCurrentUserManageCollaborators() {
   return isCurrentUserAdminOrFounder();
 }
 
+function _colabEscapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function _resolveColabBranches() {
+  if (typeof getCompanyBranches === 'function') {
+    const list = getCompanyBranches();
+    if (Array.isArray(list) && list.length > 0) return list;
+  }
+  try {
+    const raw = localStorage.getItem(typeof userKey === 'function' ? userKey('recim_branches') : 'recim_branches');
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch (_) {}
+  return [{ id: 'SUC-PRINCIPAL', name: 'Sucursal Principal', location: 'Sede Central', isMain: true, active: true }];
+}
+
+function _resolveColabCurrentBranch(colab = {}) {
+  const branches = _resolveColabBranches();
+  const mainBranch = branches.find(b => b && (b.isMain || b.id === 'SUC-PRINCIPAL')) || branches[0];
+
+  if (colab && colab.branchId) {
+    const found = branches.find(b => b && b.id === colab.branchId);
+    return {
+      id: colab.branchId,
+      name: (found && found.name) || colab.branchName || (typeof resolveBranchNameById === 'function' ? resolveBranchNameById(colab.branchId) : 'Sucursal Principal')
+    };
+  }
+
+  if (typeof getBranchMembers === 'function' && colab) {
+    const members = getBranchMembers();
+    const match = members.find(m =>
+      m && (
+        (colab.linkedAccountId && m.accountId === colab.linkedAccountId) ||
+        (colab.id && (m.accountId === colab.id || m.collabId === colab.id)) ||
+        (colab.email && m.email && m.email.trim().toLowerCase() === colab.email.trim().toLowerCase())
+      )
+    );
+    if (match && match.branchId) {
+      const found = branches.find(b => b && b.id === match.branchId);
+      return {
+        id: match.branchId,
+        name: (found && found.name) || match.branchName || 'Sucursal Principal'
+      };
+    }
+  }
+
+  const activeId = typeof getActiveBranchId === 'function' ? getActiveBranchId() : (mainBranch ? mainBranch.id : 'SUC-PRINCIPAL');
+  const activeBranch = branches.find(b => b && b.id === activeId) || mainBranch;
+  return {
+    id: activeBranch ? activeBranch.id : 'SUC-PRINCIPAL',
+    name: activeBranch ? activeBranch.name : 'Sucursal Principal'
+  };
+}
+
+function _syncCollaboratorWithBranchMembers(colab) {
+  if (!colab) return;
+  const branchInfo = _resolveColabCurrentBranch(colab);
+  const memberAccountId = colab.linkedAccountId || colab.id;
+  if (!memberAccountId) return;
+
+  if (typeof upsertBranchMember === 'function') {
+    upsertBranchMember({
+      accountId: memberAccountId,
+      collabId: colab.id || '',
+      name: colab.name || `${colab.firstName || ''} ${colab.lastName || ''}`.trim() || 'Colaborador',
+      email: colab.email || colab.cedula || '',
+      role: colab.role || 'colaborador',
+      branchId: branchInfo.id,
+      branchName: branchInfo.name,
+      updatedAt: new Date().toISOString()
+    });
+  }
+}
+
+function openColabBranchPickerModal(targetColabIndex = null) {
+  if (!canCurrentUserManageCollaborators()) {
+    showToast('❌ No tienes permisos para asignar sucursales.', 'error');
+    return;
+  }
+
+  document.getElementById('colab-branch-picker-modal')?.remove();
+
+  const colabs = JSON.parse(localStorage.getItem(userKey('recim_collaborators')) || '[]');
+  const hasIndex = targetColabIndex !== null && targetColabIndex !== undefined && colabs[targetColabIndex];
+  const targetColab = hasIndex ? colabs[targetColabIndex] : null;
+
+  const formBranchIdEl = document.getElementById('colab-branch-id');
+  const currentBranchId = formBranchIdEl
+    ? (formBranchIdEl.value || _resolveColabCurrentBranch(targetColab || {}).id)
+    : _resolveColabCurrentBranch(targetColab || {}).id;
+
+  const branches = _resolveColabBranches();
+  const empName = targetColab
+    ? (targetColab.name || 'este empleado')
+    : ((document.getElementById('colab-first-name')?.value || '').trim() || 'este empleado');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'colab-branch-picker-modal';
+  overlay.className = 'modal-overlay';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+  const idxArg = hasIndex ? String(targetColabIndex) : 'null';
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width: 560px; width: 94%; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" style="margin: 0;">📍 Añadir a una Sucursal</h3>
+          <p style="margin: 4px 0 0 0; font-size: 0.78rem; color: var(--clr-text-muted);">
+            Selecciona la sucursal de tu empresa para <b>${_colabEscapeHtml(empName)}</b>
+          </p>
+        </div>
+        <button type="button" class="modal-close" onclick="document.getElementById('colab-branch-picker-modal')?.remove()">✕</button>
+      </div>
+
+      <div class="modal-body" style="overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; color: var(--clr-text-muted); letter-spacing: 0.04em;">
+          Sucursales de tu Empresa (${branches.length})
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          ${branches.map(b => {
+            const isSelected = b.id === currentBranchId;
+            const isActive = b.active !== false;
+            return `
+              <div style="padding: 12px 14px; border-radius: 10px; background: ${isSelected ? 'rgba(16, 185, 129, 0.12)' : 'var(--clr-surface-2)'}; border: 1px solid ${isSelected ? 'rgba(16, 185, 129, 0.55)' : 'var(--clr-border)'}; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="flex: 1; min-width: 190px;">
+                  <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 700; font-size: 0.92rem; color: var(--clr-text);">
+                    <span>🏢 ${_colabEscapeHtml(b.name || 'Sucursal')}</span>
+                    ${b.isMain ? '<span class="badge" style="background: rgba(245, 158, 11, 0.16); color: #fbbf24; font-size: 0.66rem; padding: 1px 6px;">⭐ Principal</span>' : ''}
+                    <span class="badge ${isActive ? 'badge--green' : 'badge--red'}" style="font-size: 0.66rem; padding: 1px 6px;">${isActive ? 'Activa' : 'Inactiva'}</span>
+                    ${isSelected ? '<span class="badge badge--blue" style="font-size: 0.66rem; padding: 1px 6px;">✓ Actual</span>' : ''}
+                  </div>
+                  <div style="font-size: 0.76rem; color: var(--clr-text-muted); margin-top: 4px;">
+                    📍 ${_colabEscapeHtml(b.location || 'Sin ubicación')}${b.phone ? ` • 📞 ${_colabEscapeHtml(b.phone)}` : ''}
+                  </div>
+                </div>
+                <button type="button" class="${isSelected ? 'btn-secondary' : 'btn-primary'}" onclick="selectBranchForCollaborator('${_colabEscapeHtml(b.id)}', ${idxArg})" style="padding: 7px 13px; font-size: 0.8rem; font-weight: 700; white-space: nowrap;">
+                  ${isSelected ? '✓ Seleccionada' : '📍 Añadir aquí'}
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="border-top: 1px solid var(--clr-border); padding-top: 12px; margin-top: 4px;">
+          <button type="button" class="btn-secondary" onclick="document.getElementById('colab-Quick-new-branch-box')?.classList.toggle('hidden')" style="width: 100%; justify-content: center; font-size: 0.82rem; font-weight: 600; padding: 8px 12px;">
+            ➕ Crear y añadir a una nueva sucursal
+          </button>
+          <div id="colab-Quick-new-branch-box" class="hidden" style="margin-top: 10px; padding: 12px; background: var(--clr-surface-2); border: 1px dashed rgba(16, 185, 129, 0.4); border-radius: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #34d399;">Nueva Sucursal</div>
+            <input id="colab-new-branch-name" type="text" class="form-input" placeholder="Nombre de la nueva sucursal (Ej: Sucursal Norte) *" style="font-size: 0.82rem;" />
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <input id="colab-new-branch-loc" type="text" class="form-input" placeholder="Ubicación / Dirección *" style="font-size: 0.82rem;" />
+              <input id="colab-new-branch-phone" type="tel" class="form-input" placeholder="Teléfono *" style="font-size: 0.82rem;" />
+            </div>
+            <button type="button" class="btn-primary" onclick="createAndSelectBranchForCollaborator(${idxArg})" style="justify-content: center; font-size: 0.82rem; font-weight: 700; padding: 8px 12px;">
+              💾 Crear Sucursal y Asignar Empleado
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="document.getElementById('colab-branch-picker-modal')?.remove()">Cerrar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+async function selectBranchForCollaborator(branchId, targetColabIndex = null) {
+  const branches = _resolveColabBranches();
+  const branch = branches.find(b => b && b.id === branchId);
+  if (!branch) {
+    showToast('❌ Sucursal no encontrada.', 'error');
+    return;
+  }
+
+  const idInput = document.getElementById('colab-branch-id');
+  const nameInput = document.getElementById('colab-branch-name');
+  const badgeEl = document.getElementById('colab-current-branch-badge');
+
+  if (idInput) idInput.value = branch.id;
+  if (nameInput) nameInput.value = branch.name;
+  if (badgeEl) badgeEl.textContent = branch.name;
+
+  const colabsKey = userKey('recim_collaborators');
+  const colabs = JSON.parse(localStorage.getItem(colabsKey) || '[]');
+  const idx = (targetColabIndex !== null && targetColabIndex !== undefined)
+    ? targetColabIndex
+    : currentEditingIndex;
+
+  if (idx !== null && idx !== undefined && colabs[idx]) {
+    colabs[idx].branchId = branch.id;
+    colabs[idx].branchName = branch.name;
+    colabs[idx].updatedAt = new Date().toISOString();
+    localStorage.setItem(colabsKey, JSON.stringify(colabs));
+    _syncCollaboratorWithBranchMembers(colabs[idx]);
+    if (typeof window.syncPushData === 'function') {
+      try { await window.syncPushData(true); } catch (_) {}
+    }
+    if (document.getElementById('colab-list-table-body')) {
+      renderCollaboratorsTable();
+    }
+  }
+
+  document.getElementById('colab-branch-picker-modal')?.remove();
+  showToast(`✅ Empleado asignado a ${branch.name}`, 'success');
+}
+
+async function createAndSelectBranchForCollaborator(targetColabIndex = null) {
+  const name = (document.getElementById('colab-new-branch-name')?.value || '').trim();
+  const location = (document.getElementById('colab-new-branch-loc')?.value || '').trim();
+  const phone = (document.getElementById('colab-new-branch-phone')?.value || '').trim();
+
+  if (!name || !location || !phone) {
+    showToast('⚠️ Completa nombre, ubicación y teléfono de la nueva sucursal.', 'warning');
+    return;
+  }
+
+  const branches = _resolveColabBranches();
+  const code = typeof generateDefaultBranchCode === 'function'
+    ? generateDefaultBranchCode()
+    : ('SUC-' + Math.floor(1000 + Math.random() * 9000));
+  const nowIso = new Date().toISOString();
+  const newBranch = {
+    id: `SUC-${Date.now()}`,
+    name,
+    code,
+    location,
+    phone,
+    email: '',
+    isMain: false,
+    active: true,
+    createdAt: nowIso,
+    updatedAt: nowIso
+  };
+
+  branches.push(newBranch);
+  if (typeof saveCompanyBranches === 'function') {
+    saveCompanyBranches(branches, { markModified: true });
+  } else {
+    localStorage.setItem(userKey('recim_branches'), JSON.stringify(branches));
+  }
+
+  await selectBranchForCollaborator(newBranch.id, targetColabIndex);
+}
+
 // Exportación global de funciones
 window.renderCollaboratorsPage = renderCollaboratorsPage;
 window.showColabsList = showColabsList;
@@ -968,3 +1312,6 @@ window.handleImportCollaborators = handleImportCollaborators;
 window.isCurrentUserAdminOrFounder = isCurrentUserAdminOrFounder;
 window.changeColabsPage = changeColabsPage;
 window.canCurrentUserManageCollaborators = canCurrentUserManageCollaborators;
+window.openColabBranchPickerModal = openColabBranchPickerModal;
+window.selectBranchForCollaborator = selectBranchForCollaborator;
+window.createAndSelectBranchForCollaborator = createAndSelectBranchForCollaborator;

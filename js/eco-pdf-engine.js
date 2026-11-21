@@ -1,7 +1,7 @@
 /* =========================================================================
    ECO-PDF-ENGINE.JS – Motor Especializado de Certificados de Impacto Verde
    Inspirado y estructurado con el motor nativo de jsPDF de pdf-utils.js.
-   Generación de PDF vectorial pura sin dependencia de captura de DOM.
+   Generación de PDF vectorial pura con código QR ISO 18004 verificable offline.
    ========================================================================= */
 
 function generateClientCertCode(clientName) {
@@ -15,6 +15,87 @@ function generateClientCertCode(clientName) {
   return (positive + 'RECIMINSA').slice(0, 8);
 }
 
+function _buildEcoCertificateQrPayload({ companyName, rnc, targetClient, periodShort, stats, certId }) {
+  const cleanLine = (val, maxLen) => {
+    const s = String(val ?? '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return s.length > maxLen ? s.slice(0, maxLen) : s;
+  };
+
+  let issuerLen = 36;
+  let clientLen = 40;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const issuerPart = `${cleanLine(companyName, issuerLen)}${rnc ? ` | RNC: ${cleanLine(rnc, 16)}` : ''}`;
+    const basePayload = [
+      'CONSTANCIA VERDE RECIMINSA',
+      `Emisor: ${issuerPart}`,
+      `Cliente: ${cleanLine(targetClient, clientLen)}`,
+      `Periodo: ${cleanLine(periodShort, 28)}`,
+      `Reciclado: ${stats.totalWeight.toFixed(1)} kg | CO2: ${Math.round(stats.co2Avoided)} kg | Arboles: ${Math.ceil(stats.treesSaved)}`,
+      `Codigo: ${certId}`
+    ].join('\n');
+
+    const verificationCode = (typeof window !== 'undefined' && typeof window.computeVerificationCode === 'function')
+      ? window.computeVerificationCode(basePayload)
+      : `VER-${String(certId).slice(-8).toUpperCase()}`;
+
+    const fullPayload = `${basePayload} | Verif: ${verificationCode}`;
+    const utf8Len = typeof TextEncoder !== 'undefined'
+      ? new TextEncoder().encode(fullPayload).length
+      : unescape(encodeURIComponent(fullPayload)).length;
+
+    if (utf8Len <= 250 || attempt === 2) {
+      return { qrPayload: fullPayload, verificationCode };
+    }
+    issuerLen = Math.max(18, issuerLen - 10);
+    clientLen = Math.max(20, clientLen - 10);
+  }
+}
+
+function _recordEcoCertificateIssuance(record) {
+  try {
+    const storageKey = typeof userKey === 'function' ? userKey('recim_eco_certificates') : 'recim_eco_certificates';
+    const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    const list = Array.isArray(existing) ? existing : [];
+    const dedupKey = `${record.certCode}|${record.verificationCode}`;
+    const nextList = [
+      record,
+      ...list.filter(item => `${item.certCode}|${item.verificationCode}` !== dedupKey)
+    ].slice(0, 200);
+    localStorage.setItem(storageKey, JSON.stringify(nextList));
+  } catch (_) {}
+
+  try {
+    const sbActive = (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) || Boolean(typeof window !== 'undefined' && window.isSupabaseActive);
+    const sbClient = (typeof supabaseClient !== 'undefined' && supabaseClient) || (typeof window !== 'undefined' ? window.supabaseClient : null);
+    if (!sbActive || !sbClient || typeof sbClient.from !== 'function') return;
+
+    let dbId = '';
+    try {
+      const s = JSON.parse(localStorage.getItem('recim_session') || '{}');
+      dbId = s.familyId ? `family_${s.familyId}` : (s.accountId || '');
+    } catch (_) {}
+    if (!dbId) return;
+
+    Promise.resolve(
+      sbClient.from('eco_certificates').upsert({
+        id: record.id,
+        db_id: dbId,
+        cert_code: record.certCode,
+        verification_code: record.verificationCode,
+        client_name: record.clientName,
+        company_name: record.companyName,
+        branch_id: record.branchId || null,
+        total_weight_kg: record.totalWeightKg,
+        co2_avoided_kg: record.co2AvoidedKg,
+        trees_saved: record.treesSaved,
+        period_text: record.periodText,
+        issued_by: record.issuedBy || null,
+        created_at: record.createdAt
+      })
+    ).catch(() => {});
+  } catch (_) {}
+}
+
 function generateEcoImpactPDFEngine(options = {}) {
     const {
         clientName = null,
@@ -24,7 +105,8 @@ function generateEcoImpactPDFEngine(options = {}) {
         customTitle = null,
         onSuccess = null,
         onError = null,
-        certCode = null
+        certCode = null,
+        returnResult = false
     } = options;
 
     // 1. Obtener estadísticas de impacto ecológico
@@ -37,11 +119,11 @@ function generateEcoImpactPDFEngine(options = {}) {
             showToast(msg, 'warning');
         }
         if (onError) onError('No hay datos');
-        return;
+        return null;
     }
 
-    if (typeof showToast === 'function') {
-        showToast('🌱 Generando Certificado Oficial de Impacto Ambiental...', 'info', 3000);
+    if (!returnResult && typeof showToast === 'function') {
+        showToast('🌱 Generando Constancia Estimada de Impacto Ambiental...', 'info', 3000);
     }
 
     // 2. Obtener la configuración corporativa (Registro de Empresa: Nombre, Logo, RNC, Teléfono, Correo, Dirección)
@@ -61,12 +143,11 @@ function generateEcoImpactPDFEngine(options = {}) {
         } catch (_) {}
     }
 
-    let companyName = settings.companyName || 'RECIMINSA';
+    let companyName = settings.companyName || 'Empresa No Configurada';
     let companyLogo = settings.companyLogo || settings.logoUrl || (typeof window !== 'undefined' ? window.DEFAULT_APP_LOGO : '') || '';
     let rnc = settings.companyRNC || settings.rnc || settings.companyRnc || '';
     let phone = settings.companyPhone || settings.phone || settings.userPhone || '';
     let email = settings.companyEmail || settings.userEmail || '';
-    let address = settings.companyAddress || '';
 
     if (typeof userKey === 'function') {
         try {
@@ -75,7 +156,6 @@ function generateEcoImpactPDFEngine(options = {}) {
             if (sharedSettings.companyRNC) rnc = sharedSettings.companyRNC;
             if (sharedSettings.companyPhone) phone = sharedSettings.companyPhone;
             if (sharedSettings.companyEmail) email = sharedSettings.companyEmail;
-            if (sharedSettings.companyAddress) address = sharedSettings.companyAddress;
             if (sharedSettings.companyLogo) companyLogo = sharedSettings.companyLogo;
         } catch (e) {}
     }
@@ -86,15 +166,27 @@ function generateEcoImpactPDFEngine(options = {}) {
     const formatTextDate = (dStr) => {
         if (!dStr) return '';
         const parts = dStr.split('-');
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dStr;
     };
 
-    const periodText = startDate && endDate 
+    const periodText = startDate && endDate
         ? `Período del ${formatTextDate(startDate)} al ${formatTextDate(endDate)}`
         : 'Período acumulado al presente';
+    const periodShort = startDate && endDate
+        ? `${formatTextDate(startDate)} - ${formatTextDate(endDate)}`
+        : 'Acumulado';
 
-    const targetClient = clientName || 'TODOS LOS CLIENTES (CERTIFICADO GENERAL)';
+    const targetClient = clientName || 'TODOS LOS CLIENTES (REPORTE GENERAL)';
     const issueDate = new Date().toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const { qrPayload, verificationCode } = _buildEcoCertificateQrPayload({
+        companyName,
+        rnc,
+        targetClient,
+        periodShort,
+        stats,
+        certId
+    });
 
     // 4. Calcular porcentajes y peso por tipo de material
     const totalW = stats.totalWeight || 1;
@@ -110,15 +202,15 @@ function generateEcoImpactPDFEngine(options = {}) {
     }));
 
     // 5. Obtener constructor jsPDF usando getJsPDFConstructor (idéntico a pdf-utils.js)
-    const jsPDFConstructor = typeof getJsPDFConstructor === 'function' 
-        ? getJsPDFConstructor() 
+    const jsPDFConstructor = typeof getJsPDFConstructor === 'function'
+        ? getJsPDFConstructor()
         : (window.jsPDF || (window.jspdf && window.jspdf.jsPDF) || (window.html2pdf && window.html2pdf.jsPDF));
 
     if (!jsPDFConstructor) {
         console.error('jsPDF NOT FOUND');
         if (typeof showToast === 'function') showToast('❌ Error: Librería jsPDF no disponible', 'error');
         if (onError) onError('jsPDF not found');
-        return;
+        return null;
     }
 
     // 6. Instanciar documento Carta Apaisado (279.4mm x 215.9mm)
@@ -135,17 +227,14 @@ function generateEcoImpactPDFEngine(options = {}) {
     doc.setFillColor(240, 253, 244);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-    // Borde exterior
-    doc.setDrawColor(5, 150, 105); // Verde esmeralda #059669
+    doc.setDrawColor(5, 150, 105);
     doc.setLineWidth(1.2);
     doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
 
-    // Borde interior
-    doc.setDrawColor(52, 211, 153); // #34d399
+    doc.setDrawColor(52, 211, 153);
     doc.setLineWidth(0.4);
     doc.rect(10.5, 10.5, pageWidth - 21, pageHeight - 21);
 
-    // Fondo blanco del cuerpo interno
     doc.setFillColor(255, 255, 255);
     doc.rect(12, 12, pageWidth - 24, pageHeight - 24, 'F');
 
@@ -184,8 +273,6 @@ function generateEcoImpactPDFEngine(options = {}) {
         doc.text(contactParts.join(' | '), textLeftX, 28.5);
     }
 
-
-
     // Línea divisoria cabecera
     doc.setDrawColor(167, 243, 208);
     doc.setLineWidth(0.5);
@@ -195,14 +282,13 @@ function generateEcoImpactPDFEngine(options = {}) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(5, 150, 105);
-    doc.text(customTitle || 'CERTIFICADO DE IMPACTO MEDIOAMBIENTAL', pageWidth / 2, 40, { align: 'center' });
+    doc.text(customTitle || 'CONSTANCIA ESTIMADA DE IMPACTO MEDIOAMBIENTAL', pageWidth / 2, 40, { align: 'center' });
 
     doc.setFont('Times', 'bold');
     doc.setFontSize(22);
     doc.setTextColor(6, 78, 59);
     doc.text("Reconocimiento de Excelencia Verde", pageWidth / 2, 49, { align: 'center' });
 
-    // Barrita decorativa central
     doc.setFillColor(16, 185, 129);
     doc.roundedRect((pageWidth / 2) - 25, 52, 50, 1.2, 0.6, 0.6, 'F');
 
@@ -255,7 +341,7 @@ function generateEcoImpactPDFEngine(options = {}) {
         doc.text(c.label, cx + (cardW / 2), cardsY + 20, { align: 'center' });
     });
 
-    // --- E. TABLA DE COMPOSICIÓN Y SELLO/FIRMAS ---
+    // --- E. TABLA DE COMPOSICIÓN, QR OFFLINE Y SELLO/FIRMAS ---
     const boxY = 112;
     const boxH = 60;
     doc.setFillColor(255, 255, 255);
@@ -277,11 +363,9 @@ function generateEcoImpactPDFEngine(options = {}) {
         doc.text(m.name, 22, rowY);
         doc.text(`${m.weight.toFixed(1)} kg (${m.pct}%)`, 135, rowY, { align: 'right' });
 
-        // Bar Track
         doc.setFillColor(226, 232, 240);
         doc.roundedRect(22, rowY + 1.5, 113, 3, 1, 1, 'F');
 
-        // Bar Fill
         const fillW = Math.max(1, (parseFloat(m.pct) / 100) * 113);
         doc.setFillColor(m.color[0], m.color[1], m.color[2]);
         doc.roundedRect(22, rowY + 1.5, fillW, 3, 1, 1, 'F');
@@ -296,72 +380,143 @@ function generateEcoImpactPDFEngine(options = {}) {
     doc.line(143, boxY + 5, 143, boxY + boxH - 5);
     doc.setLineDashPattern([], 0);
 
-    // Sello Oficial de Empresa
-    const sealCx = 168;
-    const sealCy = boxY + 25;
+    // Código QR Vectorial Verificable Offline (Mitad Derecha, izquierda)
+    try {
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(16, 185, 129);
+        doc.setLineWidth(0.45);
+        doc.roundedRect(147, boxY + 7, 35, 35, 1.5, 1.5, 'FD');
+        if (typeof window !== 'undefined' && typeof window.drawVectorQRCode === 'function') {
+            window.drawVectorQRCode(doc, qrPayload, 148, boxY + 8, 33, {
+                quietModules: 2,
+                bgColor: [255, 255, 255],
+                fgColor: [15, 23, 42]
+            });
+        }
+    } catch (qrErr) {
+        console.warn('Error generando QR vectorial en certificado:', qrErr);
+    }
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(5.1);
+    doc.setTextColor(4, 120, 87);
+    doc.text('QR VERIFICABLE OFFLINE', 164.5, boxY + 44.5, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(5.3);
+    doc.setTextColor(71, 85, 105);
+    doc.text(verificationCode, 164.5, boxY + 48, { align: 'center' });
+
+    // Sello de Registro Interno (centro)
+    const sealCx = 200;
+    const sealCy = boxY + 23;
     doc.setFillColor(240, 253, 244);
     doc.setDrawColor(5, 150, 105);
     doc.setLineWidth(0.8);
-    doc.circle(sealCx, sealCy, 14, 'FD');
+    doc.circle(sealCx, sealCy, 11.5, 'FD');
 
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(5.2);
+    doc.setFontSize(4.3);
     doc.setTextColor(4, 120, 87);
-    doc.text("SELLO OFICIAL", sealCx, sealCy - 1.5, { align: 'center' });
-    doc.setFontSize(4.8);
+    doc.text("REGISTRO INTERNO", sealCx, sealCy - 1.2, { align: 'center' });
+    doc.setFontSize(4.0);
     doc.setTextColor(5, 150, 105);
-    doc.text("DE EMPRESA", sealCx, sealCy + 2.5, { align: 'center' });
+    doc.text("INFORMATIVO", sealCx, sealCy + 2.4, { align: 'center' });
 
-    // Firma de Dirección
-    const sigX = 202;
-    const sigY = boxY + 34;
+    // Firma de Dirección (derecha)
+    const sigX = 218;
+    const sigY = boxY + 32;
+    const sigW = 41;
     doc.setDrawColor(100, 116, 139);
     doc.setLineWidth(0.3);
-    doc.line(sigX, sigY, sigX + 50, sigY);
+    doc.line(sigX, sigY, sigX + sigW, sigY);
 
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(7.4);
     doc.setTextColor(15, 23, 42);
-    doc.text(companyName, sigX + 25, sigY + 4.5, { align: 'center' });
+    const wrappedCompany = doc.splitTextToSize(companyName, sigW - 1);
+    doc.text(wrappedCompany[0] || companyName, sigX + (sigW / 2), sigY + 4.3, { align: 'center' });
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6.2);
     doc.setTextColor(100, 116, 139);
-    doc.text("Dirección de Sostenibilidad", sigX + 25, sigY + 8, { align: 'center' });
+    doc.text("Dirección de Sostenibilidad", sigX + (sigW / 2), sigY + 8, { align: 'center' });
 
-    // Metadatos
-    doc.setFontSize(7);
+    // Metadatos inferiores alineados
+    doc.setFontSize(6.8);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Emisión: ${issueDate}`, 150, boxY + 53);
-    doc.text(`Código Validación: ${certId.slice(-8)}`, 255, boxY + 53, { align: 'right' });
+    doc.text(`Emisión: ${issueDate}`, 148, boxY + 54);
+    doc.text(`Código Validación: ${certId.slice(-8)}`, 259, boxY + 54, { align: 'right' });
 
-    // --- F. PIE DE PÁGINA AUDITABLE ---
+    // --- F. PIE DE PÁGINA INFORMATIVO ---
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.3);
     doc.line(16, 178, 263.4, 178);
 
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(5.8);
     doc.setTextColor(100, 116, 139);
-    doc.text("Este certificado auditable valida que los materiales fueron clasificados y procesados mediante métodos de reciclaje ecológicos.", 16, 183);
+    doc.text("Aviso: Valores estimados con fines informativos según factores promedio de referencia sobre pesos declarados por el usuario. No constituye certificación oficial gubernamental, ISO ni crédito de carbono.", 16, 183);
 
     doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(6.5);
     doc.setTextColor(5, 150, 105);
-    doc.text("Página 1 de 1 • Certificado Ecológico Oficial", 263.4, 183, { align: 'right' });
+    doc.text("Página 1 de 1 • Reporte Informativo Estimado", 263.4, 183, { align: 'right' });
 
-    // 7. Exportación y Descarga Multiplataforma (Copiado de la lógica de pdf-utils.js)
-    const filename = `Certificado_Impacto_${(targetClient || 'General').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    // Registrar emisión localmente y en Supabase (sin bloquear si falta migración SQL)
+    let activeBranchId = '';
+    let issuedBy = '';
+    try {
+        if (typeof getActiveBranchId === 'function') activeBranchId = getActiveBranchId();
+        const sess = JSON.parse(localStorage.getItem('recim_session') || '{}');
+        issuedBy = sess.email || sess.name || '';
+    } catch (_) {}
+
+    _recordEcoCertificateIssuance({
+        id: `${certId}_${Date.now()}`,
+        certCode: certId,
+        verificationCode,
+        clientName: targetClient,
+        companyName,
+        branchId: activeBranchId,
+        totalWeightKg: Number(stats.totalWeight.toFixed(2)),
+        co2AvoidedKg: Math.round(stats.co2Avoided),
+        treesSaved: Math.ceil(stats.treesSaved),
+        periodText,
+        issuedBy,
+        createdAt: new Date().toISOString()
+    });
+
+    // 7. Exportación o retorno en memoria para WhatsApp
+    const filename = `Constancia_Impacto_${(targetClient || 'General').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
 
     let base64Data = '';
     try {
         base64Data = doc.output('datauristring').split(',')[1] || '';
     } catch (_) {}
 
+    const pdfBlob = (typeof base64ToBlob === 'function' && base64Data)
+        ? base64ToBlob(base64Data, 'application/pdf')
+        : doc.output('blob');
+
+    if (returnResult) {
+        return {
+            filename,
+            base64Data,
+            blob: pdfBlob,
+            certId,
+            verificationCode,
+            stats,
+            targetClient,
+            companyName,
+            periodText
+        };
+    }
+
     // PUENTE NATIVO ANDROID (MAUI HybridWebView)
     if (window.AndroidNative && typeof window.AndroidNative.DownloadFile === 'function') {
         try {
             window.AndroidNative.DownloadFile(filename, base64Data);
             if (typeof showToast === 'function') showToast('✅ Certificado guardado en Descargas', 'success');
-            if (onSuccess) onSuccess(doc.output('blob'));
+            if (onSuccess) onSuccess(pdfBlob);
             return;
         } catch (e) {
             console.warn('Android native bridge error:', e);
@@ -369,18 +524,20 @@ function generateEcoImpactPDFEngine(options = {}) {
     }
 
     // PUENTE NATIVO WINDOWS / MAUI WEBVIEW2
-    if (window.chrome && window.chrome.webview) {
+    if (window.NativeBridge && typeof window.NativeBridge.post === 'function') {
         try {
-            NativeBridge.post({
+            const posted = window.NativeBridge.post({
                 action: 'download',
                 filename: filename,
                 data: base64Data
             });
-            if (typeof showToast === 'function') showToast('✅ Certificado enviado a descargas', 'success');
-            if (onSuccess) onSuccess(doc.output('blob'));
-            return;
+            if (posted) {
+                if (typeof showToast === 'function') showToast('✅ Certificado enviado a descargas', 'success');
+                if (onSuccess) onSuccess(pdfBlob);
+                return;
+            }
         } catch (e) {
-            console.warn('WebView bridge error:', e);
+            console.warn('NativeBridge error:', e);
         }
     }
 
@@ -388,12 +545,10 @@ function generateEcoImpactPDFEngine(options = {}) {
     try {
         doc.save(filename);
         if (typeof showToast === 'function') showToast('✅ Certificado PDF descargado con éxito', 'success');
-        if (onSuccess) onSuccess(doc.output('blob'));
+        if (onSuccess) onSuccess(pdfBlob);
     } catch (err) {
         console.error('Error guardando PDF:', err);
         if (typeof showToast === 'function') showToast('❌ Error al guardar el certificado PDF', 'error');
         if (onError) onError(err);
     }
 }
-
-

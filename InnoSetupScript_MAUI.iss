@@ -1,6 +1,16 @@
 [Setup]
+AppId={{9E8B2C41-7A4F-4E9B-B6D1-3F5A8C2E1047}
 AppName=Reciminsa
 AppVersion=1.18.0
+AppPublisher=Reciminsa S.R.L.
+AppPublisherURL=https://reciminsa.com
+AppSupportURL=https://reciminsa.com/privacidad.html
+AppUpdatesURL=https://reciminsa.com
+LicenseFile=LICENSE.txt
+UninstallDisplayIcon={app}\Reciminsa.exe
+UninstallDisplayName=Reciminsaap
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 DefaultDirName={autopf}\Reciminsa
 DefaultGroupName=Reciminsa
 OutputDir=.

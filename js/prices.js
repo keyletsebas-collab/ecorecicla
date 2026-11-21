@@ -218,6 +218,15 @@ function saveEditedPrice() {
   };
 
   saveMarketPrices(prices);
+  if (typeof window.recordAuditLog === 'function') {
+    window.recordAuditLog({
+      actionType: 'price_update',
+      entityType: 'price',
+      entityId: code,
+      summary: `Precio de mercado actualizado (${code}): compra ${purchase}, venta ${sell}`,
+      details: { code, purchase, sell, trend }
+    });
+  }
   closeEditPriceModal();
   showToast(t('prc.toast_saved'), 'success');
 
