@@ -59,6 +59,15 @@ function getUnifiedFinancialSummary(items) {
   return { totalIncome, totalExpense, netBalance };
 }
 
+function _histEscapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function _histNormBranchId(branchId) {
   if (typeof normalizeBranchId === 'function') return normalizeBranchId(branchId);
   const clean = branchId == null ? '' : String(branchId).trim();
@@ -69,6 +78,17 @@ function _histResolveBranchName(branchId) {
   const id = _histNormBranchId(branchId);
   if (typeof resolveBranchNameById === 'function') return resolveBranchNameById(id);
   return id === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : id;
+}
+
+function _histResolveBranchLocation(branchId) {
+  const id = _histNormBranchId(branchId);
+  try {
+    if (typeof getCompanyBranches === 'function') {
+      const b = getCompanyBranches().find(x => x && _histNormBranchId(x.id) === id);
+      if (b && b.location) return b.location;
+    }
+  } catch (_) {}
+  return '';
 }
 
 function getDefaultHistoryBranchFilter() {
@@ -93,12 +113,204 @@ window.applyBranchFilter = applyBranchFilter;
 
 function setHistoryBranchFilter(branchId) {
   window.currentHistoryBranchFilter = branchId || 'all';
+  if (window.currentHistoryBranchFilter !== 'all') {
+    window._showAllBranchesOverview = false;
+  }
   const container = document.getElementById('page-historial');
   if (container) {
     renderHistoryPage(container);
   }
 }
 window.setHistoryBranchFilter = setHistoryBranchFilter;
+
+function viewAllBranchesDataInHistory() {
+  window.currentHistoryBranchFilter = 'all';
+  window._showAllBranchesOverview = true;
+  const container = document.getElementById('page-historial');
+  if (container) {
+    renderHistoryPage(container);
+    setTimeout(() => {
+      const panel = document.getElementById('all-branches-overview-panel');
+      if (panel && typeof panel.scrollIntoView === 'function') {
+        try { panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+      }
+    }, 60);
+  }
+}
+window.viewAllBranchesDataInHistory = viewAllBranchesDataInHistory;
+
+function _buildAllBranchesSummaryData(allItems) {
+  const configuredBranches = (typeof getCompanyBranches === 'function') ? getCompanyBranches() : [];
+  const allClients = (typeof getAllClientsRaw === 'function')
+    ? getAllClientsRaw()
+    : JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
+
+  const branchMap = new Map();
+  const ensureBranch = (bid, nameHint = '') => {
+    const id = _histNormBranchId(bid);
+    if (!branchMap.has(id)) {
+      const cfg = configuredBranches.find(b => b && _histNormBranchId(b.id) === id);
+      branchMap.set(id, {
+        id,
+        name: (cfg && cfg.name) || nameHint || _histResolveBranchName(id),
+        location: (cfg && cfg.location) || '',
+        phone: (cfg && cfg.phone) || '',
+        invoices: [],
+        bitacoras: [],
+        finances: [],
+        clients: []
+      });
+    }
+    return branchMap.get(id);
+  };
+
+  configuredBranches.forEach(b => {
+    if (b && b.id) ensureBranch(b.id, b.name);
+  });
+
+  (Array.isArray(allItems) ? allItems : []).forEach(item => {
+    if (!item) return;
+    const entry = ensureBranch(item.branchId, item.branchName);
+    if (item.type === 'basica') entry.bitacoras.push(item);
+    else if (item.itemType === 'invoice') entry.invoices.push(item);
+    else if (item.itemType === 'ingreso' || item.itemType === 'egreso') entry.finances.push(item);
+  });
+
+  (Array.isArray(allClients) ? allClients : []).forEach(c => {
+    if (!c) return;
+    const entry = ensureBranch(c.branchId, c.branchName);
+    entry.clients.push(c);
+  });
+
+  if (branchMap.size === 0) {
+    ensureBranch('SUC-PRINCIPAL', 'Sucursal Principal');
+  }
+  return Array.from(branchMap.values());
+}
+
+function renderAllBranchesOverviewPanel(allItems) {
+  const branchGroups = _buildAllBranchesSummaryData(allItems);
+  return `
+    <div id="all-branches-overview-panel" class="card card--elevated" style="margin-bottom:16px; border:1px solid rgba(16,185,129,0.4); background:linear-gradient(160deg, rgba(16,185,129,0.09), rgba(10,18,13,0.92));">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <div>
+          <h3 style="margin:0; font-size:1.05rem; color:var(--clr-text);">🏢 Datos de Todas las Sucursales</h3>
+          <p style="margin:3px 0 0; font-size:0.78rem; color:var(--clr-text-muted);">Resumen consolidado de facturas, bitácoras y clientes por sucursal. Haz clic en una sucursal para ver sus detalles.</p>
+        </div>
+        <button type="button" class="btn-secondary" style="font-size:0.78rem; padding:5px 10px;" onclick="window._showAllBranchesOverview = false; renderHistoryPage(document.getElementById('page-historial'));">✕ Ocultar resumen</button>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:12px;">
+        ${branchGroups.map(bg => {
+          const allOps = [...bg.invoices, ...bg.bitacoras, ...bg.finances];
+          const fin = getUnifiedFinancialSummary(allOps);
+          return `
+            <div style="padding:12px; border-radius:10px; background:var(--clr-surface-2); border:1px solid rgba(16,185,129,0.28); display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                <div>
+                  <div style="font-weight:700; font-size:0.95rem; color:#6ee7b7;">📍 Sucursal: ${_histEscapeHtml(bg.name)}</div>
+                  ${bg.location ? `<div style="font-size:0.74rem; color:var(--clr-text-muted); margin-top:2px;">📌 ${_histEscapeHtml(bg.location)}</div>` : ''}
+                </div>
+                <span class="badge badge--green" style="font-size:0.72rem;">${formatMoney(fin.netBalance)}</span>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap; font-size:0.76rem; color:var(--clr-text-secondary);">
+                <span>🧾 Facturas: <b>${bg.invoices.length}</b></span>
+                <span>🚛 Bitácoras: <b>${bg.bitacoras.length}</b></span>
+                <span>👥 Clientes: <b>${bg.clients.length}</b></span>
+              </div>
+              <div style="display:flex; gap:6px; margin-top:auto;">
+                <button type="button" class="btn-secondary" style="flex:1; font-size:0.76rem; padding:6px 8px;" onclick="showBranchDataDetailsModal('${_histEscapeHtml(bg.id)}')">👁️ Ver Detalles</button>
+                <button type="button" class="btn-primary" style="font-size:0.76rem; padding:6px 10px;" onclick="setHistoryBranchFilter('${_histEscapeHtml(bg.id)}')">Filtrar</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function showBranchDataDetailsModal(branchId) {
+  const allItems = getAllHistoryItems();
+  const branchGroups = _buildAllBranchesSummaryData(allItems);
+  const target = branchGroups.find(b => _histNormBranchId(b.id) === _histNormBranchId(branchId));
+  if (!target) {
+    showToast('Sucursal no encontrada', 'warning');
+    return;
+  }
+
+  let modal = document.getElementById('branch-data-details-modal');
+  if (modal) modal.remove();
+
+  modal = document.createElement('div');
+  modal.id = 'branch-data-details-modal';
+  modal.className = 'modal-overlay';
+  modal.style.display = 'flex';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+
+  const invRows = target.invoices.map(i => `
+    <div style="padding:8px 10px; border-radius:8px; background:var(--clr-surface-2); border:1px solid var(--clr-border); display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div>
+        <div><b>${_histEscapeHtml(i.id)}</b> <span class="badge badge--green" style="font-size:0.68rem;">📍 Sucursal: ${_histEscapeHtml(target.name)}</span></div>
+        <div style="font-size:0.76rem; color:var(--clr-text-muted);">${_histEscapeHtml(i.company || i.client || '—')} • ${_histEscapeHtml(i.date || '')}${i.ncf ? ` • NCF: ${_histEscapeHtml(i.ncf)}` : ''}</div>
+      </div>
+      <b style="color:var(--clr-primary-light);">${formatMoney(i.total || 0)}</b>
+    </div>
+  `).join('') || `<p style="font-size:0.8rem; color:var(--clr-text-muted); margin:4px 0;">Sin facturas registradas en esta sucursal.</p>`;
+
+  const bitRows = target.bitacoras.map(b => `
+    <div style="padding:8px 10px; border-radius:8px; background:var(--clr-surface-2); border:1px solid var(--clr-border); display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div>
+        <div><b>${_histEscapeHtml(b.id)}</b> <span class="badge badge--green" style="font-size:0.68rem;">📍 Sucursal: ${_histEscapeHtml(target.name)}</span></div>
+        <div style="font-size:0.76rem; color:var(--clr-text-muted);">${_histEscapeHtml(b.client || '—')} • ${_histEscapeHtml(b.date || '')}</div>
+      </div>
+      <b style="color:#6ee7b7;">${formatMoney(b.totalCompra || b.total || 0)}</b>
+    </div>
+  `).join('') || `<p style="font-size:0.8rem; color:var(--clr-text-muted); margin:4px 0;">Sin bitácoras registradas en esta sucursal.</p>`;
+
+  const cliRows = target.clients.map(c => `
+    <div style="padding:8px 10px; border-radius:8px; background:var(--clr-surface-2); border:1px solid var(--clr-border); display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div>
+        <div><b>${_histEscapeHtml(c.name || '—')}</b> <span class="badge badge--green" style="font-size:0.68rem;">📍 Sucursal: ${_histEscapeHtml(target.name)}</span></div>
+        <div style="font-size:0.76rem; color:var(--clr-text-muted);">${c.nit ? `RNC/Cédula: ${_histEscapeHtml(c.nit)} • ` : ''}${_histEscapeHtml(c.contact || c.address || 'Sin contacto')}</div>
+      </div>
+      <span class="badge">${c.type === 'empresa' ? '🏢 Empresa' : '👤 Persona'}</span>
+    </div>
+  `).join('') || `<p style="font-size:0.8rem; color:var(--clr-text-muted); margin:4px 0;">Sin clientes registrados en esta sucursal.</p>`;
+
+  modal.innerHTML = `
+    <div class="modal" style="max-width:740px; width:95%; max-height:88vh; overflow-y:auto; background:linear-gradient(160deg, #101c13 0%, #0a110c 100%) !important; border:1px solid rgba(34,197,94,0.35) !important; border-radius:14px; padding:22px; color:var(--clr-text);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(34,197,94,0.2); padding-bottom:12px; margin-bottom:14px;">
+        <div>
+          <h3 style="margin:0; font-size:1.18rem;">📍 Sucursal: ${_histEscapeHtml(target.name)}</h3>
+          ${target.location ? `<div style="font-size:0.8rem; color:#6ee7b7; margin-top:3px;">📌 Ubicación: ${_histEscapeHtml(target.location)}</div>` : ''}
+        </div>
+        <button class="modal-close" type="button" onclick="this.closest('.modal-overlay').remove()" style="background:rgba(255,255,255,0.08); border:none; border-radius:50%; width:32px; height:32px; color:var(--clr-text-muted); font-size:1.1rem; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <h4 style="margin:0 0 8px; font-size:0.92rem; color:#93c5fd;">🧾 Facturas (${target.invoices.length})</h4>
+          <div style="display:flex; flex-direction:column; gap:6px;">${invRows}</div>
+        </div>
+        <div>
+          <h4 style="margin:0 0 8px; font-size:0.92rem; color:#6ee7b7;">🚛 Bitácoras (${target.bitacoras.length})</h4>
+          <div style="display:flex; flex-direction:column; gap:6px;">${bitRows}</div>
+        </div>
+        <div>
+          <h4 style="margin:0 0 8px; font-size:0.92rem; color:#fcd34d;">👥 Clientes (${target.clients.length})</h4>
+          <div style="display:flex; flex-direction:column; gap:6px;">${cliRows}</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove(); setHistoryBranchFilter('${_histEscapeHtml(target.id)}');">Filtrar historial por esta sucursal</button>
+        <button type="button" class="btn-primary" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+window.showBranchDataDetailsModal = showBranchDataDetailsModal;
 
 function applyDateFilter(items) {
   window.currentHistoryDateFilter = window.currentHistoryDateFilter || 'all';
@@ -246,13 +458,20 @@ function renderHistoryPage(container) {
     : ((typeof getCustomCodes === 'function') ? getCustomCodes(currentBranchFilter) : ((typeof getMaterialCodes === 'function') ? getMaterialCodes() : []));
 
   let branchSelectHtml = `
-    <select id="history-filter-branch" class="form-select" style="width:auto;max-width:210px;" onchange="setHistoryBranchFilter(this.value)">
-      <option value="all" ${currentBranchFilter === 'all' ? 'selected' : ''}>${isEn ? '📍 All Branches' : '📍 Todas las sucursales'}</option>
-      ${branches.map(b => {
-        const bid = _histNormBranchId(b.id);
-        return `<option value="${bid}" ${currentBranchFilter === bid ? 'selected' : ''}>📍 ${b.name || bid}</option>`;
-      }).join('')}
-    </select>
+    <div style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+      <select id="history-filter-branch" class="form-select" style="width:auto;max-width:210px;" onchange="setHistoryBranchFilter(this.value)">
+        <option value="all" ${currentBranchFilter === 'all' ? 'selected' : ''}>${isEn ? '📍 All Branches' : '📍 Todas las sucursales'}</option>
+        ${branches.map(b => {
+          const bid = _histNormBranchId(b.id);
+          return `<option value="${_histEscapeHtml(bid)}" ${currentBranchFilter === bid ? 'selected' : ''}>📍 ${_histEscapeHtml(b.name || bid)}</option>`;
+        }).join('')}
+      </select>
+      <button type="button" id="btn-history-all-branches" class="btn-secondary"
+              style="display:inline-flex; align-items:center; gap:6px; font-weight:700; border:1px solid rgba(16,185,129,0.45); background:rgba(16,185,129,0.14); color:#34d399; padding:8px 12px;"
+              onclick="viewAllBranchesDataInHistory()">
+        🏢 Ver los datos de todas las sucursales
+      </button>
+    </div>
   `;
 
   let materialSelectHtml = `
@@ -345,6 +564,8 @@ function renderHistoryPage(container) {
         <button class="btn-secondary" onclick="document.getElementById('history-import-excel-input').click()">${t('hist.import_excel')}</button>
         <button class="btn-danger" onclick="clearHistory()">${t('hist.clear_all')}</button>
       </div>
+
+      ${window._showAllBranchesOverview ? renderAllBranchesOverviewPanel(allItems) : ''}
 
       <div id="history-list">
         ${renderInvoiceCards(items)}
@@ -505,8 +726,10 @@ function renderSingleInvoiceCard(inv) {
         </tr>`).join('');
   }
 
-  const branchLabel = inv.branchName || _histResolveBranchName(inv.branchId);
-  const branchBadge = `<span class="badge" style="background:rgba(16,185,129,0.14);color:#6ee7b7;border:1px solid rgba(16,185,129,0.35);font-size:0.72rem;">📍 ${branchLabel}</span>`;
+  const branchIdNorm = _histNormBranchId(inv.branchId);
+  const branchLabel = inv.branchName || _histResolveBranchName(branchIdNorm);
+  const branchLoc = _histResolveBranchLocation(branchIdNorm);
+  const branchBadge = `<span class="badge" style="background:rgba(16,185,129,0.16);color:#6ee7b7;border:1px solid rgba(16,185,129,0.4);font-size:0.74rem;font-weight:700;">📍 Sucursal: ${_histEscapeHtml(branchLabel)}</span>`;
 
   let detailRows = '';
   if (isIngreso || isEgreso) {
@@ -514,7 +737,7 @@ function renderSingleInvoiceCard(inv) {
       <div style="margin-bottom:12px;">
         <p style="margin: 4px 0;"><b>${t('lbl.concept')}:</b> ${inv.concept || '—'}</p>
         <p style="margin: 4px 0;"><b>${t('lbl.category')}:</b> ${inv.category || t('hist.category_general')}</p>
-        <p style="margin: 4px 0;"><b>📍 Sucursal:</b> ${branchLabel}</p>
+        <p style="margin: 4px 0;"><b>📍 Sucursal:</b> <span class="badge badge--green">📍 ${_histEscapeHtml(branchLabel)}</span>${branchLoc ? ` <span style="font-size:0.8rem; color:var(--clr-text-muted);">(${_histEscapeHtml(branchLoc)})</span>` : ''}</p>
         ${inv.notes ? `<p style="margin: 4px 0;"><b>${t('lbl.notes')}:</b> ${inv.notes}</p>` : ''}
       </div>
     `;
@@ -535,7 +758,7 @@ function renderSingleInvoiceCard(inv) {
         ${inv.ncf ? `<p style="margin:0;"><b>NCF:</b> <code style="font-weight:bold; color:var(--clr-primary-light);">${inv.ncf}</code></p>` : ''}
         <p style="margin:0;"><b>Método de Pago:</b> ${paymentDisplay}</p>
         <p style="margin:0;"><b>Colaborador:</b> ${colabDisplay}</p>
-        <p style="margin:0;"><b>📍 Sucursal:</b> ${branchLabel}</p>
+        <p style="margin:0;"><b>📍 Sucursal:</b> <span class="badge badge--green">📍 ${_histEscapeHtml(branchLabel)}</span>${branchLoc ? ` <span style="font-size:0.78rem; color:var(--clr-text-muted);">(${_histEscapeHtml(branchLoc)})</span>` : ''}</p>
       </div>`;
   } else {
     // Determinar etiqueta clara y oficial del tipo de comprobante
@@ -585,7 +808,7 @@ function renderSingleInvoiceCard(inv) {
         ${inv.ncf ? `<p style="margin:0;"><b>NCF Asignado:</b> <code style="font-weight:bold; color:var(--clr-primary-light); font-size:0.95rem;">${inv.ncf}</code></p>` : '<p style="margin:0;"><b>NCF:</b> <span class="text-muted" style="font-size:0.85rem;">(Sin NCF fiscal)</span></p>'}
         <p style="margin:0;"><b>Método de Pago:</b> ${paymentDisplay}</p>
         <p style="margin:0;"><b>Colaborador:</b> ${colabDisplay}</p>
-        <p style="margin:0;"><b>📍 Sucursal:</b> ${branchLabel}</p>
+        <p style="margin:0;"><b>📍 Sucursal:</b> <span class="badge badge--green">📍 ${_histEscapeHtml(branchLabel)}</span>${branchLoc ? ` <span style="font-size:0.78rem; color:var(--clr-text-muted);">(${_histEscapeHtml(branchLoc)})</span>` : ''}</p>
         <p style="margin:0;"><b>${t('hist.contact', 'Contacto:')}</b> ${inv.contact || '—'}</p>
         <p style="margin:0; grid-column: 1 / -1;"><b>${t('hist.address', 'Dirección:')}</b> ${inv.address || '—'}</p>
       </div>`;
@@ -635,6 +858,7 @@ function renderSingleInvoiceCard(inv) {
 
   const cardTitle = (isIngreso || isEgreso) ? (inv.concept) : (inv.id);
   let cardMeta = (isIngreso || isEgreso) ? (`Finanzas &bull; Categoría: ${inv.category || 'General'}`) : (`${inv.client || inv.company || '—'} &bull; ${t('hist.created')} ${formatDateTime(inv.createdAt)}`);
+  cardMeta += ` &bull; 📍 Sucursal: ${_histEscapeHtml(branchLabel)}`;
   if (inv.collaborator) {
     cardMeta += ` &bull; 👤 Colaborador: ${inv.collaborator}`;
   }
@@ -758,6 +982,7 @@ function filterHistory() {
 
 async function deleteHistoryItem(type, id) {
   let deletedRecord = null;
+  const linkedFinanceIds = [];
   if (type === 'ingreso' || type === 'egreso') {
     const ok = await window.AppDialog.confirm('¿Estás seguro de que deseas eliminar este registro financiero?', 'Eliminar Registro');
     if (!ok) return;
@@ -766,12 +991,18 @@ async function deleteHistoryItem(type, id) {
     deletedRecord = currentList.find(e => e.id === id) || null;
     const list = currentList.filter(e => e.id !== id);
     localStorage.setItem(userKey(baseKey), JSON.stringify(list));
+    if (typeof window.syncDeleteEntityFromSupabase === 'function') {
+      try { await window.syncDeleteEntityFromSupabase('finances', [id], { pattern: baseKey, type }); } catch (_) {}
+    }
     showToast('Registro financiero eliminado con éxito', 'success');
   } else {
     const ok = await window.AppDialog.confirm(t('confirm.del_inv'), 'Eliminar Factura');
     if (!ok) return;
     const currentInvoices = getAllInvoices();
     deletedRecord = currentInvoices.find(i => i.id === id) || null;
+    if (deletedRecord && deletedRecord.ncf && typeof _recordCancelledNcfFor608 === 'function') {
+      _recordCancelledNcfFor608(deletedRecord.ncf, deletedRecord.id, '02: Errores de impresión / Anulación');
+    }
     const invoices = currentInvoices.filter(i => i.id !== id);
     localStorage.setItem(userKey('recim_invoices'), JSON.stringify(invoices));
 
@@ -779,13 +1010,23 @@ async function deleteHistoryItem(type, id) {
     ['recim_ingresos', 'recim_egresos'].forEach(finKey => {
       try {
         const finList = JSON.parse(localStorage.getItem(userKey(finKey)) || '[]');
-        const filtered = finList.filter(e => e.ref !== id && !(e.concept && e.concept.includes(id)));
+        const filtered = [];
+        finList.forEach(e => {
+          if (e && (e.ref === id || (e.concept && e.concept.includes(id)))) {
+            if (e.id) linkedFinanceIds.push(e.id);
+          } else if (e) {
+            filtered.push(e);
+          }
+        });
         if (filtered.length !== finList.length) {
           localStorage.setItem(userKey(finKey), JSON.stringify(filtered));
         }
       } catch (_) {}
     });
 
+    if (typeof window.syncDeleteEntityFromSupabase === 'function') {
+      try { await window.syncDeleteEntityFromSupabase('invoices', [id], { pattern: 'recim_invoices', linkedFinanceIds }); } catch (_) {}
+    }
     showToast(t('toast.del_inv'), 'success');
   }
 
@@ -819,7 +1060,7 @@ async function deleteHistoryItem(type, id) {
     });
   }
 
-  if (window.forceSync) {
+  if (typeof window.syncDeleteEntityFromSupabase !== 'function' && window.forceSync) {
     try { await window.forceSync(); } catch (_) {}
   }
   rerenderCurrentPage();
@@ -845,15 +1086,39 @@ async function clearHistory() {
     'recim_bitacoras'
   ];
 
+  const allDeletedIds = [];
+  const invoiceIdsToDelete = [];
+  const financeIdsToDelete = [];
+
   historyKeys.forEach(k => {
     try {
-      if (typeof userKey === 'function') {
-        localStorage.setItem(userKey(k), '[]');
-      } else {
-        localStorage.setItem(k, '[]');
+      const storageKey = typeof userKey === 'function' ? userKey(k) : k;
+      const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      if (Array.isArray(parsed)) {
+        parsed.forEach(item => {
+          if (item && item.id) {
+            allDeletedIds.push(String(item.id));
+            if (k === 'recim_invoices') invoiceIdsToDelete.push(String(item.id));
+            if (k === 'recim_ingresos' || k === 'recim_egresos') financeIdsToDelete.push(String(item.id));
+          }
+        });
       }
+      localStorage.setItem(storageKey, '[]');
     } catch (_) {}
   });
+
+  if (typeof window.recordDeletedTombstones === 'function' && allDeletedIds.length > 0) {
+    window.recordDeletedTombstones(allDeletedIds);
+  }
+
+  if (typeof window.syncDeleteEntityFromSupabase === 'function') {
+    if (invoiceIdsToDelete.length > 0) {
+      try { await window.syncDeleteEntityFromSupabase('invoices', invoiceIdsToDelete); } catch (_) {}
+    }
+    if (financeIdsToDelete.length > 0) {
+      try { await window.syncDeleteEntityFromSupabase('finances', financeIdsToDelete); } catch (_) {}
+    }
+  }
 
   if (typeof window.recordSmartAlertEvent === 'function') {
     window.recordSmartAlertEvent({

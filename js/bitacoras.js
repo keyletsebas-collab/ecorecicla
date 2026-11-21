@@ -12,6 +12,15 @@ function switchBitacoraTab(tabName) {
   if (content) content.classList.add('active');
 }
 
+function _bitEscapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function _bitNormBranchId(branchId) {
   if (typeof normalizeBranchId === 'function') return normalizeBranchId(branchId);
   const clean = branchId == null ? '' : String(branchId).trim();
@@ -22,6 +31,17 @@ function _bitResolveBranchName(branchId) {
   const id = _bitNormBranchId(branchId);
   if (typeof resolveBranchNameById === 'function') return resolveBranchNameById(id);
   return id === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : id;
+}
+
+function _bitResolveBranchLocation(branchId) {
+  const id = _bitNormBranchId(branchId);
+  try {
+    if (typeof getCompanyBranches === 'function') {
+      const b = getCompanyBranches().find(x => x && _bitNormBranchId(x.id) === id);
+      if (b && b.location) return b.location;
+    }
+  } catch (_) {}
+  return '';
 }
 
 function _getFilteredBasicInvoicesForCount() {
@@ -94,16 +114,19 @@ function renderCountTab() {
     </div>
 
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
-      <div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         ${canSwitch && branches.length > 0 ? `
           <select id="bitacora-count-branch-filter" class="form-select" style="width:auto; min-width:200px;" onchange="window.currentBitacoraCountBranchFilter = this.value; refreshBitacoraCountTab();">
             <option value="all" ${activeFilter === 'all' ? 'selected' : ''}>📍 Todas las sucursales</option>
             ${branches.map(b => {
               const bid = _bitNormBranchId(b.id);
-              return `<option value="${bid}" ${activeFilter === bid ? 'selected' : ''}>📍 ${b.name || bid}</option>`;
+              return `<option value="${_bitEscapeHtml(bid)}" ${activeFilter === bid ? 'selected' : ''}>📍 ${_bitEscapeHtml(b.name || bid)}</option>`;
             }).join('')}
           </select>
-        ` : `<span class="badge badge--green" style="font-size:0.78rem; padding:5px 10px;">📍 ${_bitResolveBranchName(activeFilter)}</span>`}
+          <button type="button" class="btn-secondary" style="font-size:0.8rem; padding:7px 12px; font-weight:700; border:1px solid rgba(16,185,129,0.45); background:rgba(16,185,129,0.14); color:#34d399;" onclick="window.currentBitacoraCountBranchFilter = 'all'; refreshBitacoraCountTab();">
+            🏢 Ver los datos de todas las sucursales
+          </button>
+        ` : `<span class="badge badge--green" style="font-size:0.78rem; padding:5px 10px;">📍 Sucursal: ${_bitEscapeHtml(_bitResolveBranchName(activeFilter))}</span>`}
       </div>
       <button class="btn-secondary" onclick="exportBitacorasListToExcel(_getFilteredBasicInvoicesForCount())">
         📊 Exportar Bitácora a Excel
@@ -111,7 +134,7 @@ function renderCountTab() {
     </div>
 
     ${rows.length > 0 ? `
-    <div class="card">
+    <div class="card" style="margin-bottom:20px;">
       <h3 class="section-title" style="margin-bottom:16px;">${t('inv.count_by_mat')}</h3>
       <div style="overflow-x:auto;">
         <table class="data-table">
@@ -126,6 +149,35 @@ function renderCountTab() {
           <tbody>${rows}</tbody>
         </table>
       </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+        <h3 class="section-title" style="margin:0;">🚛 Miniaturas de Bitácoras Registradas</h3>
+        <span class="badge badge--green">${basicInvoices.length} registros</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+        ${basicInvoices.map(inv => {
+          const bId = _bitNormBranchId(inv.branchId);
+          const bName = inv.branchName || _bitResolveBranchName(bId);
+          return `
+            <div style="padding:12px; border-radius:10px; background:var(--clr-surface-2); border:1px solid var(--clr-border); display:flex; flex-direction:column; gap:8px; cursor:pointer;" onclick="showBitacoraDetailsModal('${_bitEscapeHtml(inv.id)}')">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+                <b style="font-size:0.9rem; color:var(--clr-text);">${_bitEscapeHtml(inv.id)}</b>
+                <span class="badge badge--green" style="font-size:0.7rem; font-weight:700;">📍 Sucursal: ${_bitEscapeHtml(bName)}</span>
+              </div>
+              <div style="font-size:0.82rem; color:var(--clr-text-secondary);">
+                <div><b>Cliente:</b> ${_bitEscapeHtml(inv.client || 'Cliente General')}</div>
+                <div><b>Fecha:</b> ${_bitEscapeHtml(inv.date || '—')} &bull; <b>Ítems:</b> ${(inv.items || []).length}</div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
+                <b style="color:#6ee7b7; font-size:0.92rem;">${formatMoney(inv.totalCompra || 0)}</b>
+                <button type="button" class="btn-secondary" style="padding:4px 10px; font-size:0.76rem;" onclick="event.stopPropagation(); showBitacoraDetailsModal('${_bitEscapeHtml(inv.id)}')">👁️ Ver Detalles</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
     </div>` : `
     <div class="empty-state">
       <div class="empty-state-icon">📊</div>
@@ -133,6 +185,82 @@ function renderCountTab() {
     </div>`}
   `;
 }
+
+function showBitacoraDetailsModal(bitacoraId) {
+  const allBasic = (typeof getAllInvoices === 'function' ? getAllInvoices() : []).filter(i => i && i.type === 'basica');
+  const inv = allBasic.find(i => i.id === bitacoraId);
+  if (!inv) {
+    showToast('Bitácora no encontrada', 'warning');
+    return;
+  }
+
+  const branchId = _bitNormBranchId(inv.branchId);
+  const branchName = inv.branchName || _bitResolveBranchName(branchId);
+  const branchLocation = _bitResolveBranchLocation(branchId);
+
+  let modal = document.getElementById('bitacora-detail-modal');
+  if (modal) modal.remove();
+
+  modal = document.createElement('div');
+  modal.id = 'bitacora-detail-modal';
+  modal.className = 'modal-overlay';
+  modal.style.display = 'flex';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+
+  const itemsRows = (inv.items || []).map(it => `
+    <tr>
+      <td>${_bitEscapeHtml(it.icon || '♻️')} ${_bitEscapeHtml(it.name || '—')}</td>
+      <td>${it.qty || 0} ${_bitEscapeHtml(it.unit || 'lb')}</td>
+      <td>${formatMoney(it.priceBuy || 0)}</td>
+      <td style="font-weight:700;">${formatMoney(it.totalCompra || 0)}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="4" style="text-align:center; color:var(--clr-text-muted);">Sin materiales</td></tr>`;
+
+  modal.innerHTML = `
+    <div class="modal" style="max-width:660px; width:95%; max-height:88vh; overflow-y:auto; background:linear-gradient(160deg, #101c13 0%, #0a110c 100%) !important; border:1px solid rgba(34,197,94,0.35) !important; border-radius:14px; padding:22px; color:var(--clr-text);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(34,197,94,0.2); padding-bottom:12px; margin-bottom:14px;">
+        <h3 style="margin:0; font-size:1.18rem;">🚛 Detalles de Bitácora: <b>${_bitEscapeHtml(inv.id)}</b></h3>
+        <button class="modal-close" type="button" onclick="this.closest('.modal-overlay').remove()" style="background:rgba(255,255,255,0.08); border:none; border-radius:50%; width:32px; height:32px; color:var(--clr-text-muted); font-size:1.1rem; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; margin-bottom:14px; font-size:0.86rem; background:rgba(0,0,0,0.3); padding:14px; border-radius:10px; border:1px solid rgba(255,255,255,0.06);">
+        <div style="grid-column:1 / -1;">
+          <b style="color:var(--clr-text-muted);">📍 Sucursal:</b>
+          <span class="badge badge--green" style="font-weight:700; margin-left:4px;">📍 ${_bitEscapeHtml(branchName)}</span>
+          ${branchLocation ? `<div style="font-size:0.78rem; color:#6ee7b7; margin-top:4px;">📌 Ubicación: ${_bitEscapeHtml(branchLocation)}</div>` : ''}
+        </div>
+        <div><b style="color:var(--clr-text-muted);">Cliente:</b> ${_bitEscapeHtml(inv.client || 'Cliente General')}</div>
+        <div><b style="color:var(--clr-text-muted);">Fecha:</b> ${_bitEscapeHtml(inv.date || '—')}</div>
+        <div><b style="color:var(--clr-text-muted);">Colaborador:</b> ${_bitEscapeHtml(inv.collaborator || '—')}</div>
+        <div><b style="color:var(--clr-text-muted);">Total Compra:</b> <b style="color:#f87171;">${formatMoney(inv.totalCompra || 0)}</b></div>
+      </div>
+
+      <div style="overflow-x:auto; margin-bottom:14px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Cantidad</th>
+              <th>Precio Compra</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>${itemsRows}</tbody>
+        </table>
+      </div>
+
+      ${inv.notes ? `<p style="font-size:0.82rem; color:var(--clr-text-secondary); margin-bottom:14px;">📝 ${_bitEscapeHtml(inv.notes)}</p>` : ''}
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn-secondary" onclick="exportarExcelResiduos(getAllInvoices().find(i => i.id === '${_bitEscapeHtml(inv.id)}'))">📊 Excel</button>
+        <button type="button" class="btn-secondary" onclick="if (typeof generateInvoicePDF === 'function') generateInvoicePDF(getAllInvoices().find(i => i.id === '${_bitEscapeHtml(inv.id)}'))">📄 PDF</button>
+        <button type="button" class="btn-primary" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+window.showBitacoraDetailsModal = showBitacoraDetailsModal;
 
 // =============================================
 // TAB 2: CREACIÓN DE BITÁCORAS

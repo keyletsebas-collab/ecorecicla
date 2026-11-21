@@ -103,6 +103,12 @@ function deleteMaterialFamily(id) {
 
   allFamilies = allFamilies.filter(f => f && f.id !== id);
   saveMaterialFamilies(allFamilies);
+  if (typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones([id]);
+  }
+  if (typeof window.forceSync === 'function') {
+    try { window.forceSync(); } catch (_) {}
+  }
 
   const allCodes = getAllCustomCodesRaw();
   let updated = false;
@@ -180,6 +186,13 @@ function deleteMaterialCode(id) {
       branchId: target.branchId,
       branchName: target.branchName
     });
+  }
+  if (typeof window.syncDeleteEntityFromSupabase === 'function') {
+    Promise.resolve(
+      window.syncDeleteEntityFromSupabase('materials', [id, target.code].filter(Boolean), { pattern: 'recim_material_codes' })
+    ).catch(() => {});
+  } else if (typeof window.forceSync === 'function') {
+    try { window.forceSync(); } catch (_) {}
   }
   showToast(t('toast.code_del'), 'success');
 }

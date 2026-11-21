@@ -250,6 +250,9 @@ function initApp(user) {
         }
     } catch (_) {}
     navigate(defaultPage);
+    if (typeof window.checkPendingAndroidQuickTool === 'function') {
+        try { window.checkPendingAndroidQuickTool(); } catch (_) {}
+    }
     if (typeof window.refreshSmartAlerts === 'function') {
         try { window.refreshSmartAlerts({ notifyNative: false }); } catch (_) {}
     }

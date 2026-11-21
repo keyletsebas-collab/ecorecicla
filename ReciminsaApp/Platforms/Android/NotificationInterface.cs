@@ -758,6 +758,30 @@ public class NotificationInterface : Java.Lang.Object
                 }
             });
         }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("ConsumePendingQuickTool")]
+        public string ConsumePendingQuickTool()
+        {
+            var tool = MainActivity.PendingQuickTool ?? string.Empty;
+            MainActivity.PendingQuickTool = null;
+            return tool;
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("RequestAddControlCenterTile")]
+        public string RequestAddControlCenterTile(string toolType)
+        {
+            try
+            {
+                var ctx = global::Android.App.Application.Context;
+                return ControlCenterNotificationHelper.RequestAddQuickTile(ctx, toolType ?? "bitacora");
+            }
+            catch (Exception ex)
+            {
+                return $"⚠️ No se pudo registrar acceso directo: {ex.Message}";
+            }
+        }
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("android28.0")]

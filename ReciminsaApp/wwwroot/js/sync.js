@@ -29,6 +29,7 @@
         { pattern: 'recim_eco_certificates', pages: ['ecologia'], label: '🌱 Certificados' },
         { pattern: 'recim_pickup_routes', pages: ['rutas'], label: '🗺️ Agenda y Rutas' },
         { pattern: 'recim_audit_logs', pages: ['parametrizaciones_empresa'], label: '🛡️ Auditoría' },
+        { pattern: 'recim_deleted_tombstones', pages: ['historial', 'facturas', 'bitacoras', 'clientes', 'codigos'], label: '🗑️ Registros Eliminados' },
         { pattern: 'recim_company_id', pages: ['ajustes', 'parametrizaciones_empresa'], label: '🏢 ID de Empresa' },
         { pattern: 'recim_backup_frequency', pages: ['ajustes'], label: '⏱️ Frecuencia de Respaldo' },
         { pattern: 'recim_gdrive_folder', pages: ['ajustes'], label: '📁 Carpeta Google Drive' },
@@ -442,12 +443,97 @@
         } catch (_) { return null; }
     }
 
+    const TOMBSTONE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
+    function _tombstoneStorageKey() {
+        return typeof userKey === 'function' ? userKey('recim_deleted_tombstones') : 'recim_deleted_tombstones';
+    }
+
+    function getDeletedTombstones() {
+        try {
+            const raw = localStorage.getItem(_tombstoneStorageKey());
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+            const now = Date.now();
+            const clean = {};
+            Object.entries(parsed).forEach(([k, ts]) => {
+                const n = Number(ts) || 0;
+                if (k && n > 0 && (now - n) <= TOMBSTONE_MAX_AGE_MS) {
+                    clean[String(k)] = n;
+                }
+            });
+            return clean;
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function mergeTombstones(localMap, remoteMap) {
+        const out = {};
+        const now = Date.now();
+        const ingest = (src) => {
+            if (!src || typeof src !== 'object' || Array.isArray(src)) return;
+            Object.entries(src).forEach(([k, ts]) => {
+                const cleanKey = String(k || '').trim();
+                const n = Number(ts) || 0;
+                if (!cleanKey || n <= 0 || (now - n) > TOMBSTONE_MAX_AGE_MS) return;
+                if (!out[cleanKey] || n > out[cleanKey]) {
+                    out[cleanKey] = n;
+                }
+            });
+        };
+        ingest(remoteMap);
+        ingest(localMap);
+        return out;
+    }
+
+    function recordDeletedTombstones(ids) {
+        const list = Array.isArray(ids) ? ids : [ids];
+        const cleanIds = list.map(x => String(x || '').trim()).filter(Boolean);
+        if (cleanIds.length === 0) return getDeletedTombstones();
+        const current = getDeletedTombstones();
+        const now = Date.now();
+        cleanIds.forEach(id => {
+            current[id] = now;
+        });
+        try {
+            const prevPulling = isSyncPulling;
+            isSyncPulling = true;
+            try {
+                localStorage.setItem(_tombstoneStorageKey(), JSON.stringify(current));
+            } finally {
+                isSyncPulling = prevPulling;
+            }
+        } catch (_) {}
+        return current;
+    }
+
+    function _getItemTimestampMs(item) {
+        if (!item || typeof item !== 'object') return 0;
+        const t1 = Date.parse(item.updatedAt || item.createdAt || item.date || 0) || 0;
+        return t1;
+    }
+
     /**
-     * Helper: Combina elementos de arreglos por su ID/código sin destruir registros de otros empleados.
+     * Helper: Combina elementos de arreglos por su ID/código sin destruir registros de otros empleados
+     * y respetando eliminaciones permanentes registradas en tombstones.
      */
-    function mergeItemsById(localList, remoteList) {
+    function mergeItemsById(localList, remoteList, tombstonesOverride = null) {
         if (!Array.isArray(localList)) localList = [];
         if (!Array.isArray(remoteList)) remoteList = [];
+
+        const tombstones = (tombstonesOverride && typeof tombstonesOverride === 'object')
+            ? tombstonesOverride
+            : getDeletedTombstones();
+
+        const isTombstoned = (key, item) => {
+            const delTs = tombstones[String(key)];
+            if (!delTs) return false;
+            const itemTs = _getItemTimestampMs(item);
+            if (!itemTs) return true;
+            return delTs >= itemTs;
+        };
 
         const map = new Map();
 
@@ -456,27 +542,26 @@
             return item.id || item.code || item.codeId || item.nit || null;
         };
 
-        // Agregar remotos al mapa
+        // Agregar remotos al mapa (omitiendo eliminados)
         remoteList.forEach(item => {
             const key = getItemKey(item);
-            if (key) {
+            if (key && !isTombstoned(key, item)) {
                 map.set(String(key), item);
             }
         });
 
-        // Fusionar locales: si no existe en remoto o el local es más reciente, conserva/actualiza
+        // Fusionar locales: si no existe en remoto o el local es más reciente, conserva/actualiza (omitiendo eliminados)
         localList.forEach(item => {
             const key = getItemKey(item);
-            if (key) {
-                if (!map.has(String(key))) {
+            if (!key || isTombstoned(key, item)) return;
+            if (!map.has(String(key))) {
+                map.set(String(key), item);
+            } else {
+                const existing = map.get(String(key));
+                const localTime = _getItemTimestampMs(item);
+                const remoteTime = _getItemTimestampMs(existing);
+                if (localTime > remoteTime) {
                     map.set(String(key), item);
-                } else {
-                    const existing = map.get(String(key));
-                    const localTime = new Date(item.createdAt || item.updatedAt || item.date || 0).getTime();
-                    const remoteTime = new Date(existing.createdAt || existing.updatedAt || existing.date || 0).getTime();
-                    if (localTime > remoteTime) {
-                        map.set(String(key), item);
-                    }
                 }
             }
         });
@@ -806,14 +891,23 @@
 
         const dataToSync = {};
         let hasData = false;
+        const activeTombstones = getDeletedTombstones();
         WATCHED_KEYS.forEach(k => {
+            if (k.pattern === 'recim_deleted_tombstones') {
+                dataToSync[k.pattern] = activeTombstones;
+                hasData = true;
+                return;
+            }
             let val = localStorage.getItem(userKey(k.pattern));
             if (val === '[]' && k.pattern === 'recim_gdrive_folder') {
                 val = null;
             }
             if (val !== null && val !== undefined) {
                 try {
-                    dataToSync[k.pattern] = JSON.parse(val);
+                    const parsed = JSON.parse(val);
+                    dataToSync[k.pattern] = Array.isArray(parsed)
+                        ? mergeItemsById(parsed, [], activeTombstones)
+                        : parsed;
                 } catch (_) {
                     dataToSync[k.pattern] = val;
                 }
@@ -860,6 +954,8 @@
                             );
                             delete mergedShared._pendingCloudSync;
                             mergedUserData.recim_company_shared_settings = mergedShared;
+                        } else if (k === 'recim_deleted_tombstones') {
+                            mergedUserData.recim_deleted_tombstones = mergeTombstones(dataToSync[k], remoteObj[k]);
                         } else if (k === SETTINGS_KEY) {
                             const prevSet = _isPlainObj(remoteObj[SETTINGS_KEY]) ? remoteObj[SETTINGS_KEY] : {};
                             mergedUserData[SETTINGS_KEY] = { ...prevSet, ...sanitizeSettingsForCloud(dataToSync[SETTINGS_KEY]) };
@@ -916,7 +1012,9 @@
                 if (val) {
                     try {
                         const parsed = JSON.parse(val);
-                        if (Array.isArray(parsed)) items = parsed;
+                        if (Array.isArray(parsed)) {
+                            items = mergeItemsById(parsed, [], activeTombstones);
+                        }
                     } catch (_) {}
                 }
 
@@ -941,24 +1039,31 @@
                         }
                     }
 
-                    // Marcar como is_deleted = true en Supabase las filas remotas que fueron eliminadas localmente
-                    let remQuery = supabaseClient.from(ent.table).select('id').eq('db_id', dbId).eq('is_deleted', false);
+                    // Eliminar físicamente (DELETE) en Supabase las filas remotas eliminadas localmente o heredadas con is_deleted = true
+                    let remQuery = supabaseClient.from(ent.table).select('id, is_deleted').eq('db_id', dbId);
                     if (ent.type) {
                         remQuery = remQuery.eq('type', ent.type);
                     }
                     const { data: remoteRows, error: remErr } = await remQuery;
                     if (!remErr && Array.isArray(remoteRows) && remoteRows.length > 0) {
                         const deletedIds = remoteRows
-                            .map(r => String(r.id))
-                            .filter(id => !localIdSet.has(id));
+                            .filter(r => r.is_deleted === true || !localIdSet.has(String(r.id)))
+                            .map(r => String(r.id));
                         if (deletedIds.length > 0) {
                             for (let i = 0; i < deletedIds.length; i += 50) {
                                 const delChunk = deletedIds.slice(i, i + 50);
-                                await supabaseClient
+                                let delQuery = supabaseClient
                                     .from(ent.table)
-                                    .update({ is_deleted: true, updated_at: new Date().toISOString() })
+                                    .delete()
                                     .eq('db_id', dbId)
                                     .in('id', delChunk);
+                                if (ent.type) {
+                                    delQuery = delQuery.eq('type', ent.type);
+                                }
+                                const { error: delErr } = await delQuery;
+                                if (delErr) {
+                                    console.warn(`⚠️ Error eliminando filas de ${ent.table} en Supabase:`, delErr);
+                                }
                             }
                         }
                     }
@@ -1422,37 +1527,7 @@ async function sendGDriveWelcomeDoc() {
 
                 const relationalFound = new Set();
 
-                // 1. Descargar y fusionar filas relacionales por entidad (respetando permisos)
-                for (const ent of entityMap) {
-                    if (ent.pattern === 'recim_ingresos' && !canAccessIngresos) continue;
-                    if (ent.pattern === 'recim_egresos' && !canAccessEgresos) continue;
-
-                    try {
-                        let query = supabaseClient.from(ent.table).select('id, type, data, is_deleted').eq('db_id', dbId);
-                        if (ent.type) {
-                            query = query.eq('type', ent.type);
-                        }
-                        const { data: rows, error } = await query;
-                        if (!error && Array.isArray(rows) && rows.length > 0) {
-                            relationalFound.add(ent.pattern);
-                            const remoteItems = rows.filter(r => !r.is_deleted).map(r => r.data);
-                            const localRaw = localStorage.getItem(userKey(ent.pattern));
-                            const localItems = localRaw ? JSON.parse(localRaw) : [];
-
-                            const merged = mergeItemsById(localItems, remoteItems);
-                            const mergedStr = JSON.stringify(merged);
-                            if (localRaw !== mergedStr) {
-                                safePullSetItem(userKey(ent.pattern), mergedStr);
-                                changed = true;
-                                console.log(`☁️ Cloud Relational Pull: Fusionados ${merged.length} items en ${ent.label}`);
-                            }
-                        }
-                    } catch (e) {
-                        console.warn(`⚠️ Error descargando tabla relacional ${ent.table}:`, e);
-                    }
-                }
-
-                // 2. Respaldo / configuraciones / llaves no relacionales desde user_data
+                // 1. Leer user_data primero para obtener tombstones remotos y evitar resucitar registros eliminados
                 const { data, error } = await supabaseClient
                     .from('user_data')
                     .select('data')
@@ -1463,8 +1538,69 @@ async function sendGDriveWelcomeDoc() {
                     initialPullCompletedDbId = dbId;
                 }
 
-                if (!error && data && _isPlainObj(data.data)) {
-                    const remoteData = data.data;
+                const remoteUserDataObj = (!error && data && _isPlainObj(data.data)) ? data.data : null;
+                let combinedTombstones = mergeTombstones(
+                    getDeletedTombstones(),
+                    remoteUserDataObj ? remoteUserDataObj.recim_deleted_tombstones : null
+                );
+
+                // 2. Descargar y fusionar filas relacionales por entidad (respetando permisos y tombstones)
+                for (const ent of entityMap) {
+                    if (ent.pattern === 'recim_ingresos' && !canAccessIngresos) continue;
+                    if (ent.pattern === 'recim_egresos' && !canAccessEgresos) continue;
+
+                    try {
+                        let query = supabaseClient.from(ent.table).select('id, type, data, is_deleted').eq('db_id', dbId);
+                        if (ent.type) {
+                            query = query.eq('type', ent.type);
+                        }
+                        const { data: rows, error: relErr } = await query;
+                        if (!relErr && Array.isArray(rows)) {
+                            const softDeletedIds = rows.filter(r => r && r.is_deleted).map(r => String(r.id));
+                            if (softDeletedIds.length > 0) {
+                                const nowTs = Date.now();
+                                softDeletedIds.forEach(did => {
+                                    if (!combinedTombstones[did]) combinedTombstones[did] = nowTs;
+                                });
+                            }
+
+                            const localRaw = localStorage.getItem(userKey(ent.pattern));
+                            const localItems = localRaw ? JSON.parse(localRaw) : [];
+
+                            if (rows.length > 0) {
+                                relationalFound.add(ent.pattern);
+                                const remoteItems = rows.filter(r => !r.is_deleted && r.data).map(r => r.data);
+                                const merged = mergeItemsById(localItems, remoteItems, combinedTombstones);
+                                const mergedStr = JSON.stringify(merged);
+                                if (localRaw !== mergedStr) {
+                                    safePullSetItem(userKey(ent.pattern), mergedStr);
+                                    changed = true;
+                                    console.log(`☁️ Cloud Relational Pull: Fusionados ${merged.length} items en ${ent.label}`);
+                                }
+                            } else if (Array.isArray(localItems) && localItems.length > 0 && Object.keys(combinedTombstones).length > 0) {
+                                const cleanedLocal = mergeItemsById(localItems, [], combinedTombstones);
+                                const cleanedStr = JSON.stringify(cleanedLocal);
+                                if (localRaw !== cleanedStr) {
+                                    safePullSetItem(userKey(ent.pattern), cleanedStr);
+                                    changed = true;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`⚠️ Error descargando tabla relacional ${ent.table}:`, e);
+                    }
+                }
+
+                // Persistir tombstones combinados localmente
+                const prevTombStr = localStorage.getItem(_tombstoneStorageKey());
+                const nextTombStr = JSON.stringify(combinedTombstones);
+                if (prevTombStr !== nextTombStr) {
+                    safePullSetItem(_tombstoneStorageKey(), nextTombStr);
+                }
+
+                // 3. Respaldo / configuraciones / llaves no relacionales desde user_data
+                if (remoteUserDataObj) {
+                    const remoteData = remoteUserDataObj;
 
                     // 2a. Merge explícito y seguro de recim_company_shared_settings + hidratación de recim_settings
                     const sharedKey = userKey('recim_company_shared_settings');
@@ -1551,6 +1687,7 @@ async function sendGDriveWelcomeDoc() {
                     // 2c. Resto de WATCHED_KEYS
                     WATCHED_KEYS.forEach(k => {
                         if (k.pattern === 'recim_company_shared_settings') return; // ya procesado arriba
+                        if (k.pattern === 'recim_deleted_tombstones') return; // ya fusionado arriba
                         if (relationalFound.has(k.pattern)) return; // ya procesado con datos relacionales
                         if (k.pattern === 'recim_ingresos' && !canAccessIngresos) return;
                         if (k.pattern === 'recim_egresos' && !canAccessEgresos) return;
@@ -1582,8 +1719,8 @@ async function sendGDriveWelcomeDoc() {
                             }
 
                             let mergedStr = (typeof remoteVal === 'string') ? remoteVal : JSON.stringify(remoteVal);
-                            if (Array.isArray(remoteItems) && Array.isArray(localItems)) {
-                                const merged = mergeItemsById(localItems, remoteItems);
+                            if (Array.isArray(remoteItems)) {
+                                const merged = mergeItemsById(localItems || [], remoteItems, combinedTombstones);
                                 mergedStr = JSON.stringify(merged);
                             } else if (k.pattern === 'recim_gdrive_folder' && mergedStr === '[]') {
                                 if (localVal && localVal !== '[]') return;
@@ -1864,12 +2001,80 @@ async function sendGDriveWelcomeDoc() {
         }
     }
 
+    /**
+     * Ejecuta eliminación física (.delete()) directa en las tablas relacionales de Supabase
+     * y registra tombstones para impedir que el elemento resucite tras futuros pulls.
+     */
+    async function syncDeleteEntityFromSupabase(table, ids, options = {}) {
+        const cleanIds = (Array.isArray(ids) ? ids : [ids])
+            .map(x => String(x || '').trim())
+            .filter(Boolean);
+        const linkedFinanceIds = (Array.isArray(options.linkedFinanceIds) ? options.linkedFinanceIds : [])
+            .map(x => String(x || '').trim())
+            .filter(Boolean);
+
+        const allDeleted = [...cleanIds, ...linkedFinanceIds];
+        if (allDeleted.length > 0) {
+            recordDeletedTombstones(allDeleted);
+        }
+
+        if (!isSupabaseActive || !supabaseClient) {
+            return { ok: false, offline: true };
+        }
+        const dbId = getSyncDbId();
+        if (!dbId) {
+            return { ok: false, noDb: true };
+        }
+
+        try {
+            if (table && cleanIds.length > 0) {
+                for (let i = 0; i < cleanIds.length; i += 50) {
+                    const chunk = cleanIds.slice(i, i + 50);
+                    let delQ = supabaseClient
+                        .from(table)
+                        .delete()
+                        .eq('db_id', dbId)
+                        .in('id', chunk);
+                    if (options.type) {
+                        delQ = delQ.eq('type', options.type);
+                    }
+                    const { error: delErr } = await delQ;
+                    if (delErr) {
+                        console.warn(`⚠️ Error eliminando en Supabase (${table}):`, delErr);
+                    }
+                }
+            }
+
+            if (linkedFinanceIds.length > 0) {
+                for (let i = 0; i < linkedFinanceIds.length; i += 50) {
+                    const fChunk = linkedFinanceIds.slice(i, i + 50);
+                    const { error: fErr } = await supabaseClient
+                        .from('finances')
+                        .delete()
+                        .eq('db_id', dbId)
+                        .in('id', fChunk);
+                    if (fErr) {
+                        console.warn('⚠️ Error eliminando finanzas vinculadas en Supabase:', fErr);
+                    }
+                }
+            }
+
+            await syncPushData(true);
+            return { ok: true, deleted: cleanIds.length, linkedDeleted: linkedFinanceIds.length };
+        } catch (err) {
+            console.error(`❌ Excepción en syncDeleteEntityFromSupabase (${table}):`, err);
+            return { ok: false, error: err };
+        }
+    }
+
     // Export to window
     window.syncPushData = syncPushData;
     window.syncPullData = syncPullData;
     window.syncSaveCompanySettingsToCloud = syncSaveCompanySettingsToCloud;
     window.syncPullCompanySettingsOnly = syncPullCompanySettingsOnly;
     window.mergeCompanySharedSettings = mergeCompanySharedSettings;
+    window.syncDeleteEntityFromSupabase = syncDeleteEntityFromSupabase;
+    window.recordDeletedTombstones = recordDeletedTombstones;
     window.forceSync = forceSync;
     window.syncPushGDrive = syncPushGDrive;
     window.syncPullGDriveData = syncPullGDriveData;

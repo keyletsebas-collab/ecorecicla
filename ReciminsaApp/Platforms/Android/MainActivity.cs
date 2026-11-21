@@ -7,12 +7,16 @@ using Android.Views;
 #pragma warning disable CA1422 // Obsolete in Android 35
 namespace ReciminsaApp;
 
-[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
 public class MainActivity : MauiAppCompatActivity
 {
+    public static string? PendingQuickTool { get; set; }
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
+
+        HandleQuickToolIntent(Intent);
 
 #if DEBUG
         try
@@ -37,6 +41,12 @@ public class MainActivity : MauiAppCompatActivity
 
         try
         {
+            Platforms.Android.ControlCenterNotificationHelper.ShowControlCenterPanel(this);
+        }
+        catch { }
+
+        try
+        {
             if (Window != null)
             {
                 AndroidX.Core.View.WindowCompat.SetDecorFitsSystemWindows(Window, true);
@@ -45,5 +55,35 @@ public class MainActivity : MauiAppCompatActivity
             }
         }
         catch { }
+    }
+
+    protected override void OnNewIntent(global::Android.Content.Intent? intent)
+    {
+        base.OnNewIntent(intent);
+        Intent = intent;
+        HandleQuickToolIntent(intent);
+    }
+
+    public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
+    {
+        base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1001)
+        {
+            try
+            {
+                Platforms.Android.ControlCenterNotificationHelper.ShowControlCenterPanel(this);
+            }
+            catch { }
+        }
+    }
+
+    private static void HandleQuickToolIntent(global::Android.Content.Intent? intent)
+    {
+        var tool = intent?.GetStringExtra("quick_tool")?.Trim();
+        if (tool == "bitacora" || tool == "factura")
+        {
+            PendingQuickTool = tool;
+            MainPage.DispatchQuickToolToWebView(tool);
+        }
     }
 }

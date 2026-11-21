@@ -257,7 +257,9 @@ async function deleteFinanceEntry(type, id) {
   const baseKey = type === 'ingreso' ? 'recim_ingresos' : 'recim_egresos';
   const list = JSON.parse(localStorage.getItem(userKey(baseKey)) || '[]').filter(e => e.id !== id);
   localStorage.setItem(userKey(baseKey), JSON.stringify(list));
-  if (window.forceSync) {
+  if (typeof window.syncDeleteEntityFromSupabase === 'function') {
+    try { await window.syncDeleteEntityFromSupabase('finances', [id], { pattern: baseKey, type }); } catch (_) {}
+  } else if (window.forceSync) {
     try { await window.forceSync(); } catch (_) {}
   }
   showToast(t('toast.del_entry'), 'success');

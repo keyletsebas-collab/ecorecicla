@@ -65,6 +65,84 @@ function getActiveCompanyIssuerInfo() {
 }
 window.getActiveCompanyIssuerInfo = getActiveCompanyIssuerInfo;
 
+function resolvePdfBranchDetails(docObj, issuer = null) {
+    const safeIssuer = issuer || getActiveCompanyIssuerInfo();
+    let rawBranchId = docObj?.branchId || '';
+    if (!rawBranchId && typeof getActiveBranchId === 'function') {
+        try { rawBranchId = getActiveBranchId(); } catch (_) {}
+    }
+    const normId = (typeof normalizeBranchId === 'function')
+        ? normalizeBranchId(rawBranchId)
+        : (String(rawBranchId || '').trim() || 'SUC-PRINCIPAL');
+
+    let matchedBranch = null;
+    try {
+        if (typeof getCompanyBranches === 'function') {
+            const branches = getCompanyBranches() || [];
+            matchedBranch = branches.find(b => {
+                if (!b) return false;
+                const bid = (typeof normalizeBranchId === 'function')
+                    ? normalizeBranchId(b.id)
+                    : (String(b.id || '').trim() || 'SUC-PRINCIPAL');
+                return bid === normId;
+            }) || null;
+        }
+    } catch (_) {}
+
+    const branchName = (matchedBranch && matchedBranch.name)
+        || docObj?.branchName
+        || (typeof resolveBranchNameById === 'function' ? resolveBranchNameById(normId) : '')
+        || (normId === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : normId);
+
+    const branchLocation = (matchedBranch && matchedBranch.location)
+        || docObj?.branchLocation
+        || safeIssuer.companyAddr
+        || '';
+
+    const branchPhone = (matchedBranch && matchedBranch.phone)
+        || safeIssuer.companyTel
+        || '';
+
+    return {
+        branchId: normId,
+        branchName: String(branchName || 'Sucursal Principal').trim(),
+        branchLocation: String(branchLocation || '').trim(),
+        branchPhone: String(branchPhone || '').trim()
+    };
+}
+window.resolvePdfBranchDetails = resolvePdfBranchDetails;
+
+function _detectLogoFormat(logoDataUrl) {
+    if (!logoDataUrl || typeof logoDataUrl !== 'string') return 'PNG';
+    const lower = logoDataUrl.slice(0, 64).toLowerCase();
+    if (lower.includes('image/jpeg') || lower.includes('image/jpg')) return 'JPEG';
+    if (lower.includes('image/webp')) return 'WEBP';
+    return 'PNG';
+}
+
+async function _computePdfLogoDimensions(companyLogo, maxW, maxH) {
+    if (!companyLogo || typeof companyLogo !== 'string' ||
+        (!companyLogo.startsWith('data:image/') && !companyLogo.includes('base64'))) {
+        return { hasLogo: false, width: 0, height: 0, format: 'PNG' };
+    }
+    const format = _detectLogoFormat(companyLogo);
+    let w = maxW;
+    let h = maxH;
+    try {
+        const dims = await getImageDimensions(companyLogo);
+        if (dims && dims.width > 0 && dims.height > 0) {
+            const aspect = dims.width / dims.height;
+            w = maxW;
+            h = w / aspect;
+            if (h > maxH) {
+                h = maxH;
+                w = h * aspect;
+            }
+        }
+    } catch (_) {}
+    return { hasLogo: true, width: w, height: h, format };
+}
+
 function _resolveInvoiceNcfDueDateFormatted(docObj) {
     let raw = docObj?.ncfDueDate || '';
     if (!raw && typeof getNcfSequences === 'function' && docObj?.ncfType) {
@@ -193,93 +271,79 @@ function getImageDimensions(base64Str) {
 }
 
 // Calcular altura dinámica de ticket en milímetros
-function calculateTicketHeight(invoice, jsPDFConstructor, logoHeight = 0) {
-    let height = 5; // Margen superior
-    let settings = {};
-    try {
-        const sessionStr = localStorage.getItem('recim_session');
-        let accountId = 'default';
-        if (sessionStr) {
-            accountId = JSON.parse(sessionStr).accountId || 'default';
-        }
-        const key = typeof userKey === 'function' ? userKey('recim_settings') : `recim_settings_${accountId}`;
-        settings = JSON.parse(localStorage.getItem(key) || '{}');
-        if (!settings.companyName) {
-            settings = JSON.parse(localStorage.getItem('recim_settings') || '{}');
-        }
-    } catch(e){}
+function calculateTicketHeight(invoice, jsPDFConstructor, logoHeight = 0, branchDetails = null) {
+    let height = 6; // Margen superior
+    const issuer = getActiveCompanyIssuerInfo();
+    const branch = branchDetails || resolvePdfBranchDetails(invoice, issuer);
+    const companyEmail = issuer.companyEmail || '';
+    const companyAddr = branch.branchLocation || issuer.companyAddr || '';
 
-    const companyEmail = settings.companyEmail || settings.userEmail || '';
-    const companyAddr = settings.companyAddress || '';
-    
-    if (logoHeight > 0) {
-        height += logoHeight + 2;
-    } else {
-        height += 8;
-    }
-    
-    // Altura para información del emisor
-    height += 7; // RNC + Tel
-    if (companyEmail) height += 3.5;
-    if (companyAddr) {
-        const docTemp = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: [80, 200] });
-        docTemp.setFont('Helvetica', 'normal');
-        docTemp.setFontSize(7.5);
-        const splitAddr = docTemp.splitTextToSize(companyAddr, 74);
-        height += splitAddr.length * 3.5;
-    }
-    height += 4; // Separador
-    
-    // Título y metadatos
-    height += 16; 
-    if (invoice.ncf) {
-        height += 3.5;
-    }
-    
-    // Cliente y datos de pago
-    height += 8;
-    height += 4; // Separador
-    
-    // Encabezado de tabla
-    height += 6.5;
-    
-    // Items (con wrapping de descripción)
     const docTemp = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: [80, 200] });
     docTemp.setFont('Helvetica', 'normal');
     docTemp.setFontSize(7.5);
-    
+
+    // 1. Logo superior
+    if (logoHeight > 0) {
+        height += logoHeight + 4;
+    }
+
+    // 2. Nombre empresa + Sucursal + ubicación debajo del logo
+    height += 5; // Nombre empresa
+    height += 4; // Sucursal: [Nombre]
+    if (branch.branchLocation) {
+        const splitLoc = docTemp.splitTextToSize(`Ubicación: ${branch.branchLocation}`, 74);
+        height += splitLoc.length * 3.5;
+    } else if (companyAddr) {
+        const splitAddr = docTemp.splitTextToSize(companyAddr, 74);
+        height += splitAddr.length * 3.5;
+    }
+    height += 7; // RNC + Tel
+    if (companyEmail) height += 3.5;
+    height += 5; // Separador
+
+    // Título y metadatos del comprobante
+    height += 13;
+    if (invoice.ncf) height += 4;
+
+    // 3. Datos del cliente
+    height += 18;
+    if (invoice.nit) height += 3.5;
+    if (invoice.address) height += 3.5;
+    height += 4; // Separador
+
+    // 4. Datos del consumo (cabecera tabla + ítems + totales)
+    height += 7;
     const items = invoice.items || [];
     items.forEach(item => {
         const desc = item.desc || item.name || '--';
-        const splitDesc = docTemp.splitTextToSize(desc, 42); // 42mm para la descripción
-        const lines = splitDesc.length;
-        height += Math.max(lines * 3.5, 4.5); 
+        const splitDesc = docTemp.splitTextToSize(desc, 40);
+        const lines = Math.max(splitDesc.length, 1);
+        height += Math.max(lines * 3.6, 5);
     });
-    
-    height += 4; // Separador de totales
-    
-    // Totales
+
+    height += 5; // Separador de totales
+
     let totalLines = 1; // Subtotal
-    if (invoice.taxRate > 0 || invoice.ncfType === 'B14') totalLines++; // ITBIS
+    if (invoice.taxRate > 0 || invoice.ncfType === 'B14') totalLines++;
     if (invoice.iscAmount > 0) totalLines++;
     if (invoice.retIsrAmount > 0) totalLines++;
     if (invoice.retItbisAmount > 0) totalLines++;
-    totalLines++; // Fila de Total a Pagar
-    
-    height += totalLines * 4;
-    
-    // Notas
+    totalLines++; // Total a Pagar
+    height += totalLines * 4.2 + 2;
+
     if (invoice.notes) {
         const splitNotes = docTemp.splitTextToSize(`Notas: ${invoice.notes}`, 74);
         height += splitNotes.length * 3.5 + 4;
     }
-    
-    // Pie de página
-    height += 4; // Separador final
-    if (invoice.ncfType === 'B02') height += 4; // "Gracias por reciclar"
-    height += 6; // Crédito app + margen inferior
-    
-    return height;
+
+    // 5. Logo final + pie de página
+    height += 5; // Separador
+    if (logoHeight > 0) {
+        height += Math.min(logoHeight, 16) + 5;
+    }
+    height += 12; // Eslogan + crédito app + margen inferior
+
+    return Math.max(height, 120);
 }
 
 function generateInvoicePDF(invoice, format = null, options = {}) {
@@ -326,14 +390,15 @@ async function proceedWithPDF(invoice, format, options = {}) {
         return;
     }
 
-    // Configuración de empresa emisora (sin RNC ni datos fiscales predeterminados de terceros)
+    // Configuración de empresa emisora y sucursal (sin RNC ni datos fiscales predeterminados de terceros)
     const issuer = getActiveCompanyIssuerInfo();
+    const branchDetails = resolvePdfBranchDetails(invoice, issuer);
     const companyName = issuer.companyName;
-    let companyAddr = issuer.companyAddr;
     const companyLogo = issuer.companyLogo;
-    let companyRNC = issuer.companyRNC;
-    let companyTel = issuer.companyTel;
-    let companyEmail = issuer.companyEmail;
+    const companyRNC = issuer.companyRNC;
+    const companyTel = branchDetails.branchPhone || issuer.companyTel;
+    const companyEmail = issuer.companyEmail;
+    const companyAddr = branchDetails.branchLocation || issuer.companyAddr;
 
     if (!companyRNC && invoice.ncfType && typeof showToast === 'function') {
         showToast('⚠️ Configura el RNC y razón social de tu empresa en Parametrizaciones de Empresa antes de emitir comprobantes fiscales.', 'warning');
@@ -357,43 +422,16 @@ async function proceedWithPDF(invoice, format, options = {}) {
     const isLetter = format === 'letter' || isBasica;
     const isTicket = format === 'ticket';
 
-    // Calculate logo dimensions if logo exists
-    let computedLogoWidth = 0;
-    let computedLogoHeight = 0;
-    let logoFormat = 'PNG';
-    if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
-        if (companyLogo.includes('image/jpeg') || companyLogo.includes('image/jpg')) {
-            logoFormat = 'JPEG';
-        }
-        try {
-            const dims = await getImageDimensions(companyLogo);
-            if (dims.width > 0 && dims.height > 0) {
-                const aspectRatio = dims.width / dims.height;
-                if (isTicket) {
-                    computedLogoWidth = 22;
-                    computedLogoHeight = computedLogoWidth / aspectRatio;
-                    if (computedLogoHeight > 22) {
-                        computedLogoHeight = 22;
-                        computedLogoWidth = computedLogoHeight * aspectRatio;
-                    }
-                } else {
-                    computedLogoWidth = 35;
-                    computedLogoHeight = computedLogoWidth / aspectRatio;
-                    if (computedLogoHeight > 18) {
-                        computedLogoHeight = 18;
-                        computedLogoWidth = computedLogoHeight * aspectRatio;
-                    }
-                }
-            }
-        } catch (e) {
-            console.error("Error calculating logo dimensions:", e);
-        }
-    }
+    const logoBox = await _computePdfLogoDimensions(companyLogo, isTicket ? 24 : 36, isTicket ? 20 : 18);
+    const computedLogoWidth = logoBox.width;
+    const computedLogoHeight = logoBox.height;
+    const logoFormat = logoBox.format;
 
     let doc;
     if (isTicket) {
         // === FORMATO TICKET (POS 80mm) ===
-        const pageHeight = calculateTicketHeight(invoice, jsPDFConstructor, computedLogoHeight);
+        // Orden obligatorio: Logo -> Nombre empresa + Sucursal/ubicación -> Datos cliente -> Datos consumo -> Logo final
+        const pageHeight = calculateTicketHeight(invoice, jsPDFConstructor, computedLogoHeight, branchDetails);
         doc = new jsPDFConstructor({
             orientation: 'portrait',
             unit: 'mm',
@@ -402,66 +440,69 @@ async function proceedWithPDF(invoice, format, options = {}) {
 
         let y = 5;
 
-        // Logo centrado o nombre emisor
+        // 1. Logo arriba centrado
         if (computedLogoHeight > 0) {
             try {
                 const logoX = (80 - computedLogoWidth) / 2;
                 doc.addImage(companyLogo, logoFormat, logoX, y, computedLogoWidth, computedLogoHeight);
-                y += computedLogoHeight + 5;
+                y += computedLogoHeight + 4;
             } catch (e) {
                 console.error("Error drawing logo in ticket:", e);
-                doc.setFont('Helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.text(companyName, 40, y + 4, { align: 'center' });
-                y += 8;
             }
-        } else {
-            doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.text(companyName, 40, y + 4, { align: 'center' });
-            y += 8;
         }
 
-        // Datos del emisor centrados
+        // 2. Debajo del logo: Nombre de la empresa + Sucursal + ubicación de sucursal
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(companyName, 40, y, { align: 'center' });
+        y += 4;
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(22, 163, 74);
+        doc.text(`Sucursal: ${branchDetails.branchName}`, 40, y, { align: 'center' });
+        y += 3.8;
+
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(30, 41, 59);
-        doc.text(`RNC: ${companyRNC || 'Sin configurar'}`, 40, y, { align: 'center' });
-        y += 3.5;
-        if (companyTel) {
-            doc.text(`Tel: ${companyTel}`, 40, y, { align: 'center' });
-            y += 3.5;
-        }
-
-        if (companyEmail) {
-            doc.text(`Email: ${companyEmail}`, 40, y, { align: 'center' });
-            y += 3.5;
-        }
-        
-        if (companyAddr) {
-            const addrLines = doc.splitTextToSize(companyAddr, 74);
-            addrLines.forEach(l => {
+        if (branchDetails.branchLocation) {
+            const locLines = doc.splitTextToSize(`Ubicación: ${branchDetails.branchLocation}`, 74);
+            locLines.forEach(l => {
                 doc.text(l, 40, y, { align: 'center' });
-                y += 3.5;
+                y += 3.4;
             });
         }
 
+        doc.text(`RNC: ${companyRNC || 'Sin configurar'}`, 40, y, { align: 'center' });
+        y += 3.4;
+        if (companyTel) {
+            doc.text(`Tel: ${companyTel}`, 40, y, { align: 'center' });
+            y += 3.4;
+        }
+        if (companyEmail) {
+            doc.text(`Email: ${companyEmail}`, 40, y, { align: 'center' });
+            y += 3.4;
+        }
+
         // Separador punteado
-        y += 1;
+        y += 1.5;
         doc.setLineWidth(0.15);
         doc.setDrawColor(150, 150, 150);
         doc.setLineDashPattern([1, 1], 0);
         doc.line(2, y, 78, y);
-        doc.setLineDashPattern([], 0); // reset
+        doc.setLineDashPattern([], 0);
         y += 4;
 
-        // Título del documento destacado
+        // Título del documento y metadatos
         doc.setFont('Helvetica', 'bold');
         doc.setFontSize(8.5);
-        
         let ticketTitle = "FACTURA SIN COMPROBANTE FISCAL";
         if (invoice.notes && invoice.notes.toUpperCase().includes("COTIZACION")) {
             ticketTitle = "COTIZACIÓN";
+        } else if (invoice.type === 'basica') {
+            ticketTitle = "BITÁCORA DE RECOGIDA / FACTURA BÁSICA";
         } else if (invoice.ncfType === 'B02') {
             ticketTitle = "FACTURA DE CONSUMIDOR FINAL";
         } else if (invoice.ncfType === 'B01') {
@@ -471,16 +512,14 @@ async function proceedWithPDF(invoice, format, options = {}) {
         } else if (invoice.ncfType === 'B15') {
             ticketTitle = "COMPROBANTE GUBERNAMENTAL";
         } else if (invoice.ncf && invoice.typeName) {
-            if (invoice.typeName.toLowerCase() === 'empresarial') {
-                ticketTitle = "FACTURA DE CRÉDITO FISCAL";
-            } else {
-                ticketTitle = invoice.typeName.toUpperCase();
-            }
+            ticketTitle = (invoice.typeName.toLowerCase() === 'empresarial')
+                ? "FACTURA DE CRÉDITO FISCAL"
+                : invoice.typeName.toUpperCase();
         }
+        doc.setTextColor(15, 23, 42);
         doc.text(ticketTitle, 40, y, { align: 'center' });
-        y += 4.5;
+        y += 4.2;
 
-        // Metadatos
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.text(`Factura: ${invoiceNum.replace('RICI ', '')}`, 2, y);
@@ -498,10 +537,26 @@ async function proceedWithPDF(invoice, format, options = {}) {
             y += 3.5;
         }
 
-        // Cliente
+        // 3. Debajo: Datos del cliente
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text("DATOS DEL CLIENTE", 2, y);
+        y += 3.5;
+        doc.setFont('Helvetica', 'normal');
         const displayClient = (clientName && clientName !== '--') ? clientName : "Cliente al Contado";
         doc.text(`Cliente: ${displayClient}`, 2, y);
-        y += 3.5;
+        y += 3.4;
+        if (clientRNC && clientRNC !== '--') {
+            doc.text(`RNC/Cédula: ${clientRNC}`, 2, y);
+            y += 3.4;
+        }
+        if (clientAddr && clientAddr !== '--') {
+            const cAddrLines = doc.splitTextToSize(`Dir: ${clientAddr}`, 74);
+            cAddrLines.slice(0, 2).forEach(line => {
+                doc.text(line, 2, y);
+                y += 3.2;
+            });
+        }
 
         const payDisplay = invoice.payMethod || invoice.paymentMethod || 'Efectivo';
         doc.text(`Pago: ${payDisplay}`, 2, y);
@@ -510,16 +565,16 @@ async function proceedWithPDF(invoice, format, options = {}) {
         }
         y += 4;
 
-        // Separador punteado
+        // Separador punteado -> 4. Datos del consumo
         doc.setLineDashPattern([1, 1], 0);
         doc.line(2, y, 78, y);
         doc.setLineDashPattern([], 0);
         y += 3.5;
 
-        // Cabecera tabla
+        // Cabecera tabla de consumo
         doc.setFont('Helvetica', 'bold');
         doc.text("Cant", 2, y);
-        doc.text("Descripción", 12, y);
+        doc.text("Consumo / Descripción", 12, y);
         doc.text("Precio", 60, y, { align: 'right' });
         doc.text("Importe", 78, y, { align: 'right' });
         y += 2.5;
@@ -630,13 +685,24 @@ async function proceedWithPDF(invoice, format, options = {}) {
             y += 2;
         }
 
-        // Pie de página de ticket
+        // 5. Logo al final del ticket + pie de página
         y += 1;
         doc.setLineWidth(0.1);
         doc.setLineDashPattern([1, 1], 0);
         doc.line(2, y, 78, y);
         doc.setLineDashPattern([], 0);
         y += 4;
+
+        if (computedLogoHeight > 0 && companyLogo) {
+            try {
+                const footH = Math.min(computedLogoHeight, 15);
+                const aspect = computedLogoHeight > 0 ? (computedLogoWidth / computedLogoHeight) : 1.5;
+                const footW = footH * aspect;
+                const footX = (80 - footW) / 2;
+                doc.addImage(companyLogo, logoFormat, footX, y, footW, footH);
+                y += footH + 3.5;
+            } catch (_) {}
+        }
 
         doc.setFont('Helvetica', 'bold');
         doc.setFontSize(7.0);
@@ -651,61 +717,62 @@ async function proceedWithPDF(invoice, format, options = {}) {
 
     } else {
         // === FORMATO CORPORATIVO (CARTA / LETTER) ===
+        // Orden obligatorio: Logo arriba -> Debajo Nombre Empresa + Sucursal + ubicación -> Debajo Datos Cliente -> Luego Datos Consumo -> Por último Logo
         doc = new jsPDFConstructor({
             orientation: 'portrait',
             unit: 'mm',
             format: 'letter'
         });
 
-        const accentColor = isBasica ? [59, 130, 246] : [22, 163, 74]; // Azul para Básica, Verde Reciminsa para Ventas NCF
-        let y = 15;
+        const accentColor = isBasica ? [59, 130, 246] : [22, 163, 74];
+        let y = 12;
 
-        // 1. Cabecera - Logo & Datos Emisor
+        // 1. Cabecera - Logo arriba
         let logoHeightToUse = 0;
-        if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
+        if (computedLogoHeight > 0 && companyLogo) {
             try {
                 doc.addImage(companyLogo, logoFormat, 15, y, computedLogoWidth, computedLogoHeight);
                 logoHeightToUse = computedLogoHeight;
             } catch (e) {
                 console.error("Error drawing logo in letter PDF:", e);
-                doc.setFont('Helvetica', 'bold');
-                doc.setFontSize(14);
-                doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-                doc.text(companyName, 15, y + 6);
-                logoHeightToUse = 8;
+                logoHeightToUse = 0;
             }
-        } else {
-            doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(14);
-            doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-            doc.text(companyName, 15, y + 6);
-            logoHeightToUse = 8;
         }
 
-        // Datos del Emisor (Columna Izquierda)
+        // 2. Debajo del logo: Nombre de la empresa + Sucursal + ubicación de sucursal
+        let emisorTextY = y + (logoHeightToUse > 0 ? logoHeightToUse + 5 : 5);
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(15, 23, 42);
+        doc.text(companyName, 15, emisorTextY);
+        emisorTextY += 4.5;
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.text(`Sucursal: ${branchDetails.branchName}`, 15, emisorTextY);
+        emisorTextY += 4.2;
+
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(71, 85, 105);
-        
-        let emisorTextY = y + logoHeightToUse + 4;
+        if (branchDetails.branchLocation) {
+            const locLines = doc.splitTextToSize(`Ubicación: ${branchDetails.branchLocation}`, 98);
+            locLines.forEach(l => {
+                doc.text(l, 15, emisorTextY);
+                emisorTextY += 3.8;
+            });
+        }
+
         doc.text(`RNC: ${companyRNC || 'Sin configurar'}`, 15, emisorTextY);
         emisorTextY += 3.8;
         if (companyTel) {
             doc.text(`Tel: ${companyTel}`, 15, emisorTextY);
             emisorTextY += 3.8;
         }
-        
         if (companyEmail) {
             doc.text(`Email: ${companyEmail}`, 15, emisorTextY);
             emisorTextY += 3.8;
-        }
-
-        if (companyAddr) {
-            const addrLines = doc.splitTextToSize(companyAddr, 95);
-            addrLines.forEach(l => {
-                doc.text(l, 15, emisorTextY);
-                emisorTextY += 3.8;
-            });
         }
 
         // Bloque del Comprobante (Ficha Derecha Destacada)
@@ -713,7 +780,7 @@ async function proceedWithPDF(invoice, format, options = {}) {
             ? "FACTURA SIN COMPROBANTE FISCAL"
             : "FACTURA DE CRÉDITO FISCAL";
         if (isBasica) {
-            blockTitle = "FACTURA BÁSICA";
+            blockTitle = "FACTURA BÁSICA / BITÁCORA";
         } else if (invoice.ncfType === 'B01') {
             blockTitle = "FACTURA DE CRÉDITO FISCAL";
         } else if (invoice.ncfType === 'B14') {
@@ -723,11 +790,9 @@ async function proceedWithPDF(invoice, format, options = {}) {
         } else if (invoice.ncfType === 'B02') {
             blockTitle = "FACTURA DE CONSUMIDOR FINAL";
         } else if (invoice.ncf && invoice.typeName) {
-            if (invoice.typeName.toLowerCase() === 'empresarial') {
-                blockTitle = "FACTURA DE CRÉDITO FISCAL";
-            } else {
-                blockTitle = invoice.typeName.toUpperCase();
-            }
+            blockTitle = (invoice.typeName.toLowerCase() === 'empresarial')
+                ? "FACTURA DE CRÉDITO FISCAL"
+                : invoice.typeName.toUpperCase();
         }
 
         // Tarjeta para metadatos del NCF
@@ -741,7 +806,6 @@ async function proceedWithPDF(invoice, format, options = {}) {
         doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
         doc.text(blockTitle, 162.95, y + 5, { align: 'center' });
 
-        // Divider interno en tarjeta
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.2);
         doc.line(125, y + 8, 200.9, y + 8);
@@ -778,32 +842,29 @@ async function proceedWithPDF(invoice, format, options = {}) {
         doc.setFont('Helvetica', 'normal');
         doc.text(emisionFmt, 155, dataY);
         dataY += 4.2;
-        
-        doc.text(`Ciudad:`, 128, dataY);
-        doc.text("Santo Domingo, R.D.", 155, dataY);
 
-        // 2. Sección del Cliente (Aislado y Limpio)
-        y = 56;
+        doc.text(`Sucursal:`, 128, dataY);
+        doc.text(String(branchDetails.branchName || '').slice(0, 24), 155, dataY);
+
+        // 3. Debajo: Sección del Cliente
+        y = Math.max(emisorTextY + 3, y + 40);
         doc.setFillColor(250, 250, 250);
         doc.setDrawColor(230, 230, 230);
         doc.setLineWidth(0.25);
         doc.roundedRect(15, y, 185.9, 25, 1, 1, 'FD');
 
-        // Borde verde/azul acentuado izquierdo
         doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
         doc.rect(15, y, 1.5, 25, 'F');
 
         doc.setFont('Helvetica', 'bold');
         doc.setFontSize(7.5);
         doc.setTextColor(100, 116, 139);
-        
-        let clientLabel = "FACTURAR A";
+
+        let clientLabel = "DATOS DEL CLIENTE";
         if (isBasica) {
-            clientLabel = "PROVEEDOR / CLIENTE";
+            clientLabel = "DATOS DEL CLIENTE / PROVEEDOR";
         } else if (invoice.ncfType === 'B15') {
-            clientLabel = "INSTITUCIÓN DEL ESTADO";
-        } else if (invoice.ncfType === 'B02') {
-            clientLabel = "DATOS DEL CLIENTE";
+            clientLabel = "DATOS DEL CLIENTE (INSTITUCIÓN DEL ESTADO)";
         }
         doc.text(clientLabel, 19, y + 4.5);
 
@@ -816,7 +877,6 @@ async function proceedWithPDF(invoice, format, options = {}) {
         doc.setFontSize(8);
         doc.setTextColor(71, 85, 105);
 
-        // Grid de datos del cliente
         doc.text(`RNC/Cédula: ${clientRNC}`, 19, y + 14.5);
         doc.text(`Contacto: ${clientContact}`, 19, y + 19.5);
 
@@ -825,8 +885,8 @@ async function proceedWithPDF(invoice, format, options = {}) {
         const letterColab = invoice.collaborator ? `  |  Vendedor: ${invoice.collaborator}` : '';
         doc.text(`Pago: ${letterPay}${letterColab}`, 115, y + 19.5);
 
-        // 3. Tabla de Artículos
-        y = 88;
+        // 4. Luego: Datos del Consumo (Tabla de Artículos)
+        y += 29;
         doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
         doc.rect(15, y, 185.9, 7.5, 'F');
 
@@ -1044,11 +1104,12 @@ async function proceedWithPDF(invoice, format, options = {}) {
 
         // Firmas (Exclusivo de Facturas de Crédito Fiscal, Régimen Especial, Gubernamental o Básicas)
         // Las facturas de Consumidor Final (B02) NO llevan firma
+        let endContentY = Math.max(totalRowY + 6, y + 10);
         if (invoice.ncfType !== 'B02') {
             let sigY = Math.max(totalRowY + 15, y + 20);
-            if (sigY > 250) {
+            if (sigY > 240) {
                 doc.addPage();
-                sigY = 40;
+                sigY = 35;
             }
 
             doc.setDrawColor(200, 200, 200);
@@ -1064,6 +1125,22 @@ async function proceedWithPDF(invoice, format, options = {}) {
             // Recibido Conforme
             doc.line(125, sigY, 185, sigY);
             doc.text("Recibido Conforme", 155, sigY + 5, { align: 'center' });
+            endContentY = sigY + 10;
+        }
+
+        // 5. Por último: Logo de la empresa al final del documento
+        if (logoBox.hasLogo && companyLogo) {
+            const footLogoH = Math.min(logoBox.height || 14, 15);
+            const aspect = (logoBox.height > 0) ? (logoBox.width / logoBox.height) : 1.5;
+            const footLogoW = footLogoH * aspect;
+            let footLogoY = Math.max(endContentY + 6, 240);
+            if (footLogoY + footLogoH > 262) {
+                doc.addPage();
+                footLogoY = 30;
+            }
+            try {
+                doc.addImage(companyLogo, logoFormat, (215.9 - footLogoW) / 2, footLogoY, footLogoW, footLogoH);
+            } catch (_) {}
         }
 
         // Numeración y Pie de página en todas las páginas corporativas
@@ -1329,21 +1406,117 @@ async function deliverGenericPDF(doc, filename, label = 'Documento') {
 }
 
 // =============================================
+// HELPERS COMUNES PARA CABECERA Y PIE DE LOGO
+// =============================================
+async function _preparePdfBranding(docObj) {
+    const issuer = getActiveCompanyIssuerInfo();
+    const branch = resolvePdfBranchDetails(docObj, issuer);
+    const logoBox = await _computePdfLogoDimensions(issuer.companyLogo, 36, 18);
+    return { issuer, branch, logoBox };
+}
+
+/**
+ * Dibuja cabecera estándar:
+ * 1. Logo arriba (izq) + Tarjeta derecha (opcional)
+ * 2. Debajo del logo: Nombre de la empresa + Sucursal + Ubicación de sucursal + RNC/Tel/Email
+ */
+function _drawStandardIssuerBlock(doc, branding, startY, accentRgb = [22, 163, 74], leftX = 15, rightCardTopLimitY = 0) {
+    const { issuer, branch, logoBox } = branding;
+    let y = startY;
+
+    if (logoBox.hasLogo && issuer.companyLogo) {
+        try {
+            doc.addImage(issuer.companyLogo, logoBox.format, leftX, y, logoBox.width, logoBox.height);
+            y += logoBox.height + 5;
+        } catch (_) {
+            y += 2;
+        }
+    }
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    doc.text(issuer.companyName, leftX, y);
+    y += 4.6;
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(accentRgb[0], accentRgb[1], accentRgb[2]);
+    doc.text(`Sucursal: ${branch.branchName}`, leftX, y);
+    y += 4.2;
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.2);
+    doc.setTextColor(71, 85, 105);
+    if (branch.branchLocation) {
+        const locLines = doc.splitTextToSize(`Ubicación: ${branch.branchLocation}`, 98);
+        locLines.forEach(l => {
+            doc.text(l, leftX, y);
+            y += 3.8;
+        });
+    }
+
+    const rncTel = [];
+    rncTel.push(`RNC: ${issuer.companyRNC || 'Sin configurar'}`);
+    if (branch.branchPhone || issuer.companyTel) {
+        rncTel.push(`Tel: ${branch.branchPhone || issuer.companyTel}`);
+    }
+    doc.text(rncTel.join('  |  '), leftX, y);
+    y += 3.8;
+
+    if (issuer.companyEmail) {
+        doc.text(`Email: ${issuer.companyEmail}`, leftX, y);
+        y += 3.8;
+    }
+
+    if (issuer.companySlogan) {
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(22, 163, 74);
+        doc.text(issuer.companySlogan, leftX, y);
+        y += 4;
+    }
+
+    return Math.max(y + 3, rightCardTopLimitY);
+}
+
+/**
+ * Dibuja por último el logo de la empresa centrado al pie del documento.
+ */
+function _drawEndDocumentLogo(doc, branding, afterContentY, minY = 238, maxBottomY = 262) {
+    const { issuer, logoBox } = branding;
+    if (!logoBox || !logoBox.hasLogo || !issuer.companyLogo) return afterContentY;
+    const aspect = (logoBox.height > 0) ? (logoBox.width / logoBox.height) : 1.5;
+    const drawH = Math.min(logoBox.height || 14, 15);
+    const drawW = drawH * aspect;
+    let targetY = Math.max(afterContentY + 6, minY);
+    if (targetY + drawH > maxBottomY) {
+        doc.addPage();
+        targetY = 30;
+    }
+    try {
+        doc.addImage(issuer.companyLogo, logoBox.format, (215.9 - drawW) / 2, targetY, drawW, drawH);
+        return targetY + drawH;
+    } catch (_) {
+        return afterContentY;
+    }
+}
+
+// =============================================
 // PDF: COTIZACIÓN / PRESUPUESTO (MODELO OFICIAL RECIMINSA)
 // =============================================
-function generateQuotePDF(quote, options = {}) {
+async function generateQuotePDF(quote, options = {}) {
     if (!quote) return null;
     const jsPDFConstructor = getJsPDFConstructor();
     if (!jsPDFConstructor) {
         showToast('Error: jsPDF no está cargado', 'error');
-        return;
+        return null;
     }
 
     const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     const pageWidth = 215.9;
     const pageCenter = pageWidth / 2; // 107.95 mm
 
-    // Helper: Formato de Fecha en Español (ej: "26 octubre 2026")
     function formatSpanishDate(dateInput) {
         if (!dateInput) {
             const now = new Date();
@@ -1368,23 +1541,39 @@ function generateQuotePDF(quote, options = {}) {
         return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
     }
 
-    // Helper: Formato numérico estándar RD (ej: "20,000.00")
     function formatNum(val) {
         const num = parseFloat(val) || 0;
         return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // 1. Datos Emisor configurados por la empresa activa
-    const issuer = getActiveCompanyIssuerInfo();
-    const companyName = issuer.companyName;
-    const companyAddr = issuer.companyAddr;
+    // 1. Logo arriba + Fecha/Cotización arriba a la derecha
+    const branding = await _preparePdfBranding(quote);
+    const { issuer, branch } = branding;
     const companyRNC = issuer.companyRNC;
-    const companyTel = issuer.companyTel;
+    const companyTel = branch.branchPhone || issuer.companyTel;
     const companyEmail = issuer.companyEmail;
     const companySlogan = issuer.companySlogan;
-    const companyLogo = issuer.companyLogo;
 
-    // 2. Datos Receptor / Cliente (Dinámicos)
+    // Ficha derecha superior: Cotización No. y Fecha
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(130, 12, 64, 24, 1.5, 1.5, 'FD');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(22, 163, 74);
+    doc.text('COTIZACIÓN', 162, 19, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(31, 41, 55);
+    doc.text(`No.: ${quote.id || '--'}`, 134, 25.5);
+    doc.text(`Fecha: ${formatSpanishDate(quote.date)}`, 134, 30.5);
+    doc.text(`Validez: ${quote.validityDays || 15} días`, 134, 34.5);
+
+    // 2. Logo + Debajo Nombre de empresa + Sucursal + ubicación de sucursal
+    let y = _drawStandardIssuerBlock(doc, branding, 12, [22, 163, 74], 22, 42);
+
+    // 3. Debajo: Datos del Cliente (Recuadro limpio)
     const clientName = quote.client || quote.clientName || 'Cliente General';
     let clientAddress = quote.address || quote.direccion || '';
     let clientNit = quote.nit || quote.rnc || '';
@@ -1395,7 +1584,7 @@ function generateQuotePDF(quote, options = {}) {
             const clients = (typeof getClients === 'function')
                 ? getClients(quote.branchId || null)
                 : JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
-            const found = clients.find(c => 
+            const found = clients.find(c =>
                 (c.name && c.name.trim().toLowerCase() === clientName.trim().toLowerCase()) ||
                 (clientNit && c.nit && c.nit.trim() === clientNit.trim())
             );
@@ -1407,122 +1596,71 @@ function generateQuotePDF(quote, options = {}) {
         } catch (_) {}
     }
 
-    // 3. Logo Oficial (Superior Izquierda)
-    if (companyLogo && (companyLogo.startsWith('data:image/') || companyLogo.includes('base64'))) {
-        try {
-            doc.addImage(companyLogo, 'PNG', 22, 12, 38, 30);
-        } catch (_) {}
-    }
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(22, y, 172, 23, 1.2, 1.2, 'FD');
+    doc.setFillColor(22, 163, 74);
+    doc.rect(22, y, 1.5, 23, 'F');
 
-    // 4. Fecha (Superior Derecha, ej: "26 octubre 2026")
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(31, 41, 55);
-    const dateStr = formatSpanishDate(quote.date);
-    doc.text(dateStr, 194, 27, { align: 'right' });
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('DATOS DEL CLIENTE', 26, y + 4.5);
 
-    // 5. Título Central: "Cotización" (Negrita 17pt)
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(17);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Cotización', pageCenter, 40, { align: 'center' });
-
-    // 6. Dos Columnas: Emisor (Izq) y Cliente (Der)
-    let leftY = 47;
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text(companyName, 22, leftY);
-    leftY += 5;
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(clientName, 26, y + 9.5);
 
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8.2);
     doc.setTextColor(55, 65, 81);
-    if (companyAddr) {
-        const splitCompAddr = doc.splitTextToSize(companyAddr, 80);
-        doc.text(splitCompAddr, 22, leftY);
-        leftY += splitCompAddr.length * 3.8;
-    }
-
-    const rncTelParts = [];
-    rncTelParts.push(`RNC: ${companyRNC || 'Sin configurar'}`);
-    if (companyTel) rncTelParts.push(`Teléfono: ${companyTel}`);
-    doc.text(rncTelParts.join('  '), 22, leftY);
-    leftY += 4;
-
-    if (companyEmail) {
-        doc.setTextColor(37, 99, 235); // Azul enlace
-        doc.text(companyEmail, 22, leftY);
-        leftY += 5;
-    }
-
-    if (companySlogan) {
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(22, 163, 74); // Verde institucional
-        doc.text(companySlogan, 22, leftY);
-        leftY += 4;
-    }
-
-    // Columna Derecha: Cliente
-    let rightY = 47;
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text(clientName, 108, rightY);
-    rightY += 5;
-
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(55, 65, 81);
+    doc.text(`RNC / Cédula: ${clientNit || '--'}`, 26, y + 14.5);
+    doc.text(`Atención / Contacto: ${clientContact || '--'}`, 26, y + 19.5);
     if (clientAddress) {
-        const splitClientAddr = doc.splitTextToSize(clientAddress, 86);
-        doc.text(splitClientAddr, 108, rightY);
-        rightY += splitClientAddr.length * 3.8;
-    }
-    if (clientNit) {
-        doc.text(`RNC:${clientNit}`, 108, rightY);
-        rightY += 4;
-    }
-    if (clientContact) {
-        doc.text(`Atención: ${clientContact}`, 108, rightY);
-        rightY += 4;
+        const addrClip = doc.splitTextToSize(`Dirección: ${clientAddress}`, 78);
+        doc.text(addrClip.slice(0, 2), 112, y + 14.5);
     }
 
-    // 7. Estructura de la Tabla (Márgenes: x=22 a 194, Ancho total: 172mm)
+    // 4. Luego: Datos del Consumo (Tabla de Ítems / Servicios)
     const tableX = 22;
     const tableW = 172;
-    const colSplit1 = 39;  // Cantidad (17mm)
-    const colSplit2 = 143; // Descripción (104mm)
-    const colSplit3 = 171; // Costo (28mm)
+    const colSplit1 = 39;   // Cantidad (17mm)
+    const colSplit2 = 143;  // Descripción (104mm)
+    const colSplit3 = 171;  // Precio / Subtotal (28mm)
     const tableRight = 194; // ITBIS (23mm)
 
-    let tableY = Math.max(leftY, rightY) + 5;
-    if (tableY < 78) tableY = 78;
+    let tableY = y + 28;
 
-    // Encabezado de Tabla (10mm alto)
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.25);
-    doc.rect(tableX, tableY, tableW, 10);
-    doc.line(colSplit1, tableY, colSplit1, tableY + 10);
-    doc.line(colSplit2, tableY, colSplit2, tableY + 10);
-    doc.line(colSplit3, tableY, colSplit3, tableY + 10);
+    const drawQuoteTableHeader = () => {
+        doc.setFillColor(22, 163, 74);
+        doc.rect(tableX, tableY, tableW, 10, 'F');
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.25);
+        doc.rect(tableX, tableY, tableW, 10);
+        doc.line(colSplit1, tableY, colSplit1, tableY + 10);
+        doc.line(colSplit2, tableY, colSplit2, tableY + 10);
+        doc.line(colSplit3, tableY, colSplit3, tableY + 10);
 
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Cantidad', (tableX + colSplit1) / 2, tableY + 6, { align: 'center' });
-    doc.text('Descripción', (colSplit1 + colSplit2) / 2, tableY + 6, { align: 'center' });
-    doc.text('Costo del', (colSplit2 + colSplit3) / 2, tableY + 4, { align: 'center' });
-    doc.text('servicio RD$', (colSplit2 + colSplit3) / 2, tableY + 7.5, { align: 'center' });
-    doc.text('ITBIS', (colSplit3 + tableRight) / 2, tableY + 6, { align: 'center' });
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text('Cantidad', (tableX + colSplit1) / 2, tableY + 6, { align: 'center' });
+        doc.text('Consumo / Descripción', (colSplit1 + colSplit2) / 2, tableY + 6, { align: 'center' });
+        doc.text('Precio / Costo', (colSplit2 + colSplit3) / 2, tableY + 4, { align: 'center' });
+        doc.text('RD$', (colSplit2 + colSplit3) / 2, tableY + 7.5, { align: 'center' });
+        doc.text('ITBIS', (colSplit3 + tableRight) / 2, tableY + 6, { align: 'center' });
+        tableY += 10;
+    };
 
-    tableY += 10;
+    drawQuoteTableHeader();
 
-    // Cuerpo de Ítems
     const items = (quote.items && quote.items.length > 0) ? quote.items : [
         {
             qty: 1,
+            name: quote.desc || 'Servicio de gestión y reciclaje',
+            detailDesc: '',
             desc: quote.desc || 'Servicio de gestión y reciclaje',
             uprice: quote.total || 0,
             subtotal: quote.total || 0,
@@ -1535,8 +1673,11 @@ function generateQuotePDF(quote, options = {}) {
 
     items.forEach(item => {
         const qtyVal = item.qty !== undefined && item.qty !== null ? item.qty : 1;
-        const subtotal = item.subtotal !== undefined ? parseFloat(item.subtotal) : ((parseFloat(item.uprice) || 0) * (parseFloat(item.qty) || 1));
-        
+        const unitStr = (!item.isService && item.unit && item.unit !== 'servicio') ? ` ${item.unit}` : '';
+        const subtotal = item.subtotal !== undefined
+            ? parseFloat(item.subtotal)
+            : ((parseFloat(item.uprice) || 0) * (parseFloat(item.qty) || 1));
+
         let itbisVal = 0;
         if (item.itbis !== undefined && item.itbis !== null) {
             itbisVal = parseFloat(item.itbis);
@@ -1551,42 +1692,58 @@ function generateQuotePDF(quote, options = {}) {
         totalSubtotal += subtotal;
         totalItbis += itbisVal;
 
-        // Parsear líneas de descripción y posibles detalles de servicio
-        const descText = String(item.desc || '').trim();
-        const descLines = descText.split('\n').map(l => l.trim()).filter(Boolean);
-        
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(8.5);
+        const titleName = String(item.name || '').trim();
+        const detailText = String(item.detailDesc || '').trim();
+        let allLines = [];
+        if (titleName) {
+            allLines.push({ line: titleName, isTitle: true });
+            if (detailText) {
+                detailText.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => allLines.push({ line: l, isTitle: false }));
+            }
+        } else {
+            const descText = String(item.desc || '--').trim();
+            descText.split('\n').map(l => l.trim()).filter(Boolean).forEach((l, idx) => {
+                allLines.push({ line: l, isTitle: idx === 0 });
+            });
+        }
 
-        let descContentHeight = 6;
-        let parsedSections = [];
+        let descContentHeight = 5;
+        const parsedSections = [];
 
-        descLines.forEach(line => {
+        allLines.forEach(({ line, isTitle }) => {
             const isHeader = line.toLowerCase().startsWith('servicio incluye') || line.toLowerCase().startsWith('incluye:');
             const isBullet = line.startsWith('-') || line.startsWith('*') || line.startsWith('•');
-            
-            if (isHeader) {
+
+            if (isTitle) {
+                const wrapped = doc.splitTextToSize(line, 96);
+                parsedSections.push({ type: 'title', lines: wrapped });
+                descContentHeight += wrapped.length * 4.2 + 2;
+            } else if (isHeader) {
                 parsedSections.push({ type: 'header', text: line });
-                descContentHeight += 6;
+                descContentHeight += 5.5;
             } else if (isBullet) {
                 const cleanBullet = line.replace(/^[-*•]\s*/, '');
                 const wrapped = doc.splitTextToSize(cleanBullet, 86);
                 parsedSections.push({ type: 'bullet', lines: wrapped });
-                descContentHeight += wrapped.length * 3.8 + 2;
+                descContentHeight += wrapped.length * 3.8 + 1.8;
             } else {
-                const wrapped = doc.splitTextToSize(line, 98);
+                const wrapped = doc.splitTextToSize(line, 96);
                 parsedSections.push({ type: 'text', lines: wrapped });
-                descContentHeight += wrapped.length * 4.0 + 1.5;
+                descContentHeight += wrapped.length * 3.8 + 1.5;
             }
         });
 
-        // Para 1 solo ítem, mantener el balance visual expandiendo hasta cerca de y=188mm como en el modelo
-        const naturalRowHeight = Math.max(8.5, descContentHeight + 4);
-        const targetTableEndY = 188;
+        const naturalRowHeight = Math.max(10, descContentHeight + 4);
+        const targetTableEndY = 178;
         const availableHeight = targetTableEndY - tableY;
         const rowHeight = (items.length === 1 && availableHeight > naturalRowHeight) ? availableHeight : naturalRowHeight;
 
-        // Bordes de la Fila
+        if (tableY + rowHeight > 225) {
+            doc.addPage();
+            tableY = 20;
+            drawQuoteTableHeader();
+        }
+
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.25);
         doc.rect(tableX, tableY, tableW, rowHeight);
@@ -1594,52 +1751,58 @@ function generateQuotePDF(quote, options = {}) {
         doc.line(colSplit2, tableY, colSplit2, tableY + rowHeight);
         doc.line(colSplit3, tableY, colSplit3, tableY + rowHeight);
 
-        // Col 0: Cantidad (Negrita 9pt)
         doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(9);
+        doc.setFontSize(8.8);
         doc.setTextColor(0, 0, 0);
-        doc.text(String(qtyVal), (tableX + colSplit1) / 2, tableY + 6.5, { align: 'center' });
+        doc.text(`${qtyVal}${unitStr}`, (tableX + colSplit1) / 2, tableY + 6.5, { align: 'center' });
 
-        // Col 1: Descripción
         let curDescY = tableY + 6;
         parsedSections.forEach(sec => {
-            if (sec.type === 'header') {
+            if (sec.type === 'title') {
                 doc.setFont('Helvetica', 'bold');
-                doc.setFontSize(8.5);
+                doc.setFontSize(8.8);
+                doc.setTextColor(15, 23, 42);
+                doc.text(sec.lines, colSplit1 + 4, curDescY);
+                curDescY += sec.lines.length * 4.2 + 1.8;
+            } else if (sec.type === 'header') {
+                doc.setFont('Helvetica', 'bold');
+                doc.setFontSize(8.3);
                 doc.setTextColor(0, 0, 0);
                 doc.text(sec.text, colSplit1 + 4, curDescY);
-                curDescY += 5.5;
+                curDescY += 5;
             } else if (sec.type === 'bullet') {
                 doc.setFont('Helvetica', 'normal');
-                doc.setFontSize(8.2);
-                doc.setTextColor(0, 0, 0);
-                doc.text('-', colSplit1 + 10, curDescY);
-                doc.text(sec.lines, colSplit1 + 15, curDescY);
-                curDescY += sec.lines.length * 3.8 + 2;
+                doc.setFontSize(8.1);
+                doc.setTextColor(55, 65, 81);
+                doc.text('-', colSplit1 + 9, curDescY);
+                doc.text(sec.lines, colSplit1 + 14, curDescY);
+                curDescY += sec.lines.length * 3.8 + 1.5;
             } else {
-                doc.setFont('Helvetica', 'bold');
-                doc.setFontSize(8.5);
-                doc.setTextColor(0, 0, 0);
+                doc.setFont('Helvetica', 'normal');
+                doc.setFontSize(8.2);
+                doc.setTextColor(55, 65, 81);
                 doc.text(sec.lines, colSplit1 + 4, curDescY);
-                curDescY += sec.lines.length * 4.0 + 2;
+                curDescY += sec.lines.length * 3.8 + 1.5;
             }
         });
 
-        // Col 2: Costo del servicio
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(8.5);
         doc.setTextColor(0, 0, 0);
         doc.text(formatNum(subtotal), colSplit3 - 2, tableY + 6.5, { align: 'right' });
-
-        // Col 3: ITBIS
         doc.text(formatNum(itbisVal), tableRight - 2, tableY + 6.5, { align: 'right' });
 
         tableY += rowHeight;
     });
 
-    // 8. Fila Total (8.5mm alto)
-    const grandTotal = (quote.total !== undefined && quote.total > 0 && Math.abs(quote.total - (totalSubtotal + totalItbis)) > 1) 
-        ? quote.total 
+    // SubTotal / ITBIS / Total
+    if (tableY + 25 > 235) {
+        doc.addPage();
+        tableY = 20;
+    }
+
+    const grandTotal = (quote.total !== undefined && quote.total > 0 && Math.abs(quote.total - (totalSubtotal + totalItbis)) > 1)
+        ? quote.total
         : (totalSubtotal + totalItbis);
 
     doc.setDrawColor(0, 0, 0);
@@ -1650,20 +1813,23 @@ function generateQuotePDF(quote, options = {}) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(9.5);
     doc.setTextColor(0, 0, 0);
-    doc.text('Total', (colSplit1 + colSplit2) / 2, tableY + 5.5, { align: 'center' });
-    doc.text(`RD$${formatNum(grandTotal)}`, (colSplit2 + tableRight) / 2, tableY + 5.5, { align: 'center' });
+    doc.text('Total Cotizado', (colSplit1 + colSplit2) / 2, tableY + 5.5, { align: 'center' });
+    doc.text(`RD$ ${formatNum(grandTotal)}`, (colSplit2 + tableRight) / 2, tableY + 5.5, { align: 'center' });
 
     tableY += 8.5;
 
-    // 9. Sección "Importante :"
-    let notesY = Math.max(tableY + 7, 203);
+    // Importante :
+    let notesY = tableY + 7;
+    if (notesY > 228) {
+        doc.addPage();
+        notesY = 22;
+    }
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(220, 38, 38); // Rojo
+    doc.setTextColor(220, 38, 38);
     doc.text('Importante :', 22, notesY);
     notesY += 5;
 
-    // Recolectar viñetas de términos y condiciones
     const bulletList = [];
     if (quote.notes) {
         quote.notes.split('\n').map(l => l.trim()).filter(Boolean).forEach(line => {
@@ -1684,6 +1850,10 @@ function generateQuotePDF(quote, options = {}) {
     doc.setTextColor(0, 0, 0);
 
     bulletList.forEach(bullet => {
+        if (notesY > 240) {
+            doc.addPage();
+            notesY = 22;
+        }
         doc.setFillColor(0, 0, 0);
         doc.rect(25, notesY - 2.1, 1.2, 1.2, 'F');
         const splitB = doc.splitTextToSize(bullet, 162);
@@ -1691,37 +1861,37 @@ function generateQuotePDF(quote, options = {}) {
         notesY += splitB.length * 3.6 + 1.2;
     });
 
-    // 10. Pie de Página Centrado (y = 252 a 268)
+    // 5. Por último: Logo de la empresa al final del documento + pie corporativo
+    const afterLogoY = _drawEndDocumentLogo(doc, branding, notesY + 3, 232, 250);
+    const footerStartY = Math.max(afterLogoY + 5, 254);
+
     if (companySlogan) {
         doc.setFont('Helvetica', 'italic');
-        doc.setFontSize(8.5);
+        doc.setFontSize(8.2);
         doc.setTextColor(22, 163, 74);
-        doc.text(companySlogan, pageCenter, 252, { align: 'center' });
+        doc.text(companySlogan, pageCenter, footerStartY, { align: 'center' });
     }
 
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.8);
     doc.setTextColor(55, 65, 81);
-    if (companyAddr) {
-        const oneLineAddr = companyAddr.replace(/\n/g, ' , ').replace(/\s+/g, ' ');
-        doc.text(oneLineAddr, pageCenter, 258, { align: 'center' });
+    const oneLineAddr = (branch.branchLocation || issuer.companyAddr || '').replace(/\n/g, ' , ').replace(/\s+/g, ' ');
+    if (oneLineAddr) {
+        doc.text(`Sucursal: ${branch.branchName} — ${oneLineAddr}`, pageCenter, footerStartY + 5, { align: 'center' });
     }
 
     const footerContactParts = [];
     if (companyTel) footerContactParts.push(`Teléfono: ${companyTel}`);
     if (companyEmail) footerContactParts.push(`Correo: ${companyEmail}`);
-    if (footerContactParts.length > 0) {
-        doc.text(footerContactParts.join('  '), pageCenter, 263, { align: 'center' });
-    }
-    
     if (companyRNC) {
         const cleanDigits = companyRNC.replace(/\D/g, '');
         const formattedRNC = cleanDigits.length === 9
             ? cleanDigits.replace(/(\d{3})(\d{5})(\d{1})/, '$1-$2-$3')
             : companyRNC;
-        doc.text(`RNC-${formattedRNC}`, pageCenter, 268, { align: 'center' });
-    } else {
-        doc.text('RNC: Sin configurar (configurar en Parametrizaciones de Empresa)', pageCenter, 268, { align: 'center' });
+        footerContactParts.push(`RNC: ${formattedRNC}`);
+    }
+    if (footerContactParts.length > 0) {
+        doc.text(footerContactParts.join('  |  '), pageCenter, footerStartY + 9.5, { align: 'center' });
     }
 
     const quoteFilename = `Cotizacion_${quote.id || 'borrador'}.pdf`;
@@ -1740,7 +1910,7 @@ function generateQuotePDF(quote, options = {}) {
 // =============================================
 // PDF: CONDUCE DE DESPACHO Y ENTREGA
 // =============================================
-function generateDispatchPDF(dispatch) {
+async function generateDispatchPDF(dispatch) {
     if (!dispatch) return;
     const jsPDFConstructor = getJsPDFConstructor();
     if (!jsPDFConstructor) {
@@ -1748,57 +1918,44 @@ function generateDispatchPDF(dispatch) {
         return;
     }
 
-    const issuer = getActiveCompanyIssuerInfo();
-    const issuerLine = [
-        `RNC: ${issuer.companyRNC || 'Sin configurar'}`,
-        issuer.companyTel ? `Tel: ${issuer.companyTel}` : '',
-        issuer.companyAddr ? issuer.companyAddr.replace(/\n/g, ', ') : ''
-    ].filter(Boolean).join(' | ');
-
+    const branding = await _preparePdfBranding(dispatch);
+    const { issuer, branch } = branding;
     const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-    let y = 15;
 
-    // Header
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(30, 41, 59);
-    doc.text(issuer.companyName, 15, y + 6);
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(71, 85, 105);
-    doc.text(issuerLine, 15, y + 11);
-
-    // Tarjeta Conduce
+    // Tarjeta Conduce superior derecha
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(125, y, 76, 26, 1.5, 1.5, 'FD');
+    doc.roundedRect(125, 12, 76, 28, 1.5, 1.5, 'FD');
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(9.5);
     doc.setTextColor(30, 41, 59);
-    doc.text("CONDUCE DE DESPACHO", 163, y + 6, { align: 'center' });
+    doc.text("CONDUCE DE DESPACHO", 163, 18, { align: 'center' });
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.text(`No. Conduce: ${dispatch.id}`, 130, y + 12);
-    doc.text(`Fecha Salida: ${dispatch.date}`, 130, y + 16.5);
-    doc.text(`Factura Ref: ${dispatch.invoiceRef || 'Sin Factura'}`, 130, y + 21);
+    doc.setFontSize(8.2);
+    doc.text(`No. Conduce: ${dispatch.id}`, 130, 24);
+    doc.text(`Fecha Salida: ${dispatch.date}`, 130, 28.5);
+    doc.text(`Factura Ref: ${dispatch.invoiceRef || 'Sin Factura'}`, 130, 33);
+    doc.text(`Sucursal: ${String(branch.branchName || '').slice(0, 24)}`, 130, 37.5);
 
-    y += 32;
+    // 1. Logo arriba + 2. Debajo Nombre Empresa + Sucursal + ubicación
+    let y = _drawStandardIssuerBlock(doc, branding, 12, [51, 65, 85], 15, 44);
 
-    // Destinatario y Transporte
+    // 3. Debajo: Datos del Cliente / Destinatario y Transporte
     doc.setFillColor(241, 245, 249);
     doc.roundedRect(15, y, 186, 24, 1.5, 1.5, 'F');
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.text("DESTINATARIO Y TRANSPORTE", 19, y + 5);
+    doc.setTextColor(30, 41, 59);
+    doc.text("DATOS DEL CLIENTE / DESTINATARIO Y TRANSPORTE", 19, y + 5);
     doc.setFont('Helvetica', 'normal');
     doc.text(`Destinatario: ${dispatch.destination}`, 19, y + 10);
     doc.text(`Dirección Entrega: ${dispatch.address}`, 19, y + 14.5);
     doc.text(`Chofer / Conductor: ${dispatch.driver || '—'} (Cédula: ${dispatch.driverId || '—'})`, 19, y + 19);
     doc.text(`Vehículo / Placa: ${dispatch.plate || '—'}`, 120, y + 19);
 
-    y += 30;
+    y += 29;
 
-    // Tabla de Carga
+    // 4. Luego: Datos del Consumo / Materiales Despachados
     doc.setFillColor(51, 65, 85);
     doc.rect(15, y, 186, 7, 'F');
     doc.setFont('Helvetica', 'bold');
@@ -1834,10 +1991,11 @@ function generateDispatchPDF(dispatch) {
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(8);
         doc.text(dispatch.notes, 15, y + 4.5);
+        y += 6;
     }
 
-    // Firmas Legales de Entrega y Recepción
-    y = Math.max(y + 25, 220);
+    // Firmas Legales
+    y = Math.max(y + 20, 200);
     doc.setDrawColor(148, 163, 184);
     doc.line(25, y, 90, y);
     doc.line(125, y, 190, y);
@@ -1854,13 +2012,16 @@ function generateDispatchPDF(dispatch) {
     doc.text("Firma y Sello del Despachador", 57.5, y + 9, { align: 'center' });
     doc.text("Firma, Cédula y Sello de Recibido", 157.5, y + 9, { align: 'center' });
 
+    // 5. Por último: Logo al final
+    _drawEndDocumentLogo(doc, branding, y + 12, 236, 265);
+
     deliverGenericPDF(doc, `Conduce_${dispatch.id}.pdf`, 'Conduce de Despacho');
 }
 
 // =============================================
 // PDF: NOTA DE CRÉDITO (B04 - DGII)
 // =============================================
-function generateCreditNotePDF(creditNote) {
+async function generateCreditNotePDF(creditNote) {
     if (!creditNote) return;
     const jsPDFConstructor = getJsPDFConstructor();
     if (!jsPDFConstructor) {
@@ -1868,47 +2029,36 @@ function generateCreditNotePDF(creditNote) {
         return;
     }
 
-    const issuer = getActiveCompanyIssuerInfo();
+    const branding = await _preparePdfBranding(creditNote);
+    const { issuer, branch } = branding;
     if (!issuer.companyRNC && typeof showToast === 'function') {
         showToast('⚠️ Configura el RNC y razón social de tu empresa en Parametrizaciones de Empresa antes de emitir notas fiscales.', 'warning');
     }
 
     const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-    let y = 15;
 
-    // Header
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(220, 38, 38);
-    doc.text(issuer.companyName, 15, y + 6);
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`RNC: ${issuer.companyRNC || 'Sin configurar'}${issuer.companyTel ? ` | Tel: ${issuer.companyTel}` : ''}`, 15, y + 11);
-    if (issuer.companyAddr) {
-        doc.text(issuer.companyAddr.replace(/\n/g, ', ').slice(0, 65), 15, y + 15);
-    }
-
-    // Tarjeta Nota de Crédito
+    // Tarjeta Nota de Crédito superior derecha
     doc.setFillColor(254, 242, 242);
     doc.setDrawColor(252, 165, 165);
-    doc.roundedRect(120, y, 81, 30, 1.5, 1.5, 'FD');
+    doc.roundedRect(120, 12, 81, 34, 1.5, 1.5, 'FD');
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(creditNote.ncf ? 10 : 8.5);
     doc.setTextColor(220, 38, 38);
-    doc.text(creditNote.ncf ? "NOTA DE CRÉDITO FISCAL (B04)" : "NOTA DE CRÉDITO INTERNA (SIN NCF)", 160.5, y + 6, { align: 'center' });
+    doc.text(creditNote.ncf ? "NOTA DE CRÉDITO FISCAL (B04)" : "NOTA DE CRÉDITO INTERNA (SIN NCF)", 160.5, 18, { align: 'center' });
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8.2);
     doc.setTextColor(30, 41, 59);
-    doc.text(`NC #: ${creditNote.id}`, 125, y + 12);
-    doc.text(`NCF: ${creditNote.ncf || 'Interna / Sin NCF'}`, 125, y + 16.5);
-    doc.text(`Fecha: ${creditNote.date}`, 125, y + 21);
+    doc.text(`NC #: ${creditNote.id}`, 125, 24);
+    doc.text(`NCF: ${creditNote.ncf || 'Interna / Sin NCF'}`, 125, 28.5);
+    doc.text(`Fecha: ${creditNote.date}`, 125, 33);
+    doc.text(`Sucursal: ${String(branch.branchName || '').slice(0, 24)}`, 125, 37.5);
     doc.setFont('Helvetica', 'bold');
-    doc.text(`Modifica: ${creditNote.ncfModified || creditNote.invoiceRef || 'Factura previa'}`, 125, y + 25.5);
+    doc.text(`Modifica: ${creditNote.ncfModified || creditNote.invoiceRef || 'Factura previa'}`, 125, 42);
 
-    y += 36;
+    // 1. Logo arriba + 2. Debajo Nombre Empresa + Sucursal + ubicación
+    let y = _drawStandardIssuerBlock(doc, branding, 12, [220, 38, 38], 15, 50);
 
-    // Datos del Cliente y Motivo DGII
+    // 3. Debajo: Datos del Cliente
     doc.setFillColor(241, 245, 249);
     doc.roundedRect(15, y, 186, 20, 1.5, 1.5, 'F');
     doc.setFont('Helvetica', 'bold');
@@ -1922,7 +2072,7 @@ function generateCreditNotePDF(creditNote) {
 
     y += 26;
 
-    // Detalle del Crédito
+    // 4. Luego: Datos del Consumo / Ajuste
     doc.setFillColor(220, 38, 38);
     doc.rect(15, y, 186, 7, 'F');
     doc.setFont('Helvetica', 'bold');
@@ -1953,13 +2103,16 @@ function generateCreditNotePDF(creditNote) {
     doc.setTextColor(100, 116, 139);
     doc.text("Nota legal DGII: Este comprobante modifica el monto facturado originalmente de acuerdo con las disposiciones del Decreto 254-06 de la DGII.", 15, y);
 
+    // 5. Por último: Logo al final
+    _drawEndDocumentLogo(doc, branding, y + 10, 236, 265);
+
     deliverGenericPDF(doc, `Nota_Credito_${creditNote.id}.pdf`, 'Nota de Crédito');
 }
 
 // =============================================
 // PDF: NOTA DE DÉBITO (B03 - DGII)
 // =============================================
-function generateDebitNotePDF(debitNote) {
+async function generateDebitNotePDF(debitNote) {
     if (!debitNote) return;
     const jsPDFConstructor = getJsPDFConstructor();
     if (!jsPDFConstructor) {
@@ -1967,53 +2120,41 @@ function generateDebitNotePDF(debitNote) {
         return;
     }
 
-    const issuer = getActiveCompanyIssuerInfo();
+    const branding = await _preparePdfBranding(debitNote);
+    const { issuer, branch } = branding;
     if (!issuer.companyRNC && typeof showToast === 'function') {
         showToast('⚠️ Configura el RNC y razón social de tu empresa en Parametrizaciones de Empresa antes de emitir notas fiscales.', 'warning');
     }
 
     const doc = new jsPDFConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-    let y = 15;
 
-    // Header
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(22, 163, 74);
-    doc.text(issuer.companyName, 15, y + 6);
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(71, 85, 105);
-    const dnMetaLine = [
-        `RNC: ${issuer.companyRNC || 'Sin configurar'}`,
-        issuer.companyTel ? `Tel: ${issuer.companyTel}` : '',
-        issuer.companyAddr ? issuer.companyAddr.replace(/\n/g, ', ').slice(0, 45) : ''
-    ].filter(Boolean).join(' | ');
-    doc.text(dnMetaLine, 15, y + 11);
-
-    // Tarjeta Nota de Débito
+    // Tarjeta Nota de Débito superior derecha
     doc.setFillColor(240, 253, 244);
     doc.setDrawColor(187, 247, 208);
-    doc.roundedRect(120, y, 81, 30, 1.5, 1.5, 'FD');
+    doc.roundedRect(120, 12, 81, 34, 1.5, 1.5, 'FD');
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(debitNote.ncf ? 10 : 8.5);
     doc.setTextColor(22, 163, 74);
-    doc.text(debitNote.ncf ? "NOTA DE DÉBITO FISCAL (B03)" : "NOTA DE DÉBITO INTERNA (SIN NCF)", 160.5, y + 6, { align: 'center' });
+    doc.text(debitNote.ncf ? "NOTA DE DÉBITO FISCAL (B03)" : "NOTA DE DÉBITO INTERNA (SIN NCF)", 160.5, 18, { align: 'center' });
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8.2);
     doc.setTextColor(30, 41, 59);
-    doc.text(`ND #: ${debitNote.id}`, 125, y + 12);
-    doc.text(`NCF: ${debitNote.ncf || 'Interna / Sin NCF'}`, 125, y + 16.5);
-    doc.text(`Fecha: ${debitNote.date}`, 125, y + 21);
+    doc.text(`ND #: ${debitNote.id}`, 125, 24);
+    doc.text(`NCF: ${debitNote.ncf || 'Interna / Sin NCF'}`, 125, 28.5);
+    doc.text(`Fecha: ${debitNote.date}`, 125, 33);
+    doc.text(`Sucursal: ${String(branch.branchName || '').slice(0, 24)}`, 125, 37.5);
     doc.setFont('Helvetica', 'bold');
-    doc.text(`Modifica: ${debitNote.ncfModified || debitNote.invoiceRef || 'Factura previa'}`, 125, y + 25.5);
+    doc.text(`Modifica: ${debitNote.ncfModified || debitNote.invoiceRef || 'Factura previa'}`, 125, 42);
 
-    y += 36;
+    // 1. Logo arriba + 2. Debajo Nombre Empresa + Sucursal + ubicación
+    let y = _drawStandardIssuerBlock(doc, branding, 12, [22, 163, 74], 15, 50);
 
-    // Datos del Cliente y Motivo
+    // 3. Debajo: Datos del Cliente
     doc.setFillColor(241, 245, 249);
     doc.roundedRect(15, y, 186, 20, 1.5, 1.5, 'F');
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
     doc.text("DATOS DEL CLIENTE Y CONCEPTO", 19, y + 5);
     doc.setFont('Helvetica', 'normal');
     doc.text(`Cliente: ${debitNote.client}`, 19, y + 10);
@@ -2022,7 +2163,7 @@ function generateDebitNotePDF(debitNote) {
 
     y += 26;
 
-    // Detalle del Débito
+    // 4. Luego: Datos del Consumo / Cargo adicional
     doc.setFillColor(22, 163, 74);
     doc.rect(15, y, 186, 7, 'F');
     doc.setFont('Helvetica', 'bold');
@@ -2052,6 +2193,9 @@ function generateDebitNotePDF(debitNote) {
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
     doc.text("Nota legal DGII: Este comprobante incrementa el valor de la factura de referencia según lo establecido por las normas de la DGII.", 15, y);
+
+    // 5. Por último: Logo al final
+    _drawEndDocumentLogo(doc, branding, y + 10, 236, 265);
 
     deliverGenericPDF(doc, `Nota_Debito_${debitNote.id}.pdf`, 'Nota de Débito');
 }

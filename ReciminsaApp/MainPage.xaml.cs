@@ -50,8 +50,30 @@ public partial class MainPage : ContentPage
     }
 
 #if ANDROID
+    private static global::Android.Webkit.WebView? _activeAndroidWebView;
+
+    public static void DispatchQuickToolToWebView(string tool)
+    {
+        if (string.IsNullOrWhiteSpace(tool)) return;
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            try
+            {
+                if (_activeAndroidWebView == null) return;
+                string safeToolJson = JsonSerializer.Serialize(tool.Trim());
+                string script = $"window.__PENDING_QUICK_TOOL__ = {safeToolJson}; if (typeof window.openQuickControlTool === 'function') {{ window.openQuickControlTool({safeToolJson}); }}";
+                _activeAndroidWebView.EvaluateJavascript(script, null);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error dispatching quick tool to WebView: " + ex.Message);
+            }
+        });
+    }
+
     private static void ConfigureAndroidWebView(global::Android.Webkit.WebView webView)
     {
+        _activeAndroidWebView = webView;
         // Habilitar Viewport móvil nativo respetando el viewport de la web
         webView.Settings.JavaScriptEnabled = true;
         webView.Settings.DomStorageEnabled = true;

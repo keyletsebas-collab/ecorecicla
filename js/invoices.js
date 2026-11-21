@@ -934,6 +934,17 @@ function _invResolveBranchName(branchId) {
   return id === 'SUC-PRINCIPAL' ? 'Sucursal Principal' : id;
 }
 
+function _invResolveBranchLocation(branchId) {
+  const id = _invNormBranchId(branchId);
+  try {
+    if (typeof getCompanyBranches === 'function') {
+      const b = getCompanyBranches().find(x => x && _invNormBranchId(x.id) === id);
+      if (b && b.location) return b.location;
+    }
+  } catch (_) {}
+  return '';
+}
+
 function _invGetClients(branchIdOverride = null) {
   if (typeof getClients === 'function') return getClients(branchIdOverride);
   const raw = JSON.parse(localStorage.getItem(userKey('recim_clients')) || '[]');
@@ -1175,7 +1186,7 @@ function renderUnifiedFacturaForm(selectedBranchOverride = null) {
                 <tr>
                   <td>
                     <b>${_invEscapeHtml(inv.id)}</b>
-                    <div style="margin-top:3px;"><span class="badge" style="background:rgba(16,185,129,0.14); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-size:0.7rem;">📍 ${_invEscapeHtml(invBranchName)}</span></div>
+                    <div style="margin-top:3px;"><span class="badge" style="background:rgba(16,185,129,0.16); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4); font-size:0.72rem; font-weight:700;">📍 Sucursal: ${_invEscapeHtml(invBranchName)}</span></div>
                   </td>
                   <td>${_invEscapeHtml(inv.date || '—')}</td>
                   <td><span class="badge" style="background:var(--clr-surface-2); color:var(--clr-text-muted); border:1px solid var(--clr-border);">${inv.ncf ? _invEscapeHtml(inv.ncf) : 'Interna (Sin NCF)'}</span></td>
@@ -1300,17 +1311,27 @@ async function deleteUnifiedInvoice(invoiceId) {
   }
 
   // Eliminar también el ingreso/egreso automático asociado a esta factura
+  const linkedFinanceIds = [];
   ['recim_ingresos', 'recim_egresos'].forEach(finKey => {
     try {
       const finList = JSON.parse(localStorage.getItem(userKey(finKey)) || '[]');
-      const filtered = finList.filter(e => e.ref !== invoiceId && !(e.concept && e.concept.includes(invoiceId)));
+      const filtered = [];
+      finList.forEach(e => {
+        if (e && (e.ref === invoiceId || (e.concept && e.concept.includes(invoiceId)))) {
+          if (e.id) linkedFinanceIds.push(e.id);
+        } else if (e) {
+          filtered.push(e);
+        }
+      });
       if (filtered.length !== finList.length) {
         localStorage.setItem(userKey(finKey), JSON.stringify(filtered));
       }
     } catch (_) {}
   });
 
-  if (typeof window.forceSync === 'function') {
+  if (typeof window.syncDeleteEntityFromSupabase === 'function') {
+    try { await window.syncDeleteEntityFromSupabase('invoices', [invoiceId], { pattern: 'recim_invoices', linkedFinanceIds }); } catch (_) {}
+  } else if (typeof window.forceSync === 'function') {
     try { window.forceSync(); } catch (_) {}
   }
   showToast('🗑️ Factura eliminada correctamente', 'success');
@@ -1978,39 +1999,68 @@ function initQuotesView(selectedBranchOverride = null) {
 
   const clients = _invGetClients(selectedBranchId);
   const materials = _invGetCustomCodes(selectedBranchId);
+  const selectedBranchName = _invResolveBranchName(selectedBranchId);
+  const compInfo = getCompanyInfoForInvoices();
 
-  let clientOptions = `<option value="">-- Seleccionar cliente o ingresar manualmente --</option>`;
+  let clientOptions = `<option value="">-- Seleccionar cliente registrado o escribir manualmente --</option>`;
   clients.forEach(c => {
-    clientOptions += `<option value="${c.id}">${c.name} ${c.nit ? '(' + c.nit + ')' : ''}</option>`;
+    clientOptions += `<option value="${_invEscapeHtml(c.id)}">${_invEscapeHtml(c.name)} ${c.nit ? '(' + _invEscapeHtml(c.nit) + ')' : ''}</option>`;
   });
 
-  const clientsDatalistHtml = `<datalist id="quote-clients-datalist">${clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('')}</datalist>`;
-  const materialsDatalistHtml = `<datalist id="quote-materials-datalist">${materials.map(m => `<option value="${m.code} - ${m.name}">${m.name} (${m.code})</option>`).join('')}</datalist>`;
+  const clientsDatalistHtml = `<datalist id="quote-clients-datalist">${clients.map(c => `<option value="${_invEscapeHtml(c.name)}">${c.nit ? _invEscapeHtml(c.nit) : ''}</option>`).join('')}</datalist>`;
+  const materialsDatalistHtml = `<datalist id="quote-materials-datalist">${materials.map(m => `<option value="${_invEscapeHtml(m.name)} (${_invEscapeHtml(m.code)})">${_invEscapeHtml(m.code)}</option>`).join('')}</datalist>`;
   const branchSelectorHtml = typeof renderBranchSelectorField === 'function'
     ? renderBranchSelectorField({
         selectId: 'quote-branch-select',
-        label: '📍 Sucursal',
+        label: '📍 Sucursal Emisora',
         selectedBranchId,
         onChangeExpr: 'onQuoteBranchChange(this.value)'
       })
     : '';
 
+  const totalQuotedAmount = quotes.reduce((s, q) => s + (parseFloat(q.total) || 0), 0);
+  const serviceQuotesCount = quotes.filter(q => q.isService || (q.items || []).some(it => it && it.isService)).length;
+
   container.innerHTML = `
     ${clientsDatalistHtml}
     ${materialsDatalistHtml}
-    <div class="card" style="max-width: 960px; margin: 0 auto;">
-      <div class="card-header">
+    <div class="card" style="max-width: 1140px; width: 100%; margin: 0 auto; padding: 24px;">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--clr-border);">
         <div>
-          <h3 class="card-title">📋 Cotizaciones y Presupuestos</h3>
-          <p class="card-subtitle">Crea propuestas comerciales antes de emitir la factura final</p>
+          <h3 class="card-title" style="font-size:1.35rem; margin-bottom:4px;">📋 Cotizaciones y Propuestas Comerciales</h3>
+          <p class="card-subtitle" style="font-size:0.9rem;">Genera cotizaciones formales detalladas por ítems con descripción o servicios completos para tus clientes.</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <span class="badge badge--green" style="font-size:0.8rem; padding:6px 12px;">🏢 ${_invEscapeHtml(compInfo.name)}</span>
+          <span class="badge" style="background:rgba(16,185,129,0.14); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-size:0.8rem; padding:6px 12px;">📍 Sucursal: ${_invEscapeHtml(selectedBranchName)}</span>
         </div>
       </div>
 
-      <div style="background: var(--clr-surface-2); padding: 18px; border-radius: var(--r-md); border: 1px solid var(--clr-border); margin-bottom: 25px;">
-        <h4 style="margin-top: 0; margin-bottom: 12px; color: var(--clr-text);">Nueva Cotización</h4>
+      <!-- Tarjetas de Resumen de Cotizaciones -->
+      <div class="stats-grid" style="margin-bottom:22px;">
+        <div class="stat-card">
+          <div class="stat-label">Cotizaciones Registradas</div>
+          <div class="stat-value stat-value--blue">${quotes.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Valor Total Cotizado</div>
+          <div class="stat-value stat-value--green">${formatMoney(totalQuotedAmount)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cotizaciones con Servicio</div>
+          <div class="stat-value" style="color:#a78bfa;">${serviceQuotesCount}</div>
+        </div>
+      </div>
+
+      <!-- Formulario Amplio de Nueva Cotización -->
+      <div style="background: var(--clr-surface-2); padding: 22px; border-radius: 14px; border: 1px solid rgba(34,197,94,0.22); margin-bottom: 28px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+          <h4 style="margin:0; font-size:1.12rem; color:var(--clr-text);">✨ Nueva Cotización</h4>
+          <span style="font-size:0.78rem; color:var(--clr-text-muted);">Formato corporativo listo para PDF y WhatsApp</span>
+        </div>
 
         <!-- Sucursal y Selección de Cliente Rápido -->
-        <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 15px;">
+        <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom: 16px;">
           ${branchSelectorHtml}
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">${t('inv.select_client', 'Seleccionar Cliente Registrado')}</label>
@@ -2020,17 +2070,17 @@ function initQuotesView(selectedBranchOverride = null) {
           </div>
         </div>
 
-        <div class="form-row" style="grid-template-columns: 2fr 1fr;">
-          <div class="form-group">
-            <label class="form-label">Cliente / Prospecto <span style="color: #ef4444;">*</span></label>
+        <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom: 14px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Cliente / Empresa Receptora <span style="color: #ef4444;">*</span></label>
             <div style="display:flex; gap: 8px;">
               <input id="quote-client" type="text" class="form-input" list="quote-clients-datalist" placeholder="Nombre de la empresa o cliente" style="flex:1;"
                      onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillQuoteClientByNameDGII();}" />
               <button class="btn-secondary" onclick="autoFillQuoteClientByNameDGII()" style="margin:0; padding: 0 14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;" title="Buscar RNC en DGII por Nombre" type="button">🔍</button>
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">RNC / Cédula</label>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">RNC / Cédula del Cliente</label>
             <div style="display:flex; gap: 8px;">
               <input id="quote-nit" type="text" class="form-input" placeholder="9 u 11 dígitos" style="flex:1;" 
                      onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillQuoteClientDGII();}"
@@ -2040,104 +2090,134 @@ function initQuotesView(selectedBranchOverride = null) {
           </div>
         </div>
 
-        <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
-          <div class="form-group">
+        <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom: 18px;">
+          <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">Fecha de Emisión</label>
             <input id="quote-date" type="date" class="form-input" value="${new Date().toISOString().split('T')[0]}" />
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">Días de Validez</label>
             <input id="quote-validity" type="number" class="form-input" value="${p.validityDays || 15}" min="1" max="90" />
           </div>
-          <div class="form-group">
-            <label class="form-label">Teléfono / Contacto</label>
-            <input id="quote-contact" type="text" class="form-input" placeholder="Ej: 809-000-0000" />
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Atención / Teléfono</label>
+            <input id="quote-contact" type="text" class="form-input" placeholder="Ej: Juan Pérez / 809-000-0000" />
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Dirección del Cliente</label>
+            <input id="quote-address" type="text" class="form-input" placeholder="Dirección física o sector" />
           </div>
         </div>
 
-        <!-- Filas de ítems -->
-        <div style="margin-top: 15px;">
-          <h5 style="margin-bottom: 8px; color: var(--clr-text-muted);">Ítems de la Cotización</h5>
-          <div id="quote-items-container" style="display:flex; flex-direction:column; gap:8px;"></div>
-          <div style="display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap;">
-            <button class="btn-secondary" onclick="addQuoteItemRow()" style="margin: 0; font-size: 0.85rem;" type="button">
-              ➕ Agregar Ítem
-            </button>
-            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--clr-text); cursor: pointer; user-select: none; font-weight: 500; margin: 0; background: var(--clr-surface-2); padding: 6px 12px; border-radius: var(--r-sm); border: 1px solid var(--clr-border);">
+        <!-- Filas de ítems o servicios -->
+        <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+            <div>
+              <h5 style="margin:0; font-size:1rem; color: var(--clr-text);">📦 Detalle de Ítems y Servicios Cotizados</h5>
+              <p style="margin:2px 0 0; font-size:0.78rem; color:var(--clr-text-muted);">Registra ítems con descripción opcional o agrega servicios con nombre de servicio, precio y descripción.</p>
+            </div>
+            <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--clr-text); cursor: pointer; user-select: none; font-weight: 600; margin: 0; background: var(--clr-surface-3); padding: 7px 12px; border-radius: var(--r-sm); border: 1px solid rgba(34,197,94,0.3);">
               <input type="checkbox" id="quote-is-service" onchange="toggleQuoteServiceMode(this.checked)" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--clr-primary);" />
-              ¿Es servicio?
+              Modo Servicio
             </label>
           </div>
-        </div>
 
-        <div class="form-row" style="grid-template-columns: 1fr; margin-top: 15px;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">Términos Comerciales y Notas</label>
-            <textarea id="quote-notes" class="form-input" rows="2">${p.defaultNotes || ''}</textarea>
+          <div id="quote-items-container" style="display:flex; flex-direction:column; gap:12px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+            <button class="btn-secondary" onclick="addQuoteItemRow({ isService: false })" style="margin: 0; font-size: 0.88rem; padding: 9px 14px;" type="button">
+              ➕ Agregar Ítem
+            </button>
+            <button class="btn-secondary" onclick="addQuoteItemRow({ isService: true })" style="margin: 0; font-size: 0.88rem; padding: 9px 14px; border-color: rgba(139,92,246,0.45); color:#c4b5fd; background:rgba(139,92,246,0.12);" type="button">
+              🛠️ Agregar Servicio
+            </button>
           </div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
-          <button class="btn-primary" onclick="handleSaveQuote()" type="button">💾 Generar Cotización</button>
+        <!-- Totales en Vivo e ITBIS -->
+        <div style="margin-top: 20px; padding: 16px; border-radius: 12px; background: rgba(0,0,0,0.28); border: 1px solid rgba(34,197,94,0.22); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+          <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:0.9rem; font-weight:600; color:var(--clr-text);">
+            <input type="checkbox" id="quote-include-itbis" checked onchange="calcQuoteLiveTotals()" style="width:17px; height:17px; accent-color: var(--clr-primary);" />
+            Incluir ITBIS (18%) en la cotización
+          </label>
+          <div id="quote-live-totals" style="text-align:right;">
+            <div style="font-size:0.86rem; color:var(--clr-text-muted);">Subtotal: ${formatMoney(0)} &bull; ITBIS (18%): ${formatMoney(0)}</div>
+            <div style="font-size:1.3rem; font-weight:800; color:var(--clr-primary-light); margin-top:2px;">Total Cotización: ${formatMoney(0)}</div>
+          </div>
+        </div>
+
+        <div class="form-row" style="grid-template-columns: 1fr; margin-top: 16px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Términos Comerciales / Sección "Importante"</label>
+            <textarea id="quote-notes" class="form-input" rows="3" placeholder="Ej: La orden de servicio debe enviarse con 48 horas de antelación...">${_invEscapeHtml(p.defaultNotes || '')}</textarea>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+          <button class="btn-outline" onclick="initQuotesView()" type="button" style="padding: 11px 18px;">↺ Limpiar</button>
+          <button class="btn-primary" onclick="handleSaveQuote()" type="button" style="padding: 11px 24px; font-size:0.98rem; font-weight:700;">💾 Guardar y Generar Cotización</button>
         </div>
       </div>
 
-      <!-- Listado de Cotizaciones Emitidas -->
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
-        <h4 style="margin: 0; color: var(--clr-text);">Historial de Cotizaciones</h4>
+      <!-- Listado Amplio de Cotizaciones Emitidas -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+        <h4 style="margin: 0; font-size: 1.12rem; color: var(--clr-text);">📑 Historial de Cotizaciones (${quotes.length})</h4>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           ${canSwitch && branches.length > 0 ? `
             <select id="quotes-filter-branch" class="form-select" style="width:auto; min-width:190px; font-size:0.82rem;" onchange="window.currentQuotesBranchFilter = this.value; initQuotesView(document.getElementById('quote-branch-select')?.value || null);">
               <option value="all" ${activeQuoteFilter === 'all' ? 'selected' : ''}>📍 Todas las sucursales</option>
               ${branches.map(b => {
                 const bid = _invNormBranchId(b.id);
-                return `<option value="${bid}" ${activeQuoteFilter === bid ? 'selected' : ''}>📍 ${b.name || bid}</option>`;
+                return `<option value="${_invEscapeHtml(bid)}" ${activeQuoteFilter === bid ? 'selected' : ''}>📍 ${_invEscapeHtml(b.name || bid)}</option>`;
               }).join('')}
             </select>
-          ` : `<span class="badge badge--green" style="font-size:0.75rem;">📍 ${_invResolveBranchName(activeQuoteFilter)}</span>`}
-          ${quotes.length > 0 ? `<button class="btn-danger" onclick="clearAllQuotes()" style="padding: 4px 10px; font-size: 0.78rem;">🗑️ Borrar Todas</button>` : ''}
+            <button type="button" class="btn-secondary" style="padding:6px 10px; font-size:0.78rem;" onclick="window.currentQuotesBranchFilter = 'all'; initQuotesView(document.getElementById('quote-branch-select')?.value || null);">🏢 Ver todas</button>
+          ` : `<span class="badge badge--green" style="font-size:0.75rem;">📍 Sucursal: ${_invEscapeHtml(_invResolveBranchName(activeQuoteFilter))}</span>`}
+          ${quotes.length > 0 ? `<button class="btn-danger" onclick="clearAllQuotes()" style="padding: 6px 12px; font-size: 0.78rem;">🗑️ Borrar Todas</button>` : ''}
         </div>
       </div>
-      <div style="overflow-x: auto;">
-        <table class="table" style="width: 100%;">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Fecha</th>
-              <th>Cliente</th>
-              <th>Total</th>
-              <th>Validez</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${quotes.length === 0 ? `
-              <tr><td colspan="6" style="text-align: center; color: var(--clr-text-muted); padding: 20px;">No hay cotizaciones registradas aún.</td></tr>
-            ` : quotes.map(q => {
-              const qBranchName = q.branchName || _invResolveBranchName(q.branchId);
-              return `
-              <tr>
-                <td>
-                  <b>${q.id}</b>
-                  <div style="margin-top:3px;"><span class="badge" style="background:rgba(16,185,129,0.14); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-size:0.7rem;">📍 ${qBranchName}</span></div>
-                </td>
-                <td>${q.date}</td>
-                <td>${q.client}</td>
-                <td style="font-weight: 600; color: var(--clr-primary);">${formatMoney(q.total)}</td>
-                <td><span class="badge">${q.validityDays} días</span></td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn-primary" onclick="convertQuoteToInvoice('${q.id}')" title="Convertir en Factura" style="padding: 4px 8px; font-size: 0.8rem;">⚡ Facturar</button>
-                    <button class="btn-secondary" onclick="printQuotePDF('${q.id}')" title="Descargar PDF" style="padding: 4px 8px; font-size: 0.8rem;">📄</button>
-                    <button class="btn-secondary btn-whatsapp" onclick="shareQuoteViaWhatsApp('${q.id}')" title="Enviar Cotización por WhatsApp" style="padding: 4px 8px; font-size: 0.8rem; background:#25d366; color:#ffffff; border-color:#25d366;">💬</button>
-                    <button class="btn-danger" onclick="deleteQuote('${q.id}')" title="Eliminar" style="padding: 4px 8px; font-size: 0.8rem;">🗑️</button>
-                  </div>
-                </td>
-              </tr>
-            `;
-            }).join('')}
-          </tbody>
-        </table>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        ${quotes.length === 0 ? `
+          <div style="text-align: center; color: var(--clr-text-muted); padding: 32px; background: var(--clr-surface-2); border-radius: 12px; border: 1px dashed var(--clr-border);">
+            <div style="font-size:2rem; margin-bottom:8px;">📋</div>
+            No hay cotizaciones registradas aún en este filtro.
+          </div>
+        ` : quotes.map(q => {
+          const qBranchName = q.branchName || _invResolveBranchName(q.branchId);
+          const qItems = Array.isArray(q.items) ? q.items : [];
+          const hasService = q.isService || qItems.some(it => it && it.isService);
+          const previewText = qItems.map(it => it.name || it.desc || 'Concepto').slice(0, 3).join(' • ');
+          return `
+          <div style="background: var(--clr-surface-2); border: 1px solid var(--clr-border); border-left: 4px solid ${hasService ? '#8b5cf6' : 'var(--clr-primary)'}; border-radius: 12px; padding: 16px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <b style="font-size:1.05rem; color:var(--clr-text);">${_invEscapeHtml(q.id)}</b>
+                  <span class="badge" style="background:rgba(16,185,129,0.16); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4); font-size:0.74rem; font-weight:700;">📍 Sucursal: ${_invEscapeHtml(qBranchName)}</span>
+                  <span class="badge" style="background:${hasService ? 'rgba(139,92,246,0.2)' : 'rgba(59,130,246,0.2)'}; color:${hasService ? '#ddd6fe' : '#bfdbfe'}; font-size:0.72rem;">${hasService ? '🛠️ Servicio' : '📦 Ítems'} (${qItems.length})</span>
+                  <span class="badge" style="font-size:0.72rem;">⏳ Validez: ${q.validityDays || 15} días</span>
+                </div>
+                <div style="font-size:0.9rem; color:var(--clr-text); margin-top:6px;">
+                  <b>Cliente:</b> ${_invEscapeHtml(q.client)} ${q.nit ? `<span style="color:var(--clr-text-muted);">(${_invEscapeHtml(q.nit)})</span>` : ''} &bull; <b>Fecha:</b> ${_invEscapeHtml(q.date || '—')}
+                </div>
+                ${previewText ? `<div style="font-size:0.8rem; color:var(--clr-text-muted); margin-top:4px;">${_invEscapeHtml(previewText)}</div>` : ''}
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:0.74rem; color:var(--clr-text-muted);">Total Cotizado</div>
+                <div style="font-size:1.22rem; font-weight:800; color:var(--clr-primary-light);">${formatMoney(q.total || 0)}</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
+              <button class="btn-secondary" onclick="showQuoteDetailsModal('${_invEscapeHtml(q.id)}')" style="padding:6px 12px; font-size:0.82rem;">👁️ Ver Detalles</button>
+              <button class="btn-primary" onclick="convertQuoteToInvoice('${_invEscapeHtml(q.id)}')" style="padding:6px 12px; font-size:0.82rem;">⚡ Facturar</button>
+              <button class="btn-secondary" onclick="printQuotePDF('${_invEscapeHtml(q.id)}')" style="padding:6px 12px; font-size:0.82rem;">📄 PDF</button>
+              <button class="btn-secondary btn-whatsapp" onclick="shareQuoteViaWhatsApp('${_invEscapeHtml(q.id)}')" style="padding:6px 12px; font-size:0.82rem; background:#25d366; color:#ffffff; border-color:#25d366;">💬 WhatsApp</button>
+              <button class="btn-danger" onclick="deleteQuote('${_invEscapeHtml(q.id)}')" style="padding:6px 10px; font-size:0.82rem;">🗑️</button>
+            </div>
+          </div>
+        `;
+        }).join('')}
       </div>
     </div>
   `;
@@ -2152,21 +2232,21 @@ function onQuoteBranchChange(branchId) {
 
   const clientSelect = document.getElementById('quote-client-select');
   if (clientSelect) {
-    let clientOptions = `<option value="">-- Seleccionar cliente o ingresar manualmente --</option>`;
+    let clientOptions = `<option value="">-- Seleccionar cliente registrado o escribir manualmente --</option>`;
     clients.forEach(c => {
-      clientOptions += `<option value="${c.id}">${c.name} ${c.nit ? '(' + c.nit + ')' : ''}</option>`;
+      clientOptions += `<option value="${_invEscapeHtml(c.id)}">${_invEscapeHtml(c.name)} ${c.nit ? '(' + _invEscapeHtml(c.nit) + ')' : ''}</option>`;
     });
     clientSelect.innerHTML = clientOptions;
   }
 
   const clientsDatalist = document.getElementById('quote-clients-datalist');
   if (clientsDatalist) {
-    clientsDatalist.innerHTML = clients.map(c => `<option value="${c.name}">${c.nit ? c.nit : ''}</option>`).join('');
+    clientsDatalist.innerHTML = clients.map(c => `<option value="${_invEscapeHtml(c.name)}">${c.nit ? _invEscapeHtml(c.nit) : ''}</option>`).join('');
   }
 
   const matDatalist = document.getElementById('quote-materials-datalist');
   if (matDatalist) {
-    matDatalist.innerHTML = materials.map(m => `<option value="${m.code} - ${m.name}">${m.name} (${m.code})</option>`).join('');
+    matDatalist.innerHTML = materials.map(m => `<option value="${_invEscapeHtml(m.name)} (${_invEscapeHtml(m.code)})">${_invEscapeHtml(m.code)}</option>`).join('');
   }
 
   const clientInput = document.getElementById('quote-client');
@@ -2179,8 +2259,10 @@ function onQuoteBranchChange(branchId) {
       clientInput.value = '';
       const nitEl = document.getElementById('quote-nit');
       const contactEl = document.getElementById('quote-contact');
+      const addrEl = document.getElementById('quote-address');
       if (nitEl) nitEl.value = '';
       if (contactEl) contactEl.value = '';
+      if (addrEl) addrEl.value = '';
     }
   }
 }
@@ -2193,37 +2275,161 @@ function addQuoteItemRow(prefill = null) {
   const rowId = `qrow-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const serviceCheck = document.getElementById('quote-is-service');
   const isService = prefill?.isService !== undefined ? Boolean(prefill.isService) : Boolean(serviceCheck?.checked);
+  const initialName = prefill?.name || (prefill?.desc ? String(prefill.desc).split('\n')[0] : '');
+  const initialDetailDesc = prefill?.detailDesc || (prefill?.desc && String(prefill.desc).includes('\n') ? String(prefill.desc).split('\n').slice(1).join('\n') : '');
 
   const div = document.createElement('div');
   div.id = rowId;
   div.className = 'quote-item-row';
-  div.style.cssText = 'display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--clr-surface); padding: 8px; border-radius: var(--r-sm); border: 1px solid var(--clr-border);';
+  div.dataset.isService = isService ? 'true' : 'false';
+  div.style.cssText = 'background: var(--clr-surface-3); padding: 16px; border-radius: 12px; border: 1px solid rgba(34,197,94,0.22); display: flex; flex-direction: column; gap: 12px;';
 
   div.innerHTML = `
-    <div style="flex: 2 1 200px;">
-      <input type="text" class="form-input q-desc" list="quote-materials-datalist" placeholder="${isService ? 'Descripción del servicio' : 'Descripción del material o servicio'}" value="${prefill?.desc || ''}" style="margin:0;" />
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:10px;">
+      <span class="q-row-badge badge" style="font-size:0.78rem; padding:4px 10px; background:${isService ? 'rgba(139,92,246,0.22)' : 'rgba(16,185,129,0.18)'}; color:${isService ? '#ddd6fe' : '#6ee7b7'};">
+        ${isService ? '🛠️ Servicio' : '📦 Ítem / Material'}
+      </span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <select class="form-select q-row-type" style="width:auto; min-width:155px; font-size:0.82rem; padding:5px 10px;" onchange="onQuoteRowTypeChange('${rowId}', this.value)">
+          <option value="item" ${!isService ? 'selected' : ''}>📦 Es un Ítem</option>
+          <option value="service" ${isService ? 'selected' : ''}>🛠️ Es un Servicio</option>
+        </select>
+        <button class="btn-danger" onclick="document.getElementById('${rowId}').remove(); calcQuoteLiveTotals();" style="padding: 6px 10px; margin:0;" type="button" title="Eliminar fila">✕</button>
+      </div>
     </div>
-    <div class="q-qty-wrapper" style="flex: 1 1 80px; ${isService ? 'display: none;' : ''}">
-      <input type="number" class="form-input q-qty" placeholder="Cantidad" min="0.01" step="0.01" value="${prefill?.qty || ''}" style="margin:0;" />
+
+    <!-- MODO ÍTEM: Ítem normal + Cantidad/Unidad/Precio + Descripción Opcional -->
+    <div class="q-mode-item" style="display:${isService ? 'none' : 'grid'}; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end;">
+      <div class="form-group" style="margin:0; grid-column: span 2;">
+        <label class="form-label" style="font-size:0.8rem;">Ítem / Material <span style="color:#ef4444;">*</span></label>
+        <input type="text" class="form-input q-item-name" list="quote-materials-datalist" placeholder="Nombre del material o ítem" value="${_invEscapeHtml(!isService ? initialName : '')}" oninput="calcQuoteLiveTotals()" style="margin:0;" />
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:0.8rem;">Cantidad <span style="color:#ef4444;">*</span></label>
+        <input type="number" class="form-input q-qty" placeholder="1" min="0.01" step="0.01" value="${_invEscapeHtml(!isService ? (prefill?.qty || '') : '')}" oninput="calcQuoteLiveTotals()" style="margin:0;" />
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:0.8rem;">Unidad</label>
+        <select class="form-select q-unit" style="margin:0;">
+          <option value="lb" ${prefill?.unit === 'lb' ? 'selected' : ''}>lb</option>
+          <option value="kg" ${prefill?.unit === 'kg' ? 'selected' : ''}>kg</option>
+          <option value="ton" ${prefill?.unit === 'ton' ? 'selected' : ''}>ton</option>
+          <option value="ud" ${prefill?.unit === 'ud' ? 'selected' : ''}>ud</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:0.8rem;">Precio Unitario (RD$)</label>
+        <input type="number" class="form-input q-item-uprice" placeholder="0.00" min="0" step="0.01" value="${_invEscapeHtml(!isService ? (prefill?.uprice || '') : '')}" oninput="calcQuoteLiveTotals()" style="margin:0;" />
+      </div>
+      <div class="form-group" style="margin:0; grid-column: 1 / -1;">
+        <label class="form-label" style="font-size:0.8rem;">Descripción opcional del ítem</label>
+        <input type="text" class="form-input q-item-desc" placeholder="Descripción opcional (calidad, empaque, especificación adicional...)" value="${_invEscapeHtml(!isService ? initialDetailDesc : '')}" style="margin:0;" />
+      </div>
     </div>
-    <div class="q-unit-wrapper" style="flex: 1 1 80px; ${isService ? 'display: none;' : ''}">
-      <select class="form-select q-unit" style="margin:0;">
-        <option value="lb" ${prefill?.unit === 'lb' ? 'selected' : ''}>lb</option>
-        <option value="kg" ${prefill?.unit === 'kg' ? 'selected' : ''}>kg</option>
-        <option value="ton" ${prefill?.unit === 'ton' ? 'selected' : ''}>ton</option>
-        <option value="ud" ${prefill?.unit === 'ud' ? 'selected' : ''}>ud</option>
-        <option value="servicio" ${prefill?.unit === 'servicio' || isService ? 'selected' : ''}>servicio</option>
-      </select>
+
+    <!-- MODO SERVICIO: 1. Nombre del servicio, 2. Precio del servicio, 3. Descripción del servicio -->
+    <div class="q-mode-service" style="display:${isService ? 'grid' : 'none'}; grid-template-columns: 2fr 1fr; gap: 12px; align-items: start;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:0.82rem;">Nombre del Servicio <span style="color:#ef4444;">*</span></label>
+        <input type="text" class="form-input q-service-name" placeholder="Ej: Servicio de Recolección y Transporte de Residuos" value="${_invEscapeHtml(isService ? initialName : '')}" oninput="calcQuoteLiveTotals()" style="margin:0;" />
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:0.82rem;">Precio del Servicio (RD$) <span style="color:#ef4444;">*</span></label>
+        <input type="number" class="form-input q-service-price" placeholder="0.00" min="0" step="0.01" value="${_invEscapeHtml(isService ? (prefill?.uprice || '') : '')}" oninput="calcQuoteLiveTotals()" style="margin:0;" />
+      </div>
+      <div class="form-group" style="margin:0; grid-column: 1 / -1;">
+        <label class="form-label" style="font-size:0.82rem;">Descripción del Servicio</label>
+        <textarea class="form-input q-service-desc" rows="3" placeholder="Ej: Servicio incluye:\n- Recolección y clasificación en sitio\n- Transporte autorizado y certificado ambiental">${_invEscapeHtml(isService ? initialDetailDesc : '')}</textarea>
+      </div>
     </div>
-    <div style="flex: 1 1 100px;">
-      <input type="number" class="form-input q-uprice" placeholder="${isService ? 'Precio servicio' : 'Precio'}" min="0" step="0.01" value="${prefill?.uprice || ''}" style="margin:0;" />
-    </div>
-    <div>
-      <button class="btn-danger" onclick="document.getElementById('${rowId}').remove();" style="padding: 5px 8px; margin:0;" type="button">✕</button>
+
+    <div style="display:flex; justify-content:flex-end; align-items:center; font-size:0.85rem; color:var(--clr-primary-light); font-weight:700;" class="q-row-subtotal">
+      Subtotal fila: ${formatMoney(prefill?.subtotal || 0)}
     </div>
   `;
   container.appendChild(div);
+  calcQuoteLiveTotals();
 }
+
+function onQuoteRowTypeChange(rowId, modeVal) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const isService = modeVal === 'service';
+  row.dataset.isService = isService ? 'true' : 'false';
+
+  const badge = row.querySelector('.q-row-badge');
+  if (badge) {
+    badge.textContent = isService ? '🛠️ Servicio' : '📦 Ítem / Material';
+    badge.style.background = isService ? 'rgba(139,92,246,0.22)' : 'rgba(16,185,129,0.18)';
+    badge.style.color = isService ? '#ddd6fe' : '#6ee7b7';
+  }
+
+  const itemBox = row.querySelector('.q-mode-item');
+  const serviceBox = row.querySelector('.q-mode-service');
+  if (itemBox) itemBox.style.display = isService ? 'none' : 'grid';
+  if (serviceBox) serviceBox.style.display = isService ? 'grid' : 'none';
+
+  if (isService) {
+    const iName = row.querySelector('.q-item-name')?.value.trim();
+    const iPrice = row.querySelector('.q-item-uprice')?.value;
+    const iDesc = row.querySelector('.q-item-desc')?.value.trim();
+    const sName = row.querySelector('.q-service-name');
+    const sPrice = row.querySelector('.q-service-price');
+    const sDesc = row.querySelector('.q-service-desc');
+    if (sName && !sName.value && iName) sName.value = iName;
+    if (sPrice && !sPrice.value && iPrice) sPrice.value = iPrice;
+    if (sDesc && !sDesc.value && iDesc) sDesc.value = iDesc;
+  } else {
+    const sName = row.querySelector('.q-service-name')?.value.trim();
+    const sPrice = row.querySelector('.q-service-price')?.value;
+    const sDesc = row.querySelector('.q-service-desc')?.value.trim();
+    const iName = row.querySelector('.q-item-name');
+    const iPrice = row.querySelector('.q-item-uprice');
+    const iDesc = row.querySelector('.q-item-desc');
+    const iQty = row.querySelector('.q-qty');
+    if (iName && !iName.value && sName) iName.value = sName;
+    if (iPrice && !iPrice.value && sPrice) iPrice.value = sPrice;
+    if (iDesc && !iDesc.value && sDesc) iDesc.value = sDesc;
+    if (iQty && !iQty.value) iQty.value = '1';
+  }
+
+  calcQuoteLiveTotals();
+}
+window.onQuoteRowTypeChange = onQuoteRowTypeChange;
+
+function calcQuoteLiveTotals() {
+  const rows = document.querySelectorAll('.quote-item-row');
+  let subtotal = 0;
+
+  rows.forEach(r => {
+    const isService = r.dataset.isService === 'true' || r.querySelector('.q-row-type')?.value === 'service';
+    let rowSub = 0;
+    if (isService) {
+      const sPrice = parseFloat(r.querySelector('.q-service-price')?.value) || 0;
+      rowSub = sPrice;
+    } else {
+      const qty = parseFloat(r.querySelector('.q-qty')?.value) || 0;
+      const uprice = parseFloat(r.querySelector('.q-item-uprice')?.value) || 0;
+      rowSub = qty * uprice;
+    }
+    const rowSubEl = r.querySelector('.q-row-subtotal');
+    if (rowSubEl) rowSubEl.textContent = `Subtotal fila: ${formatMoney(rowSub)}`;
+    subtotal += rowSub;
+  });
+
+  const includeItbis = document.getElementById('quote-include-itbis')?.checked !== false;
+  const itbis = includeItbis ? subtotal * 0.18 : 0;
+  const grandTotal = subtotal + itbis;
+
+  const box = document.getElementById('quote-live-totals');
+  if (box) {
+    box.innerHTML = `
+      <div style="font-size:0.86rem; color:var(--clr-text-muted);">Subtotal: ${formatMoney(subtotal)} &bull; ITBIS (${includeItbis ? '18%' : '0%'}): ${formatMoney(itbis)}</div>
+      <div style="font-size:1.3rem; font-weight:800; color:var(--clr-primary-light); margin-top:2px;">Total Cotización: ${formatMoney(grandTotal)}</div>
+    `;
+  }
+}
+window.calcQuoteLiveTotals = calcQuoteLiveTotals;
 
 function toggleQuoteServiceMode(isChecked) {
   const container = document.getElementById('quote-items-container');
@@ -2231,28 +2437,11 @@ function toggleQuoteServiceMode(isChecked) {
 
   const rows = container.querySelectorAll('.quote-item-row');
   rows.forEach(r => {
-    const qtyWrapper = r.querySelector('.q-qty-wrapper');
-    const unitWrapper = r.querySelector('.q-unit-wrapper');
-    const qtyInput = r.querySelector('.q-qty');
-    const unitSelect = r.querySelector('.q-unit');
-    const descInput = r.querySelector('.q-desc');
-    const priceInput = r.querySelector('.q-uprice');
-
-    if (isChecked) {
-      if (qtyWrapper) qtyWrapper.style.display = 'none';
-      if (unitWrapper) unitWrapper.style.display = 'none';
-      if (qtyInput) qtyInput.value = '1';
-      if (unitSelect) unitSelect.value = 'servicio';
-      if (descInput && !descInput.value) descInput.placeholder = 'Descripción del servicio';
-      if (priceInput) priceInput.placeholder = 'Precio servicio';
-    } else {
-      if (qtyWrapper) qtyWrapper.style.display = '';
-      if (unitWrapper) unitWrapper.style.display = '';
-      if (qtyInput && qtyInput.value === '1') qtyInput.value = '';
-      if (unitSelect && unitSelect.value === 'servicio') unitSelect.value = 'lb';
-      if (descInput && descInput.placeholder === 'Descripción del servicio') descInput.placeholder = 'Descripción del material o servicio';
-      if (priceInput) priceInput.placeholder = 'Precio';
+    const typeSelect = r.querySelector('.q-row-type');
+    if (typeSelect) {
+      typeSelect.value = isChecked ? 'service' : 'item';
     }
+    onQuoteRowTypeChange(r.id, isChecked ? 'service' : 'item');
   });
 }
 window.toggleQuoteServiceMode = toggleQuoteServiceMode;
@@ -2263,8 +2452,10 @@ function handleSaveQuote() {
   const validityDays = parseInt(document.getElementById('quote-validity')?.value, 10) || 15;
   const nit = document.getElementById('quote-nit')?.value.trim() || '';
   const contact = document.getElementById('quote-contact')?.value.trim() || '';
+  const address = document.getElementById('quote-address')?.value.trim() || '';
   const notes = document.getElementById('quote-notes')?.value.trim() || '';
   const isGlobalService = Boolean(document.getElementById('quote-is-service')?.checked);
+  const includeItbis = document.getElementById('quote-include-itbis')?.checked !== false;
 
   if (!client) {
     showToast('❌ Ingresa el nombre del cliente para la cotización', 'error');
@@ -2273,51 +2464,84 @@ function handleSaveQuote() {
 
   const rows = document.querySelectorAll('.quote-item-row');
   const items = [];
-  let total = 0;
+  let subtotalSum = 0;
 
   rows.forEach(r => {
-    const desc = r.querySelector('.q-desc')?.value.trim();
-    const uprice = parseFloat(r.querySelector('.q-uprice')?.value) || 0;
-    const isRowService = isGlobalService || (r.querySelector('.q-unit')?.value === 'servicio');
-
+    const isRowService = r.dataset.isService === 'true' || r.querySelector('.q-row-type')?.value === 'service';
     if (isRowService) {
-      if (desc && uprice > 0) {
+      const sName = r.querySelector('.q-service-name')?.value.trim() || '';
+      const sPrice = parseFloat(r.querySelector('.q-service-price')?.value) || 0;
+      const sDesc = r.querySelector('.q-service-desc')?.value.trim() || '';
+      if (sName && sPrice > 0) {
         const qty = 1;
         const unit = 'servicio';
-        const subtotal = uprice;
-        total += subtotal;
-        items.push({ desc, qty, unit, uprice, subtotal, isService: true });
+        const subtotal = sPrice;
+        const combinedDesc = sDesc ? `${sName}\n${sDesc}` : sName;
+        subtotalSum += subtotal;
+        items.push({
+          name: sName,
+          detailDesc: sDesc,
+          desc: combinedDesc,
+          qty,
+          unit,
+          uprice: sPrice,
+          subtotal,
+          isService: true
+        });
       }
     } else {
+      const iName = r.querySelector('.q-item-name')?.value.trim() || '';
       const qty = parseFloat(r.querySelector('.q-qty')?.value) || 0;
       const unit = r.querySelector('.q-unit')?.value || 'lb';
-      if (desc && qty > 0) {
+      const uprice = parseFloat(r.querySelector('.q-item-uprice')?.value) || 0;
+      const iDesc = r.querySelector('.q-item-desc')?.value.trim() || '';
+      if (iName && qty > 0) {
         const subtotal = qty * uprice;
-        total += subtotal;
-        items.push({ desc, qty, unit, uprice, subtotal, isService: false });
+        const combinedDesc = iDesc ? `${iName}\n${iDesc}` : iName;
+        subtotalSum += subtotal;
+        items.push({
+          name: iName,
+          detailDesc: iDesc,
+          desc: combinedDesc,
+          qty,
+          unit,
+          uprice,
+          subtotal,
+          isService: false
+        });
       }
     }
   });
 
   if (items.length === 0) {
-    showToast('❌ Agrega al menos un ítem a la cotización', 'error');
+    showToast('❌ Agrega al menos un ítem o servicio válido a la cotización', 'error');
     return;
   }
+
+  const taxRate = includeItbis ? 0.18 : 0;
+  const itbisAmount = subtotalSum * taxRate;
+  const total = subtotalSum + itbisAmount;
 
   const branchId = _invNormBranchId(
     document.getElementById('quote-branch-select')?.value ||
     (typeof getActiveBranchId === 'function' ? getActiveBranchId() : 'SUC-PRINCIPAL')
   );
   const branchName = _invResolveBranchName(branchId);
+  const branchLocation = _invResolveBranchLocation(branchId);
 
   const p = getModuleParams('cotizaciones');
   const quote = {
     id: `${p.prefix || 'COT-'}${Date.now().toString().slice(-6)}`,
-    client, nit, date, validityDays, contact, notes,
-    isService: isGlobalService,
+    client, nit, date, validityDays, contact, address, notes,
+    isService: isGlobalService || items.every(i => i.isService),
+    includeItbis,
+    taxRate,
+    subtotal: subtotalSum,
+    itbis: itbisAmount,
     items, total,
     branchId,
     branchName,
+    branchLocation,
     createdAt: new Date().toISOString()
   };
 
@@ -2326,18 +2550,96 @@ function handleSaveQuote() {
   initQuotesView(branchId);
 }
 
+function showQuoteDetailsModal(quoteId) {
+  const q = getAllQuotes().find(item => item && item.id === quoteId);
+  if (!q) {
+    showToast('Cotización no encontrada', 'warning');
+    return;
+  }
+
+  const branchId = _invNormBranchId(q.branchId);
+  const branchName = q.branchName || _invResolveBranchName(branchId);
+  const branchLocation = q.branchLocation || _invResolveBranchLocation(branchId);
+
+  let modal = document.getElementById('quote-detail-modal');
+  if (modal) modal.remove();
+
+  modal = document.createElement('div');
+  modal.id = 'quote-detail-modal';
+  modal.className = 'modal-overlay';
+  modal.style.display = 'flex';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+
+  const itemsHtml = (q.items || []).map(it => `
+    <div style="padding:10px 12px; border-radius:8px; background:rgba(0,0,0,0.28); border:1px solid rgba(255,255,255,0.08); margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+        <div>
+          <span class="badge" style="font-size:0.7rem; margin-right:6px;">${it.isService ? '🛠️ Servicio' : '📦 Ítem'}</span>
+          <b>${_invEscapeHtml(it.name || it.desc || '—')}</b>
+          ${!it.isService ? `<span style="font-size:0.8rem; color:var(--clr-text-muted); margin-left:6px;">(${it.qty || 1} ${_invEscapeHtml(it.unit || 'lb')} × ${formatMoney(it.uprice || 0)})</span>` : ''}
+        </div>
+        <b style="color:var(--clr-primary-light);">${formatMoney(it.subtotal || it.uprice || 0)}</b>
+      </div>
+      ${it.detailDesc ? `<div style="margin-top:6px; font-size:0.82rem; color:var(--clr-text-secondary); white-space:pre-line;">${_invEscapeHtml(it.detailDesc)}</div>` : ''}
+    </div>
+  `).join('');
+
+  modal.innerHTML = `
+    <div class="modal" style="max-width:680px; width:95%; max-height:88vh; overflow-y:auto; background:linear-gradient(160deg, #101c13 0%, #0a110c 100%) !important; border:1px solid rgba(34,197,94,0.35) !important; border-radius:14px; padding:22px; color:var(--clr-text);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(34,197,94,0.2); padding-bottom:12px; margin-bottom:14px;">
+        <h3 style="margin:0; font-size:1.2rem;">📋 Detalles de Cotización: <b>${_invEscapeHtml(q.id)}</b></h3>
+        <button class="modal-close" type="button" onclick="this.closest('.modal-overlay').remove()" style="background:rgba(255,255,255,0.08); border:none; border-radius:50%; width:32px; height:32px; color:var(--clr-text-muted); font-size:1.1rem; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; margin-bottom:14px; font-size:0.86rem; background:rgba(0,0,0,0.3); padding:14px; border-radius:10px;">
+        <div style="grid-column:1 / -1;">
+          <b style="color:var(--clr-text-muted);">📍 Sucursal:</b>
+          <span class="badge badge--green" style="font-weight:700; margin-left:4px;">📍 ${_invEscapeHtml(branchName)}</span>
+          ${branchLocation ? `<div style="font-size:0.78rem; color:#6ee7b7; margin-top:4px;">📌 Ubicación: ${_invEscapeHtml(branchLocation)}</div>` : ''}
+        </div>
+        <div><b style="color:var(--clr-text-muted);">Cliente:</b> ${_invEscapeHtml(q.client || '—')}</div>
+        <div><b style="color:var(--clr-text-muted);">RNC / Cédula:</b> ${_invEscapeHtml(q.nit || '—')}</div>
+        <div><b style="color:var(--clr-text-muted);">Fecha:</b> ${_invEscapeHtml(q.date || '—')}</div>
+        <div><b style="color:var(--clr-text-muted);">Validez:</b> ${q.validityDays || 15} días</div>
+        <div><b style="color:var(--clr-text-muted);">Contacto:</b> ${_invEscapeHtml(q.contact || '—')}</div>
+        <div><b style="color:var(--clr-text-muted);">Total Cotizado:</b> <b style="color:var(--clr-primary-light); font-size:1.05rem;">${formatMoney(q.total || 0)}</b></div>
+      </div>
+
+      <h4 style="margin:0 0 8px; font-size:0.95rem; color:var(--clr-text);">Consumo / Servicios</h4>
+      ${itemsHtml}
+
+      ${q.notes ? `<p style="font-size:0.82rem; color:var(--clr-text-secondary); margin-top:10px;">📝 ${_invEscapeHtml(q.notes)}</p>` : ''}
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-top:16px;">
+        <button class="btn-primary" type="button" onclick="this.closest('.modal-overlay').remove(); convertQuoteToInvoice('${_invEscapeHtml(q.id)}');">⚡ Convertir a Factura</button>
+        <button class="btn-secondary" type="button" onclick="printQuotePDF('${_invEscapeHtml(q.id)}')">📄 Descargar PDF</button>
+        <button class="btn-secondary btn-whatsapp" type="button" onclick="shareQuoteViaWhatsApp('${_invEscapeHtml(q.id)}')" style="background:#25d366; color:#fff; border-color:#25d366;">💬 WhatsApp</button>
+        <button class="btn-secondary" type="button" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+window.showQuoteDetailsModal = showQuoteDetailsModal;
+
 function convertQuoteToInvoice(quoteId) {
   const quotes = getAllQuotes();
   const q = quotes.find(item => item.id === quoteId);
   if (!q) return;
 
+  const mappedItems = (q.items || []).map(it => ({
+    ...it,
+    desc: it.detailDesc ? `${it.name || ''} - ${it.detailDesc}` : (it.name || it.desc || '')
+  }));
+
   switchFacturacionTab('facturas');
   initUnifiedFacturaForm({
     company: q.client,
     nit: q.nit,
+    address: q.address || '',
     contact: q.contact,
     notes: `Basado en cotización ${q.id}. ${q.notes || ''}`,
-    items: q.items,
+    items: mappedItems,
     collaborator: q.collaborator || '',
     payMethod: q.payMethod || 'Efectivo',
     branchId: q.branchId || '',
@@ -2363,6 +2665,9 @@ function deleteQuote(quoteId) {
   const deletedQuote = allQuotes.find(q => q.id === quoteId) || null;
   const list = allQuotes.filter(q => q.id !== quoteId);
   localStorage.setItem(userKey('recim_quotes'), JSON.stringify(list));
+  if (typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones([quoteId]);
+  }
   initQuotesView();
   showToast('Cotización eliminada', 'info');
   if (typeof window.recordSmartAlertEvent === 'function') {
@@ -2392,6 +2697,10 @@ function deleteQuote(quoteId) {
 async function clearAllQuotes() {
   const ok = await window.AppDialog.confirm('¿Deseas eliminar TODAS las cotizaciones?', 'Eliminar Cotizaciones');
   if (!ok) return;
+  const ids = getAllQuotes().map(q => q && q.id).filter(Boolean);
+  if (ids.length > 0 && typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones(ids);
+  }
   localStorage.setItem(userKey('recim_quotes'), '[]');
   initQuotesView();
   if (typeof window.recordAuditLog === 'function') {
@@ -2403,7 +2712,7 @@ async function clearAllQuotes() {
     });
   }
   showToast('Todas las cotizaciones han sido eliminadas', 'success');
-  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
+  if (typeof window.forceSync === 'function') { try { await window.forceSync(); } catch (_) {} }
 }
 window.clearAllQuotes = clearAllQuotes;
 
@@ -2411,11 +2720,13 @@ function autofillQuoteClient(clientId) {
   const nameInput = document.getElementById('quote-client');
   const nitInput = document.getElementById('quote-nit');
   const contactInput = document.getElementById('quote-contact');
+  const addressInput = document.getElementById('quote-address');
   if (!nameInput) return;
   if (!clientId) {
     nameInput.value = '';
     if (nitInput) nitInput.value = '';
     if (contactInput) contactInput.value = '';
+    if (addressInput) addressInput.value = '';
     return;
   }
   const branchId = _invNormBranchId(
@@ -2428,6 +2739,7 @@ function autofillQuoteClient(clientId) {
     nameInput.value = client.name || '';
     if (nitInput) nitInput.value = client.nit || '';
     if (contactInput) contactInput.value = client.contact || client.phone || '';
+    if (addressInput) addressInput.value = client.address || '';
   }
 }
 window.autofillQuoteClient = autofillQuoteClient;
@@ -2773,6 +3085,9 @@ function deleteDispatch(dispatchId) {
   if (!confirm(`¿Eliminar el conduce ${dispatchId}?`)) return;
   const list = getAllDispatches().filter(d => d.id !== dispatchId);
   localStorage.setItem(userKey('recim_dispatches'), JSON.stringify(list));
+  if (typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones([dispatchId]);
+  }
   initDispatchesView();
   showToast('Conduce eliminado', 'info');
   if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
@@ -2781,10 +3096,14 @@ function deleteDispatch(dispatchId) {
 async function clearAllDispatches() {
   const ok = await window.AppDialog.confirm('¿Deseas eliminar TODOS los conduces de despacho?', 'Eliminar Despachos');
   if (!ok) return;
+  const ids = getAllDispatches().map(d => d && d.id).filter(Boolean);
+  if (ids.length > 0 && typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones(ids);
+  }
   localStorage.setItem(userKey('recim_dispatches'), '[]');
   initDispatchesView();
   showToast('Todos los despachos han sido eliminados', 'success');
-  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
+  if (typeof window.forceSync === 'function') { try { await window.forceSync(); } catch (_) {} }
 }
 window.clearAllDispatches = clearAllDispatches;
 
@@ -3086,6 +3405,9 @@ function deleteReturn(returnId) {
   if (!confirm(`¿Eliminar la devolución ${returnId}?`)) return;
   const list = getAllReturns().filter(r => r.id !== returnId);
   localStorage.setItem(userKey('recim_returns'), JSON.stringify(list));
+  if (typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones([returnId]);
+  }
   initReturnsView();
   showToast('Devolución eliminada', 'info');
   if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
@@ -3095,10 +3417,14 @@ window.deleteReturn = deleteReturn;
 async function clearAllReturns() {
   const ok = await window.AppDialog.confirm('¿Deseas eliminar TODAS las devoluciones registradas?', 'Eliminar Devoluciones');
   if (!ok) return;
+  const ids = getAllReturns().map(r => r && r.id).filter(Boolean);
+  if (ids.length > 0 && typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones(ids);
+  }
   localStorage.setItem(userKey('recim_returns'), '[]');
   initReturnsView();
   showToast('Todas las devoluciones han sido eliminadas', 'success');
-  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
+  if (typeof window.forceSync === 'function') { try { await window.forceSync(); } catch (_) {} }
 }
 window.clearAllReturns = clearAllReturns;
 
@@ -3472,6 +3798,9 @@ function deleteCreditNote(cnId) {
   }
   const list = allNotes.filter(n => n.id !== cnId);
   localStorage.setItem(userKey('recim_credit_notes'), JSON.stringify(list));
+  if (typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones([cnId]);
+  }
   initCreditNotesView();
   showToast('Nota de Crédito eliminada', 'info');
   if (typeof window.recordSmartAlertEvent === 'function') {
@@ -3495,6 +3824,7 @@ function deleteCreditNote(cnId) {
       branchName: deletedCn?.branchName
     });
   }
+  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
 }
 
 // =============================================
@@ -3850,6 +4180,9 @@ function deleteDebitNote(dnId) {
   }
   const list = allNotes.filter(n => n.id !== dnId);
   localStorage.setItem(userKey('recim_debit_notes'), JSON.stringify(list));
+  if (typeof window.recordDeletedTombstones === 'function') {
+    window.recordDeletedTombstones([dnId]);
+  }
   initDebitNotesView();
   showToast('Nota de Débito eliminada', 'info');
   if (typeof window.recordSmartAlertEvent === 'function') {
@@ -3873,6 +4206,7 @@ function deleteDebitNote(dnId) {
       branchName: deletedDn?.branchName
     });
   }
+  if (typeof window.forceSync === 'function') { try { window.forceSync(); } catch (_) {} }
 }
 
 // =============================================
@@ -4043,13 +4377,17 @@ function showInvoicePostSaveModal(invoice) {
 
   modal.style.display = 'flex';
   const clientName = invoice.company || invoice.client || 'Consumidor Final';
+  const branchIdNorm = _invNormBranchId(invoice.branchId);
+  const branchLabel = invoice.branchName || _invResolveBranchName(branchIdNorm);
 
   modal.innerHTML = `
     <div class="card" style="width:90%; max-width:420px; padding:24px; border-radius:12px; background:var(--clr-surface); border:1px solid var(--clr-border); box-shadow:0 10px 25px rgba(0,0,0,0.3); text-align:center; display:flex; flex-direction:column; gap:16px;">
       <div style="font-size:3rem; margin-bottom:4px;">🎉</div>
       <h3 style="margin:0; font-size:1.25rem; font-weight:700; color:var(--clr-text);">¡Factura Creada con Éxito!</h3>
       <p style="margin:0; font-size:0.85rem; color:var(--clr-text-muted);">
-        Factura <b>${invoice.id}</b> para <b>${clientName}</b> ${invoice.ncf ? '<br><span class="badge" style="background:var(--clr-primary); color:white; margin-top:4px;">NCF: ' + invoice.ncf + '</span>' : ''}
+        Factura <b>${_invEscapeHtml(invoice.id)}</b> para <b>${_invEscapeHtml(clientName)}</b>
+        <br><span class="badge badge--green" style="margin-top:6px;">📍 Sucursal: ${_invEscapeHtml(branchLabel)}</span>
+        ${invoice.ncf ? '<br><span class="badge" style="background:var(--clr-primary); color:white; margin-top:4px;">NCF: ' + _invEscapeHtml(invoice.ncf) + '</span>' : ''}
       </p>
       
       <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
@@ -4108,6 +4446,17 @@ function showInvoiceDetailsModal(invoiceId) {
   };
 
   const voucherTypeLabel = ncfLabels[ncfCode] || inv.typeName || (inv.ncf ? `Comprobante ${inv.ncf}` : 'Factura Estándar (Sin Comprobante Fiscal)');
+  const branchIdNorm = _invNormBranchId(inv.branchId);
+  const branchLabel = inv.branchName || _invResolveBranchName(branchIdNorm);
+  const branchLoc = inv.branchLocation || _invResolveBranchLocation(branchIdNorm);
+  const itemsRowsHtml = (inv.items || []).map(it => `
+    <tr>
+      <td>${_invEscapeHtml(it.desc || it.name || '—')}</td>
+      <td>${it.qty || 0} ${_invEscapeHtml(it.unit || '')}</td>
+      <td>${formatMoney(it.uprice || it.priceBuy || 0)}</td>
+      <td style="font-weight:700;">${formatMoney(it.subtotal !== undefined ? it.subtotal : ((parseFloat(it.qty) || 0) * (parseFloat(it.uprice || 0))))}</td>
+    </tr>
+  `).join('');
 
   let modal = document.getElementById('invoice-detail-quick-modal');
   if (modal) modal.remove();
@@ -4116,24 +4465,38 @@ function showInvoiceDetailsModal(invoiceId) {
   modal.id = 'invoice-detail-quick-modal';
   modal.className = 'modal-overlay';
   modal.style.display = 'flex';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
   modal.innerHTML = `
-    <div class="modal" style="max-width: 650px; width: 95%; background: linear-gradient(160deg, #101c13 0%, #0a110c 100%) !important; border: 1px solid rgba(34, 197, 94, 0.3) !important; border-radius: 14px; padding: 22px; color: var(--clr-text, #f0fdf0); box-shadow: 0 20px 50px rgba(0,0,0,0.85);">
+    <div class="modal" style="max-width: 680px; width: 95%; max-height: 88vh; overflow-y: auto; background: linear-gradient(160deg, #101c13 0%, #0a110c 100%) !important; border: 1px solid rgba(34, 197, 94, 0.3) !important; border-radius: 14px; padding: 22px; color: var(--clr-text, #f0fdf0); box-shadow: 0 20px 50px rgba(0,0,0,0.85);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom: 1px solid rgba(34, 197, 94, 0.2); padding-bottom: 12px;">
-        <h3 style="margin:0; font-size:1.2rem; color:var(--clr-text, #f0fdf0);">Detalles de Factura: <b>${inv.id}</b></h3>
+        <h3 style="margin:0; font-size:1.2rem; color:var(--clr-text, #f0fdf0);">Detalles de Factura: <b>${_invEscapeHtml(inv.id)}</b></h3>
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="background:rgba(255,255,255,0.08); border:none; border-radius:50%; width:32px; height:32px; color:var(--clr-text-muted); font-size:1.1rem; cursor:pointer;" type="button">✕</button>
       </div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px; font-size:0.88rem; background: rgba(0,0,0,0.3); padding: 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-        <div><b style="color:var(--clr-text-muted);">Fecha:</b> ${inv.date || '—'}</div>
-        <div><b style="color:var(--clr-text-muted);">Cliente / Razón Social:</b> <b>${inv.company || inv.client || '—'}</b></div>
-        <div><b style="color:var(--clr-text-muted);">RNC / Cédula:</b> ${inv.nit || '—'}</div>
-        <div><b style="color:var(--clr-text-muted);">Tipo de Comprobante:</b> <span class="badge badge--blue" style="font-weight:700;">${voucherTypeLabel}</span></div>
-        <div><b style="color:var(--clr-text-muted);">NCF Asignado:</b> <code style="font-weight:800; color:var(--clr-primary-light, #4ade80); font-size:0.95rem;">${inv.ncf || '(Sin NCF)'}</code></div>
-        <div><b style="color:var(--clr-text-muted);">Método de Pago:</b> ${inv.payMethod || 'Efectivo'}</div>
-        <div><b style="color:var(--clr-text-muted);">Colaborador:</b> ${inv.collaborator || '—'}</div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-bottom:16px; font-size:0.88rem; background: rgba(0,0,0,0.3); padding: 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+        <div style="grid-column:1 / -1;">
+          <b style="color:var(--clr-text-muted);">📍 Sucursal:</b>
+          <span class="badge badge--green" style="font-weight:700; margin-left:4px;">📍 ${_invEscapeHtml(branchLabel)}</span>
+          ${branchLoc ? `<div style="font-size:0.78rem; color:#6ee7b7; margin-top:3px;">📌 Ubicación: ${_invEscapeHtml(branchLoc)}</div>` : ''}
+        </div>
+        <div><b style="color:var(--clr-text-muted);">Fecha:</b> ${_invEscapeHtml(inv.date || '—')}</div>
+        <div><b style="color:var(--clr-text-muted);">Cliente / Razón Social:</b> <b>${_invEscapeHtml(inv.company || inv.client || '—')}</b></div>
+        <div><b style="color:var(--clr-text-muted);">RNC / Cédula:</b> ${_invEscapeHtml(inv.nit || '—')}</div>
+        <div><b style="color:var(--clr-text-muted);">Tipo de Comprobante:</b> <span class="badge badge--blue" style="font-weight:700;">${_invEscapeHtml(voucherTypeLabel)}</span></div>
+        <div><b style="color:var(--clr-text-muted);">NCF Asignado:</b> <code style="font-weight:800; color:var(--clr-primary-light, #4ade80); font-size:0.95rem;">${_invEscapeHtml(inv.ncf || '(Sin NCF)')}</code></div>
+        <div><b style="color:var(--clr-text-muted);">Método de Pago:</b> ${_invEscapeHtml(inv.payMethod || 'Efectivo')}</div>
+        <div><b style="color:var(--clr-text-muted);">Colaborador:</b> ${_invEscapeHtml(inv.collaborator || '—')}</div>
         <div><b style="color:var(--clr-text-muted);">Total Facturado:</b> <strong style="color:var(--clr-primary-light, #4ade80); font-size:1.05rem;">${formatMoney(inv.total || 0)}</strong></div>
       </div>
+      ${itemsRowsHtml ? `
+        <div style="overflow-x:auto; margin-bottom:14px;">
+          <table class="data-table">
+            <thead><tr><th>Descripción</th><th>Cantidad</th><th>P. Unit</th><th>Subtotal</th></tr></thead>
+            <tbody>${itemsRowsHtml}</tbody>
+          </table>
+        </div>
+      ` : ''}
       <div style="display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn-secondary" onclick="printInvoicePDF('${inv.id}')" type="button" style="padding:8px 16px;">📄 Imprimir PDF</button>
+        <button class="btn-secondary" onclick="printInvoicePDF('${_invEscapeHtml(inv.id)}')" type="button" style="padding:8px 16px;">📄 Imprimir PDF</button>
         <button class="btn-primary" onclick="this.closest('.modal-overlay').remove()" type="button" style="padding:8px 18px;">Cerrar</button>
       </div>
     </div>
