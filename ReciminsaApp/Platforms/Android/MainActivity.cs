@@ -41,7 +41,7 @@ public class MainActivity : MauiAppCompatActivity
 
         try
         {
-            Platforms.Android.ControlCenterNotificationHelper.ShowControlCenterPanel(this);
+            Platforms.Android.ControlCenterNotificationHelper.RemoveLegacyControlCenterNotification(this);
         }
         catch { }
 
@@ -67,14 +67,6 @@ public class MainActivity : MauiAppCompatActivity
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1001)
-        {
-            try
-            {
-                Platforms.Android.ControlCenterNotificationHelper.ShowControlCenterPanel(this);
-            }
-            catch { }
-        }
     }
 
     private static void HandleQuickToolIntent(global::Android.Content.Intent? intent)

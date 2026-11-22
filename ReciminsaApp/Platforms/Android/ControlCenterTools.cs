@@ -4,7 +4,9 @@ using Android.Content;
 using Android.Graphics.Drawables;
 using Android.OS;
 using Android.Service.QuickSettings;
+using Android.Widget;
 using AndroidX.Core.App;
+using Microsoft.Maui.ApplicationModel;
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 #pragma warning disable CA1416
@@ -23,24 +25,43 @@ internal static class QuickControlLauncher
 
     public static void LaunchFromTile(TileService tileService, string tool, int requestCode)
     {
+        void ExecuteLaunch()
+        {
+            try
+            {
+                var intent = BuildMainActivityIntent(tileService, tool);
+                if (OperatingSystem.IsAndroidVersionAtLeast(34))
+                {
+                    var flags = PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable;
+                    var pendingIntent = PendingIntent.GetActivity(tileService, requestCode, intent, flags);
+                    if (pendingIntent != null)
+                    {
+                        tileService.StartActivityAndCollapse(pendingIntent);
+                        return;
+                    }
+                }
+                tileService.StartActivityAndCollapse(intent);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error launching quick tool {tool} from TileService: {ex.Message}");
+            }
+        }
+
         try
         {
-            var intent = BuildMainActivityIntent(tileService, tool);
-            if (OperatingSystem.IsAndroidVersionAtLeast(34))
+            if (tileService.IsLocked)
             {
-                var flags = PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable;
-                var pendingIntent = PendingIntent.GetActivity(tileService, requestCode, intent, flags);
-                if (pendingIntent != null)
-                {
-                    tileService.StartActivityAndCollapse(pendingIntent);
-                    return;
-                }
+                tileService.UnlockAndRun(new Java.Lang.Runnable(ExecuteLaunch));
             }
-            tileService.StartActivityAndCollapse(intent);
+            else
+            {
+                ExecuteLaunch();
+            }
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"Error launching quick tool {tool} from TileService: {ex.Message}");
+            ExecuteLaunch();
         }
     }
 }
@@ -48,7 +69,7 @@ internal static class QuickControlLauncher
 [Service(
     Name = "com.companyname.reciminsaapp.BitacoraControlTileService",
     Label = "Bitácora Recogida",
-    Icon = "@mipmap/appicon",
+    Icon = "@drawable/ic_qs_bitacora",
     Permission = "android.permission.BIND_QUICK_SETTINGS_TILE",
     Exported = true)]
 [IntentFilter(new[] { "android.service.quicksettings.action.QS_TILE" })]
@@ -64,9 +85,10 @@ public class BitacoraControlTileService : TileService
                 QsTile.Label = "Bitácora Recogida";
                 if (OperatingSystem.IsAndroidVersionAtLeast(29))
                 {
-                    QsTile.Subtitle = "ReciminsaApp";
+                    QsTile.Subtitle = "Reciminsa";
                 }
-                QsTile.State = TileState.Active;
+                QsTile.Icon = Icon.CreateWithResource(this, Resource.Drawable.ic_qs_bitacora);
+                QsTile.State = TileState.Inactive;
                 QsTile.UpdateTile();
             }
         }
@@ -76,6 +98,15 @@ public class BitacoraControlTileService : TileService
     public override void OnClick()
     {
         base.OnClick();
+        try
+        {
+            if (QsTile != null)
+            {
+                QsTile.State = TileState.Active;
+                QsTile.UpdateTile();
+            }
+        }
+        catch { }
         QuickControlLauncher.LaunchFromTile(this, "bitacora", 8801);
     }
 }
@@ -83,7 +114,7 @@ public class BitacoraControlTileService : TileService
 [Service(
     Name = "com.companyname.reciminsaapp.FacturaControlTileService",
     Label = "Nueva Factura",
-    Icon = "@mipmap/appicon",
+    Icon = "@drawable/ic_qs_factura",
     Permission = "android.permission.BIND_QUICK_SETTINGS_TILE",
     Exported = true)]
 [IntentFilter(new[] { "android.service.quicksettings.action.QS_TILE" })]
@@ -99,9 +130,10 @@ public class FacturaControlTileService : TileService
                 QsTile.Label = "Nueva Factura";
                 if (OperatingSystem.IsAndroidVersionAtLeast(29))
                 {
-                    QsTile.Subtitle = "ReciminsaApp";
+                    QsTile.Subtitle = "Reciminsa";
                 }
-                QsTile.State = TileState.Active;
+                QsTile.Icon = Icon.CreateWithResource(this, Resource.Drawable.ic_qs_factura);
+                QsTile.State = TileState.Inactive;
                 QsTile.UpdateTile();
             }
         }
@@ -111,6 +143,15 @@ public class FacturaControlTileService : TileService
     public override void OnClick()
     {
         base.OnClick();
+        try
+        {
+            if (QsTile != null)
+            {
+                QsTile.State = TileState.Active;
+                QsTile.UpdateTile();
+            }
+        }
+        catch { }
         QuickControlLauncher.LaunchFromTile(this, "factura", 8802);
     }
 }
@@ -120,96 +161,44 @@ public static class ControlCenterNotificationHelper
     public const string ChannelId = "reciminsa_control_center";
     public const int NotificationId = 8800;
 
-    public static void ShowControlCenterPanel(Context context)
+    public static void RemoveLegacyControlCenterNotification(Context context)
     {
         try
         {
-            var notificationManager = context.GetSystemService(Context.NotificationService) as NotificationManager;
-            if (notificationManager == null) return;
-
+            NotificationManagerCompat.From(context).Cancel(NotificationId);
             if (OperatingSystem.IsAndroidVersionAtLeast(26))
             {
-                var existing = notificationManager.GetNotificationChannel(ChannelId);
-                if (existing == null)
-                {
-                    var channel = new NotificationChannel(
-                        ChannelId,
-                        "Herramientas Rápidas ReciminsaApp",
-                        NotificationImportance.Low)
-                    {
-                        Description = "Botones rápidos del Centro de Control para registrar Bitácoras de Recogida y Facturas."
-                    };
-                    channel.SetShowBadge(false);
-                    notificationManager.CreateNotificationChannel(channel);
-                }
+                var nm = context.GetSystemService(Context.NotificationService) as NotificationManager;
+                nm?.DeleteNotificationChannel(ChannelId);
             }
-
-            if (OperatingSystem.IsAndroidVersionAtLeast(33))
-            {
-                if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(
-                    context,
-                    global::Android.Manifest.Permission.PostNotifications) != global::Android.Content.PM.Permission.Granted)
-                {
-                    return;
-                }
-            }
-
-            var piFlags = OperatingSystem.IsAndroidVersionAtLeast(23)
-                ? PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable
-                : PendingIntentFlags.UpdateCurrent;
-
-            var openAppIntent = new Intent(context, typeof(MainActivity));
-            openAppIntent.AddFlags(ActivityFlags.NewTask | ActivityFlags.ClearTop | ActivityFlags.SingleTop);
-            var openAppPending = PendingIntent.GetActivity(context, 8800, openAppIntent, piFlags);
-
-            var bitacoraIntent = QuickControlLauncher.BuildMainActivityIntent(context, "bitacora");
-            var bitacoraPending = PendingIntent.GetActivity(context, 8801, bitacoraIntent, piFlags);
-
-            var facturaIntent = QuickControlLauncher.BuildMainActivityIntent(context, "factura");
-            var facturaPending = PendingIntent.GetActivity(context, 8802, facturaIntent, piFlags);
-
-            var smallIconRes = context.ApplicationInfo?.Icon ?? global::Android.Resource.Drawable.IcMenuEdit;
-
-            var builder = new NotificationCompat.Builder(context, ChannelId)
-                .SetSmallIcon(smallIconRes)
-                .SetContentTitle("ReciminsaApp • Centro de Control")
-                .SetContentText("Accesos rápidos: Bitácora de Recogida y Nueva Factura")
-                .SetContentIntent(openAppPending)
-                .SetOngoing(true)
-                .SetOnlyAlertOnce(true)
-                .SetPriority(NotificationCompat.PriorityLow)
-                .SetVisibility(NotificationCompat.VisibilityPublic)
-                .AddAction(0, "🚛 Bitácora Recogida", bitacoraPending)
-                .AddAction(0, "🧾 Nueva Factura", facturaPending);
-
-            NotificationManagerCompat.From(context).Notify(NotificationId, builder.Build());
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error showing control center notification panel: {ex.Message}");
-        }
+        catch { }
     }
 
     public static string RequestAddQuickTile(Context context, string toolType)
     {
-        ShowControlCenterPanel(context);
+        bool isFactura = string.Equals(toolType, "factura", StringComparison.OrdinalIgnoreCase);
+        string label = isFactura ? "Nueva Factura" : "Bitácora Recogida";
 
         if (OperatingSystem.IsAndroidVersionAtLeast(33))
         {
-            try
+            MainThread.BeginInvokeOnMainThread(() =>
             {
-                var sbm = context.GetSystemService(Context.StatusBarService) as StatusBarManager;
-                if (sbm != null)
+                try
                 {
-                    bool isFactura = string.Equals(toolType, "factura", StringComparison.OrdinalIgnoreCase);
-                    var className = isFactura
+                    Context activeCtx = Platform.CurrentActivity ?? context;
+                    var sbm = activeCtx.GetSystemService(Context.StatusBarService) as StatusBarManager;
+                    if (sbm == null) return;
+
+                    string className = isFactura
                         ? "com.companyname.reciminsaapp.FacturaControlTileService"
                         : "com.companyname.reciminsaapp.BitacoraControlTileService";
-                    var component = new ComponentName(context.PackageName ?? "com.companyname.reciminsaapp", className);
-                    var label = isFactura ? "Nueva Factura" : "Bitácora Recogida";
-                    var iconRes = context.ApplicationInfo?.Icon ?? global::Android.Resource.Drawable.IcMenuAdd;
-                    var icon = Icon.CreateWithResource(context, iconRes);
-                    var executor = context.MainExecutor;
+                    string pkg = activeCtx.PackageName ?? "com.companyname.reciminsaapp";
+                    var component = new ComponentName(pkg, className);
+                    int iconRes = isFactura ? Resource.Drawable.ic_qs_factura : Resource.Drawable.ic_qs_bitacora;
+                    var icon = Icon.CreateWithResource(activeCtx, iconRes);
+                    var executor = activeCtx.MainExecutor;
+
                     if (executor != null)
                     {
                         sbm.RequestAddTileService(
@@ -217,25 +206,57 @@ public static class ControlCenterNotificationHelper
                             label,
                             icon,
                             executor,
-                            new TileRequestCallback());
-                        return $"📲 Solicitud enviada para fijar '{label}' al Centro de Control Android.";
+                            new TileRequestCallback(activeCtx, label));
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error calling RequestAddTileService: {ex.Message}");
-            }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error calling RequestAddTileService: {ex.Message}");
+                }
+            });
+
+            return $"📲 Confirma en el aviso de Android para agregar '{label}' a tu Centro de Control (junto a Wi-Fi, Bluetooth y Linterna).";
         }
 
-        return "📲 Panel rápido activado en tu barra de notificaciones Android (ReciminsaApp).";
+        return $"📲 Abre el Centro de Control de tu celular (donde están Wi-Fi, Bluetooth y Linterna), toca Editar (✏️) y arrastra '{label}'.";
     }
 
     private sealed class TileRequestCallback : Java.Lang.Object, Java.Util.Functions.IConsumer
     {
-        public void Accept(Java.Lang.Object? t)
+        private readonly Context _context;
+        private readonly string _label;
+
+        public TileRequestCallback(Context context, string label)
         {
-            // Resultado entregado de forma asíncrona por Android StatusBarManager
+            _context = context;
+            _label = label;
+        }
+
+        public void Accept(Java.Lang.Object? resultObj)
+        {
+            try
+            {
+                int code = (resultObj as Java.Lang.Integer)?.IntValue() ?? -1;
+                // 2 = TILE_ADDED, 1 = TILE_ALREADY_ADDED
+                string? msg = code switch
+                {
+                    2 => $"✅ '{_label}' agregado al Centro de Control del celular.",
+                    1 => $"ℹ️ '{_label}' ya está en tu Centro de Control.",
+                    _ => null
+                };
+                if (!string.IsNullOrEmpty(msg))
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        try
+                        {
+                            Toast.MakeText(_context, msg, ToastLength.Long)?.Show();
+                        }
+                        catch { }
+                    });
+                }
+            }
+            catch { }
         }
     }
 }

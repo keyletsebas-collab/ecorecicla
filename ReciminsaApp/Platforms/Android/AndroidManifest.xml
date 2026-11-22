@@ -10,6 +10,34 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/microsoft_maui_essentials_fileprovider_file_paths" />
         </provider>
+
+        <service
+            android:name="com.companyname.reciminsaapp.BitacoraControlTileService"
+            android:label="Bitácora Recogida"
+            android:icon="@drawable/ic_qs_bitacora"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="false" />
+        </service>
+
+        <service
+            android:name="com.companyname.reciminsaapp.FacturaControlTileService"
+            android:label="Nueva Factura"
+            android:icon="@drawable/ic_qs_factura"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="false" />
+        </service>
     </application>
     <queries>
         <package android:name="com.whatsapp" />

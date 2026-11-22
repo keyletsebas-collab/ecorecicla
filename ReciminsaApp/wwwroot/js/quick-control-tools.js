@@ -115,11 +115,16 @@
     };
 
     const nativePinBanner = _qctIsNativeAndroid()
-      ? `<button type="button" onclick="window.requestAndroidControlCenterTiles('${safeMode}')" style="background:rgba(59,130,246,0.16); color:#93c5fd; border:1px solid rgba(59,130,246,0.35); border-radius:8px; padding:6px 12px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-           📲 Fijar botones en Centro de Control Android
-         </button>`
+      ? `<div style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+           <button type="button" onclick="window.requestAndroidControlCenterTiles('bitacora')" style="background:rgba(59,130,246,0.16); color:#93c5fd; border:1px solid rgba(59,130,246,0.35); border-radius:8px; padding:6px 10px; font-size:0.76rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Agrega el botón Bitácora junto al Bluetooth, Wi-Fi y Linterna">
+             📲 + Botón Bitácora en Centro de Control
+           </button>
+           <button type="button" onclick="window.requestAndroidControlCenterTiles('factura')" style="background:rgba(34,197,94,0.16); color:#86efac; border:1px solid rgba(34,197,94,0.35); border-radius:8px; padding:6px 10px; font-size:0.76rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Agrega el botón Nueva Factura junto al Bluetooth, Wi-Fi y Linterna">
+             📲 + Botón Factura en Centro de Control
+           </button>
+         </div>`
       : `<span style="font-size:0.76rem; color:var(--clr-text-muted); padding:4px 8px; border:1px solid rgba(34,197,94,0.2); border-radius:8px;">
-           ⚡ Acceso directo de Centro de Control
+           ⚡ Botones rápidos del Centro de Control (junto a Wi-Fi, Bluetooth y Linterna)
          </span>`;
 
     modal.innerHTML = `
