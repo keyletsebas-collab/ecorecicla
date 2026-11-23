@@ -56,7 +56,8 @@ def build_js_bundle() -> Path:
         "docs": compact_docs,
     }
 
-    neo_d_model = int(neo_int8["tok_emb.weight"]["shape"][1])
+    neo_e_emb = int(neo_int8["tok_emb.weight"]["shape"][1])
+    neo_d_model = int(neo_int8["pos_emb.weight"]["shape"][1])
     neo_ffn_dim = int(neo_int8["blocks.0.ffn1.weight"]["shape"][0])
     neo_n_layers = len([k for k in neo_int8.keys() if k.endswith(".ln1.weight")])
     neo_emb_dim = int(neo_int8["embed_head.weight"]["shape"][0])
@@ -67,9 +68,10 @@ def build_js_bundle() -> Path:
     data_blob = {
         "word_to_id": vocab["word_to_id"],
         "max_seq_len": vocab["max_seq_len"],
-        "oov_bucket_start": vocab.get("oov_bucket_start", 1872),
-        "oov_num_buckets": vocab.get("oov_num_buckets", 128),
+        "oov_bucket_start": vocab.get("oov_bucket_start", 11808),
+        "oov_num_buckets": vocab.get("oov_num_buckets", 8192),
         "neo_dims": {
+            "e_emb": neo_e_emb,
             "d_model": neo_d_model,
             "n_heads": 4,
             "head_dim": neo_d_model // 4,
@@ -158,8 +160,8 @@ def build_js_bundle() -> Path:
   function encodeQuery(text) {{
     const T = DATA.max_seq_len || 32;
     const w2i = DATA.word_to_id;
-    const oovStart = DATA.oov_bucket_start || 1872;
-    const oovMask = Math.max(1, (DATA.oov_num_buckets || 128) - 1);
+    const oovStart = DATA.oov_bucket_start || 11808;
+    const oovMask = Math.max(1, (DATA.oov_num_buckets || 8192) - 1);
     const clean = normalizeAscii(text);
     const tokens = clean ? clean.split(/\\s+/) : [];
     const ids = new Int32Array(T);
@@ -318,19 +320,31 @@ def build_js_bundle() -> Path:
     const {{ ids, mask, tokens }} = encodeQuery(text);
     const nd = DATA.neo_dims || {{}};
     const T = DATA.max_seq_len || 32;
+    const E = nd.e_emb || 14;
     const D = nd.d_model || 112;
     const H = nd.n_heads || 4;
     const HD = nd.head_dim || Math.floor(D / H);
-    const F = nd.ffn_dim || 224;
+    const F = nd.ffn_dim || 220;
     const LN = nd.n_layers || 2;
     const ED = nd.emb_dim || 64;
 
     const x = new Float32Array(T * D);
     const tokEmb = dec['tok_emb.weight'];
+    const tokProj = dec['tok_proj.weight'];
     const posEmb = dec['pos_emb.weight'];
     for (let t = 0; t < T; t++) {{
       const tid = ids[t];
-      for (let d = 0; d < D; d++) x[t * D + d] = tokEmb[tid * D + d] + posEmb[t * D + d];
+      if (tokProj) {{
+        const eOff = tid * E;
+        for (let d = 0; d < D; d++) {{
+          const pOff = d * E;
+          let acc = 0;
+          for (let e = 0; e < E; e++) acc += tokEmb[eOff + e] * tokProj[pOff + e];
+          x[t * D + d] = acc + posEmb[t * D + d];
+        }}
+      }} else {{
+        for (let d = 0; d < D; d++) x[t * D + d] = tokEmb[tid * D + d] + posEmb[t * D + d];
+      }}
     }}
 
     const invSqrt = 1.0 / Math.sqrt(HD);
@@ -432,9 +446,9 @@ def build_js_bundle() -> Path:
     const dec = getFlashWeights();
     const {{ ids, activeLen, tokens }} = encodeQuery(text);
     const fd = DATA.flash_dims || {{}};
-    const D = fd.d_emb || 48;
+    const D = fd.d_emb || 8;
     const F = D * 2;
-    const H = fd.hidden_dim || 72;
+    const H = fd.hidden_dim || 88;
     const ED = fd.emb_dim || 64;
     const tokEmb = dec['tok_emb.weight'];
     const feat = new Float32Array(F);

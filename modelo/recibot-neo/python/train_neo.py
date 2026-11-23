@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import os
 
-os.environ.setdefault("OMP_NUM_THREADS", "4")
-os.environ.setdefault("MKL_NUM_THREADS", "4")
+os.environ.setdefault("OMP_NUM_THREADS", "2")
+os.environ.setdefault("MKL_NUM_THREADS", "2")
 
+import argparse
 import base64
 import csv
+import gc
 import json
 import math
 import struct
@@ -31,7 +33,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
-torch.set_num_threads(4)
+torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "2")))
 
 NEO_DIR = Path(__file__).resolve().parent.parent
 SHARED_DIR = NEO_DIR.parent / "shared"
@@ -59,11 +61,12 @@ from reciminsa_dataset import (  # noqa: E402
 )
 from rag_engine import evaluate_rag_with_embeddings, export_rag_index  # noqa: E402
 
+E_EMB = 14
 D_MODEL = 112
 N_HEADS = 4
 HEAD_DIM = 28
 N_LAYERS = 2
-FFN_DIM = 224
+FFN_DIM = 220
 EMB_DIM = 64
 LORA_RANK = 8
 LORA_ALPHA = 16.0
@@ -148,31 +151,36 @@ class TransformerBlock(nn.Module):
 class ReciBotNeoGPT(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.tok_emb = nn.Embedding(VOCAB_SIZE, D_MODEL)
+        self.tok_emb = nn.Embedding(VOCAB_SIZE, E_EMB)
+        self.tok_proj = nn.Linear(E_EMB, D_MODEL, bias=False)
         self.pos_emb = nn.Embedding(MAX_SEQ_LEN, D_MODEL)
         self.emb_drop = nn.Dropout(0.1)
         self.blocks = nn.ModuleList([TransformerBlock() for _ in range(N_LAYERS)])
         self.norm_out = nn.LayerNorm(D_MODEL, eps=1e-5)
 
-        # Pretraining LM head (Stage 1 only)
-        self.lm_head = nn.Linear(D_MODEL, VOCAB_SIZE, bias=False)
-        # Task heads (Stage 2 & 3 + inference)
+        # Task heads (inference + Stage 2 & 3; Stage 1 uses factorized tied weights tok_proj/tok_emb)
         self.intent_head = nn.Linear(D_MODEL, NUM_INTENTS)
         self.tool_head = nn.Linear(D_MODEL, NUM_TOOLS)
         self.depth_head = nn.Linear(D_MODEL, NUM_DEPTHS)
         self.embed_head = nn.Linear(D_MODEL, EMB_DIM)
 
+        nn.init.normal_(self.tok_emb.weight, mean=0.0, std=0.05)
+        nn.init.xavier_uniform_(self.tok_proj.weight)
+        nn.init.normal_(self.pos_emb.weight, mean=0.0, std=0.05)
+
     def encode_sequence(self, token_ids: torch.Tensor, attn_mask: torch.Tensor, causal: bool = False) -> torch.Tensor:
         B, T = token_ids.shape
         pos = torch.arange(T, device=token_ids.device).unsqueeze(0).expand(B, T)
-        x = self.emb_drop(self.tok_emb(token_ids) + self.pos_emb(pos))
+        tok_e = self.tok_proj(self.tok_emb(token_ids))
+        x = self.emb_drop(tok_e + self.pos_emb(pos))
         for block in self.blocks:
             x = block(x, attn_mask, causal=causal)
         return self.norm_out(x)
 
     def forward_lm(self, token_ids: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
         h = self.encode_sequence(token_ids, attn_mask, causal=True)
-        return self.lm_head(h)
+        h_e = F.linear(h, self.tok_proj.weight.t()) / math.sqrt(D_MODEL)  # [B, T, E_EMB]
+        return F.linear(h_e, self.tok_emb.weight)                         # [B, T, VOCAB_SIZE]
 
     def forward_tasks(self, token_ids: torch.Tensor, attn_mask: torch.Tensor):
         h = self.encode_sequence(token_ids, attn_mask, causal=False)
@@ -186,14 +194,19 @@ class ReciBotNeoGPT(nn.Module):
         return intent_logits, tool_logits, depth_logits, emb
 
     def apply_lora_adapters(self) -> Tuple[int, int]:
-        # Attach Rank-8 LoRA adapters across Attention (wq/wv/wo), FFN, and unfreeze tok_emb with weight decay
+        # Attach Rank-8 LoRA adapters across Attention (wq/wk/wv/wo), FFN, and unfreeze factorized embeddings
         # so domain words absent from small Stage-1 corpus align cleanly with Transformer heads.
         for p in self.parameters():
             p.requires_grad = False
         for p in self.tok_emb.parameters():
             p.requires_grad = True
+        for p in self.tok_proj.parameters():
+            p.requires_grad = True
+        for p in self.pos_emb.parameters():
+            p.requires_grad = True
         for blk in self.blocks:
             blk.attn.wq = LoRALinear(blk.attn.wq)
+            blk.attn.wk = LoRALinear(blk.attn.wk)
             blk.attn.wv = LoRALinear(blk.attn.wv)
             blk.attn.wo = LoRALinear(blk.attn.wo)
             blk.ffn1 = LoRALinear(blk.ffn1)
@@ -216,6 +229,8 @@ class ReciBotNeoGPT(nn.Module):
         for blk in self.blocks:
             if isinstance(blk.attn.wq, LoRALinear):
                 blk.attn.wq = blk.attn.wq.merge_to_linear()
+            if isinstance(blk.attn.wk, LoRALinear):
+                blk.attn.wk = blk.attn.wk.merge_to_linear()
             if isinstance(blk.attn.wv, LoRALinear):
                 blk.attn.wv = blk.attn.wv.merge_to_linear()
             if isinstance(blk.attn.wo, LoRALinear):
@@ -269,6 +284,7 @@ def macro_f1_multilabel(probs: np.ndarray, targets: np.ndarray, threshold: float
 def extract_ordered_tensors(model: ReciBotNeoGPT) -> List[Tuple[str, np.ndarray]]:
     tensors: List[Tuple[str, np.ndarray]] = [
         ("tok_emb.weight", model.tok_emb.weight.detach().cpu().numpy().astype(np.float32)),
+        ("tok_proj.weight", model.tok_proj.weight.detach().cpu().numpy().astype(np.float32)),
         ("pos_emb.weight", model.pos_emb.weight.detach().cpu().numpy().astype(np.float32)),
     ]
     for l_idx, blk in enumerate(model.blocks):
@@ -331,7 +347,7 @@ def verify_int8_parity(
         k = math.sqrt(2.0 / math.pi)
         return 0.5 * x * (1.0 + np.tanh(k * (x + 0.044715 * (x ** 3))))
 
-    tok_e = deq("tok_emb.weight")[ids_va]
+    tok_e = deq("tok_emb.weight")[ids_va] @ deq("tok_proj.weight").T
     pos_e = deq("pos_emb.weight")[None, :MAX_SEQ_LEN, :]
     x = tok_e + pos_e
     B, T, C = x.shape
@@ -361,33 +377,55 @@ def verify_int8_parity(
     return float(np.mean(np.argmax(logits, axis=-1) == yi_va))
 
 
-def train_neo() -> None:
-    t0 = time.perf_counter()
-    torch.manual_seed(42)
-    np.random.seed(42)
+def _run_sft_epoch(
+    model: ReciBotNeoGPT,
+    task_loader: DataLoader,
+    task_opt: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler,
+    class_protos: nn.Parameter,
+    lora_params: List[torch.Tensor],
+    ids_va: torch.Tensor,
+    msk_va: torch.Tensor,
+    yi_va: torch.Tensor,
+    best_val_acc: float,
+    best_state: Dict[str, torch.Tensor] | None,
+) -> Tuple[float, Dict[str, torch.Tensor] | None]:
+    model.train()
+    for b_ids, b_msk, b_yi, b_yt, b_yd in task_loader:
+        task_opt.zero_grad()
+        li, lt, ld, emb = model.forward_tasks(b_ids, b_msk)
+        proto_norm = F.normalize(class_protos, dim=-1)
+        rag_logits = 12.0 * (emb @ proto_norm.T)
+        loss = (
+            F.cross_entropy(li, b_yi, label_smoothing=0.05)
+            + 0.55 * F.binary_cross_entropy_with_logits(lt, b_yt)
+            + 0.35 * F.cross_entropy(ld, b_yd)
+            + 0.45 * F.cross_entropy(rag_logits, b_yi)
+        )
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(lora_params, 1.0)
+        task_opt.step()
+    scheduler.step()
 
-    export_shared_metadata(SHARED_DIR)
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    _, word_to_id = build_domain_vocab()
+    model.eval()
+    with torch.no_grad():
+        v_li, _, _, _ = model.forward_tasks(ids_va, msk_va)
+        v_acc = float((torch.argmax(v_li, dim=-1) == yi_va).float().mean().item())
+        if v_acc >= best_val_acc:
+            best_val_acc = v_acc
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+    return best_val_acc, best_state
 
-    train_s, val_s, _ = generate_dataset(seed=42, target_per_intent=104)
-    ids_tr, msk_tr, yi_tr, yt_tr, yd_tr = build_task_tensors(train_s, word_to_id)
-    ids_va, msk_va, yi_va, yt_va, yd_va = build_task_tensors(val_s, word_to_id)
 
-    pretrain_sents = get_pretraining_sentences()
-    pre_ids, pre_msk = encode_batch(pretrain_sents, word_to_id)
-
-    model = ReciBotNeoGPT()
-
-    # =========================================================
-    # STAGE 1: GPT-Style Causal Next-Token Pretraining
-    # =========================================================
-    pre_loader = DataLoader(TensorDataset(pre_ids, pre_msk), batch_size=64, shuffle=True)
-    pre_opt = torch.optim.AdamW(model.parameters(), lr=4e-3, weight_decay=1e-2)
-    pre_epochs = 15
+def _run_pretrain_epochs(
+    model: ReciBotNeoGPT,
+    pre_loader: DataLoader,
+    pre_opt: torch.optim.Optimizer,
+    n_epochs: int,
+) -> float:
     last_lm_loss = 0.0
     model.train()
-    for _epoch in range(pre_epochs):
+    for _epoch in range(n_epochs):
         total_loss = 0.0
         steps = 0
         for b_ids, b_msk in pre_loader:
@@ -400,65 +438,227 @@ def train_neo() -> None:
             pre_opt.step()
             total_loss += float(loss.item())
             steps += 1
+            del logits, targets, loss
         last_lm_loss = total_loss / max(1, steps)
-    pretrain_ppl = float(math.exp(min(10.0, last_lm_loss)))
+        gc.collect()
+    return last_lm_loss
 
-    # =========================================================
-    # STAGE 2: LoRA Rank-8 Fine-Tuning + Multi-Task + RAG Embeddings
-    # =========================================================
-    trainable_lora_params, total_with_lora = model.apply_lora_adapters()
-    class_protos = nn.Parameter(torch.randn(NUM_INTENTS, EMB_DIM) * 0.05)
 
-    lora_params = [p for p in model.parameters() if p.requires_grad] + [class_protos]
-    task_opt = torch.optim.AdamW(lora_params, lr=6e-3, weight_decay=2e-2)
-    sft_epochs = 32
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(task_opt, T_max=sft_epochs)
-    task_loader = DataLoader(TensorDataset(ids_tr, msk_tr, yi_tr, yt_tr, yd_tr), batch_size=128, shuffle=True)
+def _build_pretrain_opt(model: ReciBotNeoGPT) -> torch.optim.Optimizer:
+    emb_keys = ("tok_emb", "tok_proj", "pos_emb")
+    fast_p = [p for n, p in model.named_parameters() if any(k in n for k in emb_keys)]
+    fast_ids = {id(p) for p in fast_p}
+    reg_p = [p for p in model.parameters() if id(p) not in fast_ids]
+    return torch.optim.AdamW([
+        {"params": fast_p, "lr": 1e-2, "weight_decay": 0.0},
+        {"params": reg_p, "lr": 4e-3, "weight_decay": 1e-2},
+    ])
 
-    best_state = None
-    best_val_acc = -1.0
 
-    for _epoch in range(sft_epochs):
-        model.train()
-        for b_ids, b_msk, b_yi, b_yt, b_yd in task_loader:
-            task_opt.zero_grad()
-            li, lt, ld, emb = model.forward_tasks(b_ids, b_msk)
-            proto_norm = F.normalize(class_protos, dim=-1)
-            rag_logits = 12.0 * (emb @ proto_norm.T)
-            loss = (
-                F.cross_entropy(li, b_yi, label_smoothing=0.05)
-                + 0.55 * F.binary_cross_entropy_with_logits(lt, b_yt)
-                + 0.35 * F.cross_entropy(ld, b_yd)
-                + 0.45 * F.cross_entropy(rag_logits, b_yi)
+def _build_sft_opt(model: ReciBotNeoGPT, class_protos: nn.Parameter) -> Tuple[torch.optim.Optimizer, List[torch.Tensor]]:
+    fast_keys = ("tok_emb", "tok_proj", "pos_emb", "ln1", "ln2", "norm_out")
+    fast_p = [
+        p for n, p in model.named_parameters()
+        if p.requires_grad and (any(k in n for k in fast_keys) or n.endswith(".bias"))
+    ] + [class_protos]
+    fast_ids = {id(p) for p in fast_p}
+    reg_p = [p for p in model.parameters() if p.requires_grad and id(p) not in fast_ids]
+    opt = torch.optim.AdamW([
+        {"params": fast_p, "lr": 1.2e-2, "weight_decay": 0.0},
+        {"params": reg_p, "lr": 6e-3, "weight_decay": 1e-2},
+    ])
+    return opt, fast_p + reg_p
+
+
+def _build_dpo_opt(model: ReciBotNeoGPT) -> torch.optim.Optimizer:
+    fast_keys = ("tok_emb", "tok_proj", "pos_emb", "ln1", "ln2", "norm_out")
+    fast_p = [
+        p for n, p in model.named_parameters()
+        if p.requires_grad and (any(k in n for k in fast_keys) or n.endswith(".bias"))
+    ]
+    fast_ids = {id(p) for p in fast_p}
+    reg_p = [p for p in model.parameters() if p.requires_grad and id(p) not in fast_ids]
+    return torch.optim.AdamW([
+        {"params": fast_p, "lr": 6e-4, "weight_decay": 0.0},
+        {"params": reg_p, "lr": 6e-4, "weight_decay": 2e-3},
+    ])
+
+
+def train_neo(stage: str = "all", ckpt_dir: str = "/tmp/recibot_v5_ckpt") -> None:
+    t0 = time.perf_counter()
+    torch.manual_seed(42)
+    np.random.seed(42)
+
+    ckpt_root = Path(ckpt_dir)
+    ckpt_root.mkdir(parents=True, exist_ok=True)
+    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    pre_epochs_1, pre_epochs_2 = 8, 7
+    sft_epochs_total, sft_half = 40, 20
+    dpo_epochs = 10
+
+    if stage in ("all", "pretrain_1"):
+        export_shared_metadata(SHARED_DIR)
+        _, word_to_id = build_domain_vocab()
+        pretrain_sents = get_pretraining_sentences()
+        pre_ids, pre_msk = encode_batch(pretrain_sents, word_to_id)
+        model = ReciBotNeoGPT()
+        pre_loader = DataLoader(TensorDataset(pre_ids, pre_msk), batch_size=16, shuffle=True)
+        pre_opt = _build_pretrain_opt(model)
+        last_lm_loss = _run_pretrain_epochs(model, pre_loader, pre_opt, pre_epochs_1)
+        stage_sec = time.perf_counter() - t0
+        torch.save({
+            "model_state": model.state_dict(),
+            "opt_state": pre_opt.state_dict(),
+            "last_lm_loss": float(last_lm_loss),
+            "elapsed_s": float(stage_sec),
+        }, ckpt_root / "neo_stage1a.pt")
+        print(f"NEO_STAGE_COMPLETE: pretrain_1 epochs={pre_epochs_1} lm_loss={last_lm_loss:.4f} elapsed={stage_sec:.2f}s")
+        del model, pre_opt, pre_loader, pre_ids, pre_msk
+        gc.collect()
+        if stage != "all":
+            return
+
+    if stage in ("all", "pretrain_2"):
+        t_s = time.perf_counter()
+        _, word_to_id = build_domain_vocab()
+        pretrain_sents = get_pretraining_sentences()
+        pre_ids, pre_msk = encode_batch(pretrain_sents, word_to_id)
+        ckpt = torch.load(ckpt_root / "neo_stage1a.pt", map_location="cpu", weights_only=False)
+        model = ReciBotNeoGPT()
+        model.load_state_dict(ckpt["model_state"])
+        pre_loader = DataLoader(TensorDataset(pre_ids, pre_msk), batch_size=16, shuffle=True)
+        pre_opt = _build_pretrain_opt(model)
+        pre_opt.load_state_dict(ckpt["opt_state"])
+        last_lm_loss = _run_pretrain_epochs(model, pre_loader, pre_opt, pre_epochs_2)
+        pretrain_ppl = float(math.exp(min(10.0, last_lm_loss)))
+        cum_elapsed = float(ckpt["elapsed_s"]) + (time.perf_counter() - t_s)
+        torch.save({
+            "model_state": model.state_dict(),
+            "pretrain_ppl": pretrain_ppl,
+            "elapsed_s": float(cum_elapsed),
+        }, ckpt_root / "neo_stage1b.pt")
+        print(f"NEO_STAGE_COMPLETE: pretrain_2 epochs={pre_epochs_2} ppl={pretrain_ppl:.2f} cum_elapsed={cum_elapsed:.2f}s")
+        del model, pre_opt, pre_loader, pre_ids, pre_msk, ckpt
+        gc.collect()
+        if stage != "all":
+            return
+
+    if stage in ("all", "sft_1"):
+        t_s = time.perf_counter()
+        _, word_to_id = build_domain_vocab()
+        train_s, val_s, _ = generate_dataset(seed=42, target_per_intent=120)
+        ids_tr, msk_tr, yi_tr, yt_tr, yd_tr = build_task_tensors(train_s, word_to_id)
+        ids_va, msk_va, yi_va, _, _ = build_task_tensors(val_s, word_to_id)
+
+        ckpt = torch.load(ckpt_root / "neo_stage1b.pt", map_location="cpu", weights_only=False)
+        model = ReciBotNeoGPT()
+        model.load_state_dict(ckpt["model_state"])
+        trainable_lora_params, total_with_lora = model.apply_lora_adapters()
+        class_protos = nn.Parameter(torch.randn(NUM_INTENTS, EMB_DIM) * 0.05)
+        task_opt, lora_params = _build_sft_opt(model, class_protos)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(task_opt, T_max=sft_epochs_total, eta_min=2e-4)
+        task_loader = DataLoader(TensorDataset(ids_tr, msk_tr, yi_tr, yt_tr, yd_tr), batch_size=64, shuffle=True)
+
+        best_val_acc, best_state = -1.0, None
+        for _epoch in range(sft_half):
+            best_val_acc, best_state = _run_sft_epoch(
+                model, task_loader, task_opt, scheduler, class_protos, lora_params,
+                ids_va, msk_va, yi_va, best_val_acc, best_state,
             )
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(lora_params, 1.0)
-            task_opt.step()
-        scheduler.step()
+            gc.collect()
 
-        model.eval()
-        with torch.no_grad():
-            v_li, _, _, _ = model.forward_tasks(ids_va, msk_va)
-            v_acc = float((torch.argmax(v_li, dim=-1) == yi_va).float().mean().item())
-            if v_acc >= best_val_acc:
-                best_val_acc = v_acc
-                best_state = {k: v.clone() for k, v in model.state_dict().items()}
+        cum_elapsed = float(ckpt["elapsed_s"]) + (time.perf_counter() - t_s)
+        torch.save({
+            "model_state": model.state_dict(),
+            "class_protos": class_protos.detach().cpu(),
+            "opt_state": task_opt.state_dict(),
+            "sched_state": scheduler.state_dict(),
+            "best_val_acc": float(best_val_acc),
+            "best_state": best_state,
+            "trainable_lora_params": int(trainable_lora_params),
+            "total_with_lora": int(total_with_lora),
+            "pretrain_ppl": float(ckpt["pretrain_ppl"]),
+            "elapsed_s": float(cum_elapsed),
+        }, ckpt_root / "neo_stage2a.pt")
+        print(f"NEO_STAGE_COMPLETE: sft_1 epochs={sft_half}/{sft_epochs_total} best_val_acc={best_val_acc:.4f} cum_elapsed={cum_elapsed:.2f}s")
+        del model, task_opt, scheduler, task_loader, ids_tr, msk_tr, ids_va, msk_va, ckpt
+        gc.collect()
+        if stage != "all":
+            return
 
-    if best_state is not None:
-        model.load_state_dict(best_state)
+    if stage in ("all", "sft_2"):
+        t_s = time.perf_counter()
+        _, word_to_id = build_domain_vocab()
+        train_s, val_s, _ = generate_dataset(seed=42, target_per_intent=120)
+        ids_tr, msk_tr, yi_tr, yt_tr, yd_tr = build_task_tensors(train_s, word_to_id)
+        ids_va, msk_va, yi_va, _, _ = build_task_tensors(val_s, word_to_id)
 
-    # =========================================================
-    # STAGE 3: DPO-Style Preference Margin Alignment
-    # =========================================================
+        ckpt = torch.load(ckpt_root / "neo_stage2a.pt", map_location="cpu", weights_only=False)
+        model = ReciBotNeoGPT()
+        model.apply_lora_adapters()
+        model.load_state_dict(ckpt["model_state"])
+        class_protos = nn.Parameter(ckpt["class_protos"].clone())
+        task_opt, lora_params = _build_sft_opt(model, class_protos)
+        task_opt.load_state_dict(ckpt["opt_state"])
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(task_opt, T_max=sft_epochs_total, eta_min=2e-4)
+        scheduler.load_state_dict(ckpt["sched_state"])
+        task_loader = DataLoader(TensorDataset(ids_tr, msk_tr, yi_tr, yt_tr, yd_tr), batch_size=64, shuffle=True)
+
+        best_val_acc = float(ckpt["best_val_acc"])
+        best_state = ckpt["best_state"]
+        for _epoch in range(sft_half, sft_epochs_total):
+            best_val_acc, best_state = _run_sft_epoch(
+                model, task_loader, task_opt, scheduler, class_protos, lora_params,
+                ids_va, msk_va, yi_va, best_val_acc, best_state,
+            )
+            gc.collect()
+
+        if best_state is not None:
+            model.load_state_dict(best_state)
+        cum_elapsed = float(ckpt["elapsed_s"]) + (time.perf_counter() - t_s)
+        torch.save({
+            "model_state": model.state_dict(),
+            "trainable_lora_params": int(ckpt["trainable_lora_params"]),
+            "total_with_lora": int(ckpt["total_with_lora"]),
+            "pretrain_ppl": float(ckpt["pretrain_ppl"]),
+            "best_val_acc": float(best_val_acc),
+            "elapsed_s": float(cum_elapsed),
+        }, ckpt_root / "neo_stage2b.pt")
+        print(f"NEO_STAGE_COMPLETE: sft_2 epochs={sft_epochs_total}/{sft_epochs_total} best_val_acc={best_val_acc:.4f} cum_elapsed={cum_elapsed:.2f}s")
+        del model, task_opt, scheduler, task_loader, ids_tr, msk_tr, ids_va, msk_va, ckpt
+        gc.collect()
+        if stage != "all":
+            return
+
+    # Final stage: dpo_export
+    t_s = time.perf_counter()
+    _, word_to_id = build_domain_vocab()
+    train_s, val_s, _ = generate_dataset(seed=42, target_per_intent=120)
+    ids_tr, msk_tr, yi_tr, yt_tr, yd_tr = build_task_tensors(train_s, word_to_id)
+    ids_va, msk_va, yi_va, yt_va, yd_va = build_task_tensors(val_s, word_to_id)
+
+    ckpt = torch.load(ckpt_root / "neo_stage2b.pt", map_location="cpu", weights_only=False)
+    model = ReciBotNeoGPT()
+    model.apply_lora_adapters()
+    model.load_state_dict(ckpt["model_state"])
+    trainable_lora_params = int(ckpt["trainable_lora_params"])
+    total_with_lora = int(ckpt["total_with_lora"])
+    pretrain_ppl = float(ckpt["pretrain_ppl"])
+    sft_val_acc = float(ckpt["best_val_acc"])
+    prev_elapsed = float(ckpt["elapsed_s"])
+
+    # STAGE 3: Guarded DPO-Style Preference Margin Alignment
     dpo_texts = [p[0] for p in DPO_PREFERENCE_PAIRS]
     dpo_chosen = torch.tensor([p[1] for p in DPO_PREFERENCE_PAIRS], dtype=torch.long)
     dpo_rejected = torch.tensor([p[2] for p in DPO_PREFERENCE_PAIRS], dtype=torch.long)
     dpo_ids, dpo_msk = encode_batch(dpo_texts, word_to_id)
 
-    dpo_opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1.5e-3, weight_decay=5e-3)
-    dpo_epochs = 12
+    dpo_opt = _build_dpo_opt(model)
     beta = 0.35
-    for _epoch in range(dpo_epochs):
+    best_dpo_val_acc = sft_val_acc
+    best_dpo_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+    for ep in range(dpo_epochs):
         model.train()
         dpo_opt.zero_grad()
         li_dpo, _, _, _ = model.forward_tasks(dpo_ids, dpo_msk)
@@ -467,24 +667,36 @@ def train_neo() -> None:
         rejected_lp = logp.gather(1, dpo_rejected.unsqueeze(1)).squeeze(1)
         dpo_loss = -F.logsigmoid(beta * (chosen_lp - rejected_lp)).mean()
 
-        # Rehearsal anchor on training sample slice to avoid forgetting
-        li_tr_anchor, lt_anchor, _, _ = model.forward_tasks(ids_tr[:256], msk_tr[:256])
-        anchor_loss = F.cross_entropy(li_tr_anchor, yi_tr[:256]) + 0.3 * F.binary_cross_entropy_with_logits(lt_anchor, yt_tr[:256])
+        start = (ep * 256) % max(1, len(ids_tr) - 256)
+        end = min(len(ids_tr), start + 256)
+        li_tr_anchor, lt_anchor, ld_anchor, _ = model.forward_tasks(ids_tr[start:end], msk_tr[start:end])
+        anchor_loss = (
+            F.cross_entropy(li_tr_anchor, yi_tr[start:end])
+            + 0.3 * F.binary_cross_entropy_with_logits(lt_anchor, yt_tr[start:end])
+            + 0.3 * F.cross_entropy(ld_anchor, yd_tr[start:end])
+        )
         total_dpo = dpo_loss + 0.65 * anchor_loss
         total_dpo.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         dpo_opt.step()
 
+        model.eval()
+        with torch.no_grad():
+            v_li_dpo, _, _, _ = model.forward_tasks(ids_va, msk_va)
+            cur_val_acc = float((torch.argmax(v_li_dpo, dim=-1) == yi_va).float().mean().item())
+            if cur_val_acc >= sft_val_acc - 0.002 and cur_val_acc >= best_dpo_val_acc - 0.001:
+                best_dpo_val_acc = max(best_dpo_val_acc, cur_val_acc)
+                best_dpo_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+
+    model.load_state_dict(best_dpo_state)
+
     # Merge LoRA adapters cleanly into dense weights before export
     model.merge_lora_adapters()
-    # Drop training-only LM head from parameter count calculation for runtime inference model
-    inference_param_count = (
-        sum(p.numel() for p in model.parameters()) - sum(p.numel() for p in model.lm_head.parameters())
-    )
+    inference_param_count = sum(p.numel() for p in model.parameters())
     model.eval()
 
     with torch.no_grad():
-        tr_li, tr_lt, tr_ld, _ = model.forward_tasks(ids_tr, msk_tr)
+        tr_li, _, _, _ = model.forward_tasks(ids_tr, msk_tr)
         va_li, va_lt, va_ld, va_emb = model.forward_tasks(ids_va, msk_va)
 
         kb_texts = [
@@ -506,7 +718,6 @@ def train_neo() -> None:
     val_tool_f1 = macro_f1_multilabel(va_tool_probs, yt_va.numpy())
     val_depth_acc = float(np.mean(va_depth_preds == yd_va.numpy()))
 
-    # Evaluate Hybrid RAG with trained Transformer embeddings
     rag_metrics = evaluate_rag_with_embeddings(
         doc_embeddings=kb_emb.numpy(),
         query_embeddings=va_emb.numpy(),
@@ -515,7 +726,6 @@ def train_neo() -> None:
     )
     export_rag_index(neo_doc_embeddings=kb_emb.numpy(), val_metrics=rag_metrics)
 
-    # Single-query latency benchmark in PyTorch CPU
     s_id = ids_va[:1]
     s_mk = msk_va[:1]
     lat_t0 = time.perf_counter()
@@ -524,11 +734,11 @@ def train_neo() -> None:
             model.forward_tasks(s_id, s_mk)
     py_latency_us = ((time.perf_counter() - lat_t0) / 300.0) * 1e6
 
-    # Save checkpoint (merged inference state + head architecture config)
     torch.save({
         "model_state": model.state_dict(),
         "vocab_size": VOCAB_SIZE,
         "max_seq_len": MAX_SEQ_LEN,
+        "e_emb": E_EMB,
         "d_model": D_MODEL,
         "n_heads": N_HEADS,
         "n_layers": N_LAYERS,
@@ -559,18 +769,17 @@ def train_neo() -> None:
     (ARTIFACTS_DIR / "weights_int8.json").write_text(json.dumps(int8_dict), encoding="utf-8")
     int8_val_acc = verify_int8_parity(int8_verify, ids_va.numpy(), msk_va.numpy(), yi_va.numpy())
 
-    # Binary weights for C++, Rust, Julia, Mojo ("RNE2")
+    # Binary weights for C++, Rust, Julia, Mojo ("RNE3" with E_EMB header field)
     with open(ARTIFACTS_DIR / "weights_neo.bin", "wb") as bf:
-        bf.write(b"RNE2")
+        bf.write(b"RNE3")
         bf.write(struct.pack(
-            "<11i",
-            2, VOCAB_SIZE, MAX_SEQ_LEN, D_MODEL, N_HEADS, N_LAYERS,
+            "<12i",
+            3, VOCAB_SIZE, MAX_SEQ_LEN, E_EMB, D_MODEL, N_HEADS, N_LAYERS,
             FFN_DIM, NUM_INTENTS, NUM_TOOLS, NUM_DEPTHS, EMB_DIM,
         ))
         for _, arr in ordered:
             bf.write(np.ascontiguousarray(arr.reshape(-1), dtype="<f4").tobytes())
 
-    # Predictions CSV for Scala and R scripts
     with open(ARTIFACTS_DIR / "eval_predictions.csv", "w", newline="", encoding="utf-8") as cf:
         writer = csv.writer(cf)
         writer.writerow([
@@ -591,21 +800,22 @@ def train_neo() -> None:
                 sample["text"],
             ])
 
-    elapsed_s = round(time.perf_counter() - t0, 3)
+    elapsed_s = round(prev_elapsed + (time.perf_counter() - t_s), 3)
     metrics = {
         "model": "recibot-neo",
         "role": "deep_reasoning_transformer_lora_dpo_rag",
-        "architecture": f"GPT-Transformer({N_LAYERS}L,{N_HEADS}H,d={D_MODEL},ffn={FFN_DIM})+LoRA(r={LORA_RANK})+DPO+RAG(d={EMB_DIM})",
+        "architecture": f"GPT-Factorized({VOCAB_SIZE}x{E_EMB}->{D_MODEL},{N_LAYERS}L,{N_HEADS}H,ffn={FFN_DIM})+LoRA(r={LORA_RANK})+DPO+RAG(d={EMB_DIM})",
         "vocab_size": VOCAB_SIZE,
         "max_seq_len": MAX_SEQ_LEN,
+        "e_emb": E_EMB,
         "inference_parameters": int(inference_param_count),
         "lora_trainable_parameters": int(trainable_lora_params),
         "total_params_with_lora": int(total_with_lora),
         "train_samples": len(train_s),
         "val_samples": len(val_s),
-        "pretrain_epochs": pre_epochs,
+        "pretrain_epochs": pre_epochs_1 + pre_epochs_2,
         "pretrain_perplexity": round(pretrain_ppl, 2),
-        "lora_sft_epochs": sft_epochs,
+        "lora_sft_epochs": sft_epochs_total,
         "dpo_epochs": dpo_epochs,
         "train_intent_acc": round(train_intent_acc, 4),
         "val_intent_acc": round(val_intent_acc, 4),
@@ -622,4 +832,8 @@ def train_neo() -> None:
 
 
 if __name__ == "__main__":
-    train_neo()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stage", choices=["pretrain_1", "pretrain_2", "sft_1", "sft_2", "dpo_export", "all"], default="all")
+    parser.add_argument("--ckpt-dir", default="/tmp/recibot_v5_ckpt")
+    args = parser.parse_args()
+    train_neo(stage=args.stage, ckpt_dir=args.ckpt_dir)
