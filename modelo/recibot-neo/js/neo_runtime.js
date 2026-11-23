@@ -25,8 +25,8 @@ function normalizeAscii(text) {
 
 function encodeText(text, vocab, maxSeqLen = 32) {
   const wordToId = vocab.word_to_id;
-  const oovStart = vocab.oov_bucket_start || 1872;
-  const oovMask = Math.max(1, (vocab.oov_num_buckets || 128) - 1);
+  const oovStart = vocab.oov_bucket_start || 11808;
+  const oovMask = Math.max(1, (vocab.oov_num_buckets || 8192) - 1);
   const clean = normalizeAscii(text);
   const tokens = clean ? clean.split(/\s+/) : [];
   const ids = new Int32Array(maxSeqLen);
@@ -108,11 +108,13 @@ function runStandalone() {
 
   const T = vocab.max_seq_len || tax.max_seq_len || 32;
   const tokShape = weightsJson['tok_emb.weight'].shape;
+  const posShape = weightsJson['pos_emb.weight'].shape;
   const ffnShape = weightsJson['blocks.0.ffn1.weight'].shape;
-  const D = tokShape[1] || 112;
+  const E = tokShape[1] || 14;
+  const D = posShape[1] || 112;
   const H = 4;
   const HD = Math.floor(D / H);
-  const F = ffnShape[0] || 224;
+  const F = ffnShape[0] || 220;
   const L_N = Object.keys(weightsJson).filter(k => k.endsWith('.ln1.weight')).length || 2;
 
   function infer(text) {
@@ -120,10 +122,21 @@ function runStandalone() {
     const { ids, mask } = encodeText(text, vocab, T);
     const x = new Float32Array(T * D);
     const tokEmb = dec['tok_emb.weight'];
+    const tokProj = dec['tok_proj.weight'];
     const posEmb = dec['pos_emb.weight'];
     for (let t = 0; t < T; t++) {
       const tid = ids[t];
-      for (let d = 0; d < D; d++) x[t * D + d] = tokEmb[tid * D + d] + posEmb[t * D + d];
+      if (tokProj) {
+        const eOff = tid * E;
+        for (let d = 0; d < D; d++) {
+          const pOff = d * E;
+          let acc = 0;
+          for (let e = 0; e < E; e++) acc += tokEmb[eOff + e] * tokProj[pOff + e];
+          x[t * D + d] = acc + posEmb[t * D + d];
+        }
+      } else {
+        for (let d = 0; d < D; d++) x[t * D + d] = tokEmb[tid * D + d] + posEmb[t * D + d];
+      }
     }
 
     for (let l = 0; l < L_N; l++) {

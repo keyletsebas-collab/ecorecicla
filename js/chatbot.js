@@ -264,27 +264,28 @@ function buildIdentityResponseHtml(mode, queryText, models) {
   const tax = (models && models.TAXONOMY) || {};
   const ragMeta = (models && models.RAG_METRICS) || {};
 
-  const vocabSize = neoMeta.vocab_size || tax.vocab_size || 2000;
+  const vocabSize = neoMeta.vocab_size || tax.vocab_size || 20000;
   const maxSeqLen = neoMeta.max_seq_len || tax.max_seq_len || 32;
   const numIntents = Array.isArray(tax.intents) ? tax.intents.length : 42;
   const kbDocsCount = ragMeta.kb_docs_count || 77;
+  const valSamples = Number(neoMeta.val_samples || 1008);
 
-  const neoInf = Number(neoMeta.inference_parameters || 444762);
-  const neoLora = Number(neoMeta.lora_trainable_parameters || 260410);
-  const neoTotal = Number(neoMeta.total_params_with_lora || 690266);
-  const flashParams = Number(flashMeta.parameters || 111671);
+  const neoInf = Number(neoMeta.inference_parameters || 500530);
+  const neoLora = Number(neoMeta.lora_trainable_parameters || 325018);
+  const neoTotal = Number(neoMeta.total_params_with_lora || 525490);
+  const flashParams = Number(flashMeta.parameters || 172087);
   const combinedInf = neoInf + flashParams;
   const combinedTotal = neoTotal + flashParams;
 
-  const neoValAcc = (Number(neoMeta.val_intent_acc || 0.9966) * 100).toFixed(2);
-  const flashValAcc = (Number(flashMeta.val_intent_acc || 1.0) * 100).toFixed(0);
-  const neoDepthAcc = (Number(neoMeta.val_depth_acc || 1.0) * 100).toFixed(0);
-  const flashAgreement = (Number(flashMeta.teacher_agreement || 0.9966) * 100).toFixed(2);
+  const neoValAcc = (Number(neoMeta.val_intent_acc || 0.996) * 100).toFixed(2);
+  const flashValAcc = (Number(flashMeta.val_intent_acc || 0.999) * 100).toFixed(2);
+  const neoDepthAcc = (Number(neoMeta.val_depth_acc || 0.998) * 100).toFixed(2);
+  const flashAgreement = (Number(flashMeta.teacher_agreement || 0.996) * 100).toFixed(2);
   const flashReduction = Number(flashMeta.param_reduction_vs_neo || neoInf / Math.max(1, flashParams)).toFixed(2);
-  const neoRagHit3 = ((Number(((neoMeta.rag_eval || {}).hybrid_hit_rate_at_3) || 0.9365)) * 100).toFixed(2);
-  const flashRagHit3 = ((Number(((flashMeta.rag_eval || {}).hybrid_hit_rate_at_3) || 0.9592)) * 100).toFixed(2);
-  const neoLatUs = Number(neoMeta.python_fp32_latency_us || 1277.53).toFixed(2);
-  const flashLatUs = Number(flashMeta.python_fp32_latency_us || 147.89).toFixed(2);
+  const neoRagHit3 = ((Number(((neoMeta.rag_eval || {}).hybrid_hit_rate_at_3) || 0.8591)) * 100).toFixed(2);
+  const flashRagHit3 = ((Number(((flashMeta.rag_eval || {}).hybrid_hit_rate_at_3) || 0.8661)) * 100).toFixed(2);
+  const neoLatUs = Number(neoMeta.python_fp32_latency_us || 1379.67).toFixed(2);
+  const flashLatUs = Number(flashMeta.python_fp32_latency_us || 141.24).toFixed(2);
 
   const q = _cbNormText(queryText);
   const asksOrigin = /\b(quien te creo|creador|quien te hizo|quien te programo|de donde vienes|para que app|para que fuiste creado|de que empresa|proposito|por que existes)\b/i.test(
@@ -342,8 +343,8 @@ function buildIdentityResponseHtml(mode, queryText, models) {
   if (asksTraining) {
     const trainDetail =
       activeMode === 'neo'
-        ? `Mi núcleo es un Transformer causal tipo GPT de 2 capas (4 cabezales, <code>d_model=112</code>, FFN <code>224</code>) construido en <strong>PyTorch</strong> (<code>LLMs-from-scratch</code>), entrenado secuencialmente en 3 fases (12 épocas Pretrain + 28 épocas <strong>LoRA</strong> <code>r=8</code> + 10 épocas <strong>DPO</strong>, siguiendo <code>llm-course</code>), acoplado a un motor <strong>RAG Híbrido</strong> BM25 + Vectores 64D (<code>llm-zoomcamp</code>). El ecosistema del proyecto reúne código en 9 lenguajes (Python, C++, Rust, Java, Scala, R, JavaScript, Julia y Mojo) y me ejecuto en tu navegador cuantizado en <strong>Int8</strong>.`
-        : `Fui creado mediante <strong>Destilación de Conocimiento</strong> (temperatura <code>T=2.5</code>, 40 épocas) desde el maestro <strong>ReciBot Neo (Argón-Auditor)</strong> entrenado en <strong>PyTorch</strong> con <strong>LoRA</strong> y <strong>DPO</strong>. Mi arquitectura compacta combina embeddings <code>(${vocabSize}, 48)</code>, pooling Mean+Max (96D) y capa oculta ReLU (72 neuronas), desplegada en JavaScript <strong>Int8</strong> dentro de un ecosistema políglota de 9 lenguajes (Python, C++, Rust, Java, Scala, R, JS, Julia y Mojo).`;
+        ? `Mi núcleo usa embeddings factorizados tipo <strong>ALBERT</strong> (<code>${_formatParamCount(vocabSize)} × 14 → 112</code>) más un Transformer causal GPT de 2 capas (4 cabezales, FFN <code>220</code>) construido en <strong>PyTorch</strong> (<code>LLMs-from-scratch</code>), entrenado por etapas seguras en 3 fases (15 épocas Pretrain + 40 épocas <strong>LoRA</strong> <code>r=8</code> + 10 épocas <strong>DPO</strong>, siguiendo <code>llm-course</code>), acoplado a un motor <strong>RAG Híbrido</strong> BM25 + Vectores 64D (<code>llm-zoomcamp</code>). El ecosistema reúne código en 9 lenguajes (Python, C++, Rust, Java, Scala, R, JavaScript, Julia y Mojo) y me ejecuto en tu navegador cuantizado en <strong>Int8</strong>.`
+        : `Fui creado mediante <strong>Destilación de Conocimiento</strong> (temperatura <code>T=2.5</code>, 60 épocas) desde el maestro <strong>ReciBot Neo (Argón-Auditor)</strong> entrenado en <strong>PyTorch</strong> con <strong>LoRA</strong> y <strong>DPO</strong>. Mi arquitectura compacta combina embeddings factorizados <code>(${_formatParamCount(vocabSize)}, 8)</code>, pooling Mean+Max (16D) y capa oculta ReLU (88 neuronas), desplegada en JavaScript <strong>Int8</strong> dentro de un ecosistema políglota de 9 lenguajes (Python, C++, Rust, Java, Scala, R, JS, Julia y Mojo).`;
     sections.push(`<p><strong>🧪 Arquitectura y entrenamiento:</strong> ${trainDetail}</p>`);
   }
 
@@ -369,9 +370,9 @@ function buildIdentityResponseHtml(mode, queryText, models) {
 
   if (asksBench) {
     sections.push(
-      `<p><strong>📈 Versión y rendimiento (v4 · ${_formatParamCount(vocabSize)} tokens):</strong> Alcanzo <strong>${
+      `<p><strong>📈 Versión y rendimiento (v5 · ${_formatParamCount(vocabSize)} tokens):</strong> Alcanzo <strong>${
         activeMode === 'neo' ? neoValAcc : flashValAcc
-      }% de precisión</strong> en validación (FP32 e Int8 sobre 882 casos), con recuperación RAG Híbrido Hit@3 de <strong>${
+      }% de precisión</strong> en validación sobre ${_formatParamCount(valSamples)} casos, con recuperación RAG Híbrido Hit@3 de <strong>${
         activeMode === 'neo' ? neoRagHit3 : flashRagHit3
       }%</strong>${
         activeMode === 'flash'
@@ -430,7 +431,7 @@ function _syncReciBotHeaderUI(mode) {
   const headerName = document.getElementById('recibot-header-name');
   const subtitle = document.getElementById('recibot-header-subtitle');
   const models = _getModelsApi();
-  const vocabSize = (models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 2000;
+  const vocabSize = (models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 20000;
   const tokLabel = _formatParamCount(vocabSize);
 
   if (win) win.setAttribute('data-recibot-model', mode);
@@ -465,9 +466,9 @@ function setReciBotModel(mode, announce = false) {
   if (announce && typeof document !== 'undefined') {
     const models = _getModelsApi();
     const ident = _getModelIdentity(normalized);
-    const neoInf = Number((models && models.NEO_METRICS && models.NEO_METRICS.inference_parameters) || 444762);
-    const flashParams = Number((models && models.FLASH_METRICS && models.FLASH_METRICS.parameters) || 111671);
-    const vocabSize = (models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 2000;
+    const neoInf = Number((models && models.NEO_METRICS && models.NEO_METRICS.inference_parameters) || 500530);
+    const flashParams = Number((models && models.FLASH_METRICS && models.FLASH_METRICS.parameters) || 172087);
+    const vocabSize = (models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 20000;
     const notice =
       normalized === 'neo'
         ? `<span class="recibot-mode-badge recibot-mode-badge--neo">🧠 ${_cbEscapeHtml(ident.name)} (${_cbEscapeHtml(ident.codename)}) activado</span><br>Hola, soy <strong>${_cbEscapeHtml(ident.codename)}</strong> (${_formatParamCount(neoInf)} parámetros en inferencia, vocabulario de ${_formatParamCount(vocabSize)} tokens). Listo para auditoría profunda, memoria multi-turno y derecho empresarial.`
@@ -1680,7 +1681,7 @@ function runReciBotNeo(queryText) {
   if (isIdentityQuery) {
     parts.push(buildIdentityResponseHtml('neo', queryText, models));
   } else if (isSocialSmallTalk) {
-    const tokLabel = _formatParamCount((models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 2000);
+    const tokLabel = _formatParamCount((models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 20000);
     const intro =
       neoRes.intent === 'thanks_farewell'
         ? '¡A tu orden! Soy <strong>ReciBot Neo (Argón-Auditor)</strong>. Cuando necesites otra auditoría financiera, fiscal DGII o consulta legal en ReciminsaApp, aquí estaré.'
@@ -1833,7 +1834,7 @@ function runReciBotFlash(queryText) {
   } else if (isIdentityQuery) {
     parts.push(buildIdentityResponseHtml('flash', queryText, models));
   } else if (isSocialSmallTalk) {
-    const tokLabel = _formatParamCount((models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 2000);
+    const tokLabel = _formatParamCount((models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 20000);
     const msg =
       flashRes.intent === 'thanks_farewell'
         ? '¡Con gusto! Soy <strong>ReciBot Flash (Pulso-Ágil)</strong>, listo para responderte al instante cuando me necesites.'
@@ -1915,9 +1916,9 @@ function getChatbotResponse(userText, overrideMode = null) {
 
 function getWelcomeHtml() {
   const models = _getModelsApi();
-  const neoInf = _formatParamCount((models && models.NEO_METRICS && models.NEO_METRICS.inference_parameters) || 444762);
-  const flashParams = _formatParamCount((models && models.FLASH_METRICS && models.FLASH_METRICS.parameters) || 111671);
-  const vocabSize = _formatParamCount((models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 2000);
+  const neoInf = _formatParamCount((models && models.NEO_METRICS && models.NEO_METRICS.inference_parameters) || 500530);
+  const flashParams = _formatParamCount((models && models.FLASH_METRICS && models.FLASH_METRICS.parameters) || 172087);
+  const vocabSize = _formatParamCount((models && models.NEO_METRICS && models.NEO_METRICS.vocab_size) || 20000);
   return `
     <span class="recibot-mode-badge recibot-mode-badge--neo">🧠 Argón-Auditor (Neo) + ⚡ Pulso-Ágil (Flash) · ${vocabSize} Tokens</span>
     ¡Hola! Somos los modelos duales entrenados para <strong>ReciminsaApp</strong> y normativa legal empresarial RD (DGII/NCF, Ley 32-23, Ley 225-20/64-00, Ley 479-08, Ley 16-92/TSS, Ley 172-13 y Ley 155-17):<br>
@@ -2069,7 +2070,7 @@ function initChatbot() {
         <div class="chatbot-status-dot"></div>
         <div class="chatbot-title-text">
           <span id="recibot-header-name">ReciBot Neo</span>
-          <small id="recibot-header-subtitle">Argón-Auditor · 2,000 tok · Legal + Verificación</small>
+          <small id="recibot-header-subtitle">Argón-Auditor · 20,000 tok · Legal + Verificación</small>
         </div>
       </div>
       <div class="recibot-model-switch" role="group" aria-label="Selector de modelo ReciBot">

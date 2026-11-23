@@ -1,10 +1,11 @@
 # ReciBot Neo SIMD-Vectorized LayerNorm + GELU Transformer Kernel in Mojo
-# Designed to operate directly on "RNE2" float32 buffers via SIMD<DType.float32, 8>.
+# Designed to operate directly on "RNE3" float32 buffers via SIMD<DType.float32, 8>.
 
 from math import sqrt, tanh
 from sys.info import simdwidthof
 
 alias SIMD_W = 8
+alias E_EMB = 14
 alias D_MODEL = 112
 
 @always_inline

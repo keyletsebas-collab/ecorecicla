@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import os
 
-os.environ.setdefault("OMP_NUM_THREADS", "4")
-os.environ.setdefault("MKL_NUM_THREADS", "4")
+os.environ.setdefault("OMP_NUM_THREADS", "2")
+os.environ.setdefault("MKL_NUM_THREADS", "2")
 
+import argparse
 import base64
 import csv
+import gc
 import json
 import struct
 import sys
@@ -26,7 +28,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
-torch.set_num_threads(4)
+torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "2")))
 
 FLASH_DIR = Path(__file__).resolve().parent.parent
 NEO_DIR = FLASH_DIR.parent / "recibot-neo"
@@ -57,14 +59,14 @@ from train_neo import (  # noqa: E402
     quantize_int8_symmetric,
 )
 
-D_EMB = 48
-HIDDEN_DIM = 72
+D_EMB = 8
+HIDDEN_DIM = 88
 EMB_DIM = 64
 DISTILL_TEMP = 2.5
 
 
 class ReciBotFlashNet(nn.Module):
-    """Lightweight fast student: Embedding(512,48) -> Mean+Max Pool (96) -> ReLU Linear(96,64) -> Heads."""
+    """Lightweight fast student: Embedding(20000,8) -> Mean+Max Pool (16) -> ReLU Linear(16,88) -> Heads."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -73,6 +75,7 @@ class ReciBotFlashNet(nn.Module):
         self.intent_head = nn.Linear(HIDDEN_DIM, NUM_INTENTS)
         self.tool_head = nn.Linear(HIDDEN_DIM, NUM_TOOLS)
         self.embed_head = nn.Linear(HIDDEN_DIM, EMB_DIM)
+        nn.init.normal_(self.tok_emb.weight, mean=0.0, std=0.05)
 
     def forward(self, token_ids: torch.Tensor, attn_mask: torch.Tensor):
         emb = self.tok_emb(token_ids)  # [B, T, 48]
@@ -122,85 +125,180 @@ def verify_flash_int8_parity(
     return float(np.mean(np.argmax(logits, axis=-1) == yi_va))
 
 
-def train_flash() -> None:
+def _build_flash_opt(student: ReciBotFlashNet) -> torch.optim.Optimizer:
+    fast_p = [
+        p for n, p in student.named_parameters()
+        if ("tok_emb" in n or n.endswith(".bias"))
+    ]
+    fast_ids = {id(p) for p in fast_p}
+    reg_p = [p for p in student.parameters() if id(p) not in fast_ids]
+    return torch.optim.AdamW([
+        {"params": fast_p, "lr": 1.5e-2, "weight_decay": 0.0},
+        {"params": reg_p, "lr": 8e-3, "weight_decay": 1e-2},
+    ])
+
+
+def _run_flash_epoch(
+    student: ReciBotFlashNet,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler,
+    ids_va: torch.Tensor,
+    msk_va: torch.Tensor,
+    yi_va: torch.Tensor,
+    best_val_acc: float,
+    best_state: Dict[str, torch.Tensor] | None,
+) -> Tuple[float, Dict[str, torch.Tensor] | None]:
+    student.train()
+    for b_ids, b_msk, b_yi, b_yt, b_soft_i, b_soft_t, b_t_emb in loader:
+        optimizer.zero_grad()
+        s_li, s_lt, s_emb = student(b_ids, b_msk)
+        ce_loss = F.cross_entropy(s_li, b_yi, label_smoothing=0.03)
+        kd_loss = (DISTILL_TEMP ** 2) * F.kl_div(
+            F.log_softmax(s_li / DISTILL_TEMP, dim=-1),
+            b_soft_i,
+            reduction="batchmean",
+        )
+        tool_loss = 0.5 * F.binary_cross_entropy_with_logits(s_lt, b_yt) + 0.5 * F.binary_cross_entropy_with_logits(s_lt, b_soft_t)
+        emb_loss = (1.0 - (s_emb * b_t_emb).sum(dim=-1)).mean()
+        loss = 0.55 * ce_loss + 0.45 * kd_loss + 0.45 * tool_loss + 0.35 * emb_loss
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
+        optimizer.step()
+    scheduler.step()
+
+    student.eval()
+    with torch.no_grad():
+        v_li, _, _ = student(ids_va, msk_va)
+        v_acc = float((torch.argmax(v_li, dim=-1) == yi_va).float().mean().item())
+        if v_acc >= best_val_acc:
+            best_val_acc = v_acc
+            best_state = {k: v.detach().cpu().clone() for k, v in student.state_dict().items()}
+    return best_val_acc, best_state
+
+
+def train_flash(stage: str = "all", ckpt_dir: str = "/tmp/recibot_v5_ckpt") -> None:
     t0 = time.perf_counter()
     torch.manual_seed(108)
     np.random.seed(108)
 
-    neo_ckpt_path = NEO_DIR / "artifacts" / "recibot_neo.pt"
-    if not neo_ckpt_path.exists():
-        raise RuntimeError("ReciBot Neo checkpoint missing! Train ReciBot Neo first before training Flash.")
-
+    ckpt_root = Path(ckpt_dir)
+    ckpt_root.mkdir(parents=True, exist_ok=True)
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    epochs_total, epochs_half = 60, 30
     _, word_to_id = build_domain_vocab()
-
-    # Load frozen Neo teacher
-    ckpt = torch.load(neo_ckpt_path, map_location="cpu", weights_only=True)
-    teacher = ReciBotNeoGPT()
-    teacher.load_state_dict(ckpt["model_state"])
-    teacher.eval()
-    for p in teacher.parameters():
-        p.requires_grad = False
-
-    train_s, val_s, _ = generate_dataset(seed=42, target_per_intent=104)
+    train_s, val_s, _ = generate_dataset(seed=42, target_per_intent=120)
     ids_tr, msk_tr, yi_tr, yt_tr, _ = build_task_tensors(train_s, word_to_id)
     ids_va, msk_va, yi_va, yt_va, _ = build_task_tensors(val_s, word_to_id)
 
-    with torch.no_grad():
-        t_tr_li, t_tr_lt, _, t_tr_emb = teacher.forward_tasks(ids_tr, msk_tr)
-        t_tr_soft_i = F.softmax(t_tr_li / DISTILL_TEMP, dim=-1)
-        t_tr_soft_t = torch.sigmoid(t_tr_lt)
-        t_va_li, _, _, _ = teacher.forward_tasks(ids_va, msk_va)
-        t_va_preds = torch.argmax(t_va_li, dim=-1).numpy()
+    kb_texts = [
+        f"{d['title']} {d.get('law_ref', '')} {' '.join(d.get('tags', []))} {d['content']} {' '.join(d.get('facts', []))}"
+        for d in KNOWLEDGE_BASE_DOCS
+    ]
+    kb_ids, kb_msk = encode_batch(kb_texts, word_to_id)
 
-        kb_texts = [
-            f"{d['title']} {d.get('law_ref', '')} {' '.join(d.get('tags', []))} {d['content']} {' '.join(d.get('facts', []))}"
-            for d in KNOWLEDGE_BASE_DOCS
-        ]
-        kb_ids, kb_msk = encode_batch(kb_texts, word_to_id)
-        _, _, _, neo_kb_emb = teacher.forward_tasks(kb_ids, kb_msk)
+    if stage in ("all", "distill_1"):
+        neo_ckpt_path = NEO_DIR / "artifacts" / "recibot_neo.pt"
+        if not neo_ckpt_path.exists():
+            raise RuntimeError("ReciBot Neo checkpoint missing! Train ReciBot Neo first before training Flash.")
 
+        ckpt = torch.load(neo_ckpt_path, map_location="cpu", weights_only=False)
+        teacher = ReciBotNeoGPT()
+        teacher.load_state_dict(ckpt["model_state"])
+        teacher.eval()
+        for p in teacher.parameters():
+            p.requires_grad = False
+
+        t_li_chunks, t_lt_chunks, t_emb_chunks = [], [], []
+        with torch.no_grad():
+            for i in range(0, len(ids_tr), 128):
+                li_b, lt_b, _, emb_b = teacher.forward_tasks(ids_tr[i:i + 128], msk_tr[i:i + 128])
+                t_li_chunks.append(F.softmax(li_b / DISTILL_TEMP, dim=-1))
+                t_lt_chunks.append(torch.sigmoid(lt_b))
+                t_emb_chunks.append(emb_b)
+            t_tr_soft_i = torch.cat(t_li_chunks, dim=0)
+            t_tr_soft_t = torch.cat(t_lt_chunks, dim=0)
+            t_tr_emb = torch.cat(t_emb_chunks, dim=0)
+
+            t_va_chunks = []
+            for i in range(0, len(ids_va), 128):
+                li_b, _, _, _ = teacher.forward_tasks(ids_va[i:i + 128], msk_va[i:i + 128])
+                t_va_chunks.append(li_b)
+            t_va_preds = torch.argmax(torch.cat(t_va_chunks, dim=0), dim=-1).numpy()
+
+            _, _, _, neo_kb_emb = teacher.forward_tasks(kb_ids, kb_msk)
+
+        del teacher, ckpt, t_li_chunks, t_lt_chunks, t_emb_chunks, t_va_chunks
+        gc.collect()
+
+        student = ReciBotFlashNet()
+        optimizer = _build_flash_opt(student)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs_total, eta_min=2e-4)
+        loader = DataLoader(
+            TensorDataset(ids_tr, msk_tr, yi_tr, yt_tr, t_tr_soft_i, t_tr_soft_t, t_tr_emb),
+            batch_size=64,
+            shuffle=True,
+        )
+
+        best_state = None
+        best_val_acc = -1.0
+        for _epoch in range(epochs_half):
+            best_val_acc, best_state = _run_flash_epoch(
+                student, loader, optimizer, scheduler, ids_va, msk_va, yi_va, best_val_acc, best_state
+            )
+            gc.collect()
+
+        stage_sec = time.perf_counter() - t0
+        torch.save({
+            "model_state": student.state_dict(),
+            "opt_state": optimizer.state_dict(),
+            "sched_state": scheduler.state_dict(),
+            "best_val_acc": float(best_val_acc),
+            "best_state": best_state,
+            "t_tr_soft_i": t_tr_soft_i,
+            "t_tr_soft_t": t_tr_soft_t,
+            "t_tr_emb": t_tr_emb,
+            "t_va_preds": t_va_preds,
+            "neo_kb_emb": neo_kb_emb,
+            "elapsed_s": float(stage_sec),
+        }, ckpt_root / "flash_stage1.pt")
+        print(f"FLASH_STAGE_COMPLETE: distill_1 epochs={epochs_half}/{epochs_total} best_val_acc={best_val_acc:.4f} elapsed={stage_sec:.2f}s")
+        del student, optimizer, scheduler, loader
+        gc.collect()
+        if stage != "all":
+            return
+
+    # Final stage: distill_2_export
+    t_s = time.perf_counter()
+    f_ckpt = torch.load(ckpt_root / "flash_stage1.pt", map_location="cpu", weights_only=False)
     student = ReciBotFlashNet()
+    student.load_state_dict(f_ckpt["model_state"])
     param_count = sum(p.numel() for p in student.parameters())
-    optimizer = torch.optim.AdamW(student.parameters(), lr=8e-3, weight_decay=1e-2)
-    epochs = 50
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    optimizer = _build_flash_opt(student)
+    optimizer.load_state_dict(f_ckpt["opt_state"])
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs_total, eta_min=2e-4)
+    scheduler.load_state_dict(f_ckpt["sched_state"])
+
+    t_tr_soft_i = f_ckpt["t_tr_soft_i"]
+    t_tr_soft_t = f_ckpt["t_tr_soft_t"]
+    t_tr_emb = f_ckpt["t_tr_emb"]
+    t_va_preds = f_ckpt["t_va_preds"]
+    neo_kb_emb = f_ckpt["neo_kb_emb"]
+    best_val_acc = float(f_ckpt["best_val_acc"])
+    best_state = f_ckpt["best_state"]
+    prev_elapsed = float(f_ckpt["elapsed_s"])
 
     loader = DataLoader(
         TensorDataset(ids_tr, msk_tr, yi_tr, yt_tr, t_tr_soft_i, t_tr_soft_t, t_tr_emb),
-        batch_size=128,
+        batch_size=64,
         shuffle=True,
     )
-
-    best_state = None
-    best_val_acc = -1.0
-
-    for _epoch in range(epochs):
-        student.train()
-        for b_ids, b_msk, b_yi, b_yt, b_soft_i, b_soft_t, b_t_emb in loader:
-            optimizer.zero_grad()
-            s_li, s_lt, s_emb = student(b_ids, b_msk)
-            ce_loss = F.cross_entropy(s_li, b_yi, label_smoothing=0.03)
-            kd_loss = (DISTILL_TEMP ** 2) * F.kl_div(
-                F.log_softmax(s_li / DISTILL_TEMP, dim=-1),
-                b_soft_i,
-                reduction="batchmean",
-            )
-            tool_loss = 0.5 * F.binary_cross_entropy_with_logits(s_lt, b_yt) + 0.5 * F.binary_cross_entropy_with_logits(s_lt, b_soft_t)
-            emb_loss = (1.0 - (s_emb * b_t_emb).sum(dim=-1)).mean()
-            loss = 0.55 * ce_loss + 0.45 * kd_loss + 0.45 * tool_loss + 0.35 * emb_loss
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
-            optimizer.step()
-        scheduler.step()
-
-        student.eval()
-        with torch.no_grad():
-            v_li, _, _ = student(ids_va, msk_va)
-            v_acc = float((torch.argmax(v_li, dim=-1) == yi_va).float().mean().item())
-            if v_acc >= best_val_acc:
-                best_val_acc = v_acc
-                best_state = {k: v.clone() for k, v in student.state_dict().items()}
+    for _epoch in range(epochs_half, epochs_total):
+        best_val_acc, best_state = _run_flash_epoch(
+            student, loader, optimizer, scheduler, ids_va, msk_va, yi_va, best_val_acc, best_state
+        )
+        gc.collect()
 
     if best_state is not None:
         student.load_state_dict(best_state)
@@ -299,7 +397,7 @@ def train_flash() -> None:
                 sample["text"],
             ])
 
-    elapsed_s = round(time.perf_counter() - t0, 3)
+    elapsed_s = round(prev_elapsed + (time.perf_counter() - t_s), 3)
     speedup_vs_neo_py = round(neo_metrics["python_fp32_latency_us"] / max(1.0, py_latency_us), 2)
     metrics = {
         "model": "recibot-flash",
@@ -311,7 +409,7 @@ def train_flash() -> None:
         "param_reduction_vs_neo": round(neo_metrics["inference_parameters"] / max(1, param_count), 2),
         "train_samples": len(train_s),
         "val_samples": len(val_s),
-        "epochs": epochs,
+        "epochs": epochs_total,
         "train_intent_acc": round(train_acc, 4),
         "val_intent_acc": round(val_acc, 4),
         "val_intent_macro_f1": round(val_f1, 4),
@@ -328,4 +426,8 @@ def train_flash() -> None:
 
 
 if __name__ == "__main__":
-    train_flash()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stage", choices=["distill_1", "distill_2_export", "all"], default="all")
+    parser.add_argument("--ckpt-dir", default="/tmp/recibot_v5_ckpt")
+    args = parser.parse_args()
+    train_flash(stage=args.stage, ckpt_dir=args.ckpt_dir)

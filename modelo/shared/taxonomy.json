@@ -1,5 +1,5 @@
 {
-  "vocab_size": 2000,
+  "vocab_size": 20000,
   "max_seq_len": 32,
   "d_in": 128,
   "identities": {

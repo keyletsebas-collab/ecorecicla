@@ -1,5 +1,5 @@
-// ReciBot Neo C++17 Transformer Inference Engine (Binary "RNE2")
-// Executes exact UTF-8 accent-folding + domain vocab/FNV-1a tokenizer + 2-Layer Multi-Head Attention + GELU + Multi-Task Heads.
+// ReciBot Neo C++17 Transformer Inference Engine (Binary "RNE3" Factorized Embeddings)
+// Executes exact UTF-8 accent-folding + domain vocab/FNV-1a tokenizer + Factorized 20k->14->112 + 2-Layer Multi-Head Attention + GELU + Multi-Task Heads.
 
 #include <algorithm>
 #include <chrono>
@@ -15,9 +15,9 @@
 #include <vector>
 
 struct NeoWeights {
-    int32_t ver = 0, vocab = 0, max_seq = 0, d_model = 0, n_heads = 0, n_layers = 0;
+    int32_t ver = 0, vocab = 0, max_seq = 0, e_emb = 0, d_model = 0, n_heads = 0, n_layers = 0;
     int32_t ffn_dim = 0, n_intents = 0, n_tools = 0, n_depths = 0, emb_dim = 0;
-    std::vector<float> tok_emb, pos_emb;
+    std::vector<float> tok_emb, tok_proj, pos_emb;
     struct Layer {
         std::vector<float> ln1_w, ln1_b, wq_w, wq_b, wk_w, wk_b, wv_w, wv_b, wo_w, wo_b;
         std::vector<float> ln2_w, ln2_b, ffn1_w, ffn1_b, ffn2_w, ffn2_b;
@@ -37,16 +37,18 @@ static bool load_neo_weights(const std::string& path, NeoWeights& w) {
     if (!in) return false;
     char magic[4] = {0};
     in.read(magic, 4);
-    if (std::memcmp(magic, "RNE2", 4) != 0) return false;
-    int32_t hdr[11] = {0};
+    if (std::memcmp(magic, "RNE3", 4) != 0) return false;
+    int32_t hdr[12] = {0};
     in.read(reinterpret_cast<char*>(hdr), sizeof(hdr));
-    w.ver = hdr[0]; w.vocab = hdr[1]; w.max_seq = hdr[2]; w.d_model = hdr[3];
-    w.n_heads = hdr[4]; w.n_layers = hdr[5]; w.ffn_dim = hdr[6];
-    w.n_intents = hdr[7]; w.n_tools = hdr[8]; w.n_depths = hdr[9]; w.emb_dim = hdr[10];
+    w.ver = hdr[0]; w.vocab = hdr[1]; w.max_seq = hdr[2]; w.e_emb = hdr[3]; w.d_model = hdr[4];
+    w.n_heads = hdr[5]; w.n_layers = hdr[6]; w.ffn_dim = hdr[7];
+    w.n_intents = hdr[8]; w.n_tools = hdr[9]; w.n_depths = hdr[10]; w.emb_dim = hdr[11];
 
+    size_t E = static_cast<size_t>(w.e_emb);
     size_t D = static_cast<size_t>(w.d_model);
     size_t F = static_cast<size_t>(w.ffn_dim);
-    read_floats(in, w.tok_emb, static_cast<size_t>(w.vocab) * D);
+    read_floats(in, w.tok_emb, static_cast<size_t>(w.vocab) * E);
+    read_floats(in, w.tok_proj, D * E);
     read_floats(in, w.pos_emb, static_cast<size_t>(w.max_seq) * D);
     w.layers.resize(w.n_layers);
     for (int i = 0; i < w.n_layers; ++i) {
@@ -240,6 +242,7 @@ struct NeoPrediction {
 
 static NeoPrediction infer_neo(const NeoWeights& w, const std::vector<int>& ids, const std::vector<int>& mask) {
     const int T = w.max_seq;
+    const int E = w.e_emb;
     const int D = w.d_model;
     const int H = w.n_heads;
     const int HD = D / H;
@@ -252,8 +255,12 @@ static NeoPrediction infer_neo(const NeoWeights& w, const std::vector<int>& ids,
 
     for (int t = 0; t < T; ++t) {
         int tid = ids[t];
+        const float* emb_row = &w.tok_emb[tid * E];
         for (int d = 0; d < D; ++d) {
-            x[t * D + d] = w.tok_emb[tid * D + d] + w.pos_emb[t * D + d];
+            const float* proj_row = &w.tok_proj[d * E];
+            float acc = 0.0f;
+            for (int e = 0; e < E; ++e) acc += emb_row[e] * proj_row[e];
+            x[t * D + d] = acc + w.pos_emb[t * D + d];
         }
     }
 
@@ -351,8 +358,8 @@ int main() {
         return 1;
     }
     auto w2i = load_word_to_id(vocab_path);
-    int oov_start = load_json_int_field(vocab_path, "oov_bucket_start", 1872);
-    int oov_buckets = load_json_int_field(vocab_path, "oov_num_buckets", 128);
+    int oov_start = load_json_int_field(vocab_path, "oov_bucket_start", 11808);
+    int oov_buckets = load_json_int_field(vocab_path, "oov_num_buckets", 8192);
     auto intents = load_intents(tax_path);
 
     const std::vector<std::string> tests = {

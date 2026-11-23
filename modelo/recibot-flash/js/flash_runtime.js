@@ -25,8 +25,8 @@ function normalizeAscii(text) {
 
 function encodeText(text, vocab, maxSeqLen = 32) {
   const wordToId = vocab.word_to_id;
-  const oovStart = vocab.oov_bucket_start || 1872;
-  const oovMask = Math.max(1, (vocab.oov_num_buckets || 128) - 1);
+  const oovStart = vocab.oov_bucket_start || 11808;
+  const oovMask = Math.max(1, (vocab.oov_num_buckets || 8192) - 1);
   const clean = normalizeAscii(text);
   const tokens = clean ? clean.split(/\s+/) : [];
   const ids = new Int32Array(maxSeqLen);
@@ -63,9 +63,9 @@ function runStandalone() {
   const intB = decodeInt8Tensor(weightsJson['intent_head.bias']);
 
   const T = vocab.max_seq_len || tax.max_seq_len || 32;
-  const D = weightsJson['tok_emb.weight'].shape[1] || 48;
+  const D = weightsJson['tok_emb.weight'].shape[1] || 8;
   const F = D * 2;
-  const H = weightsJson['fc1.weight'].shape[0] || 72;
+  const H = weightsJson['fc1.weight'].shape[0] || 88;
   const C = tax.intents.length;
 
   function infer(text) {

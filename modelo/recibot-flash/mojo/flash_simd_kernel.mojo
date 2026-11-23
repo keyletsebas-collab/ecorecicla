@@ -2,8 +2,8 @@
 # Designed to operate directly on "RFL2" float32 buffers via SIMD<DType.float32, 8>.
 
 alias SIMD_W = 8
-alias D_EMB = 48
-alias HIDDEN_DIM = 72
+alias D_EMB = 8
+alias HIDDEN_DIM = 88
 
 @always_inline
 fn relu_vec(v: SIMD[DType.float32, SIMD_W]) -> SIMD[DType.float32, SIMD_W]:

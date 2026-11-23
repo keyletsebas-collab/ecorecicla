@@ -1,4 +1,4 @@
-// ReciBot Neo Zero-Copy Binary Transformer Inference in Rust ("RNE2" format)
+// ReciBot Neo Zero-Copy Binary Transformer Inference in Rust ("RNE3" factorized format)
 // Ready to compile with `cargo run --release` once rustc/cargo is installed.
 
 use std::fs::File;
@@ -9,6 +9,7 @@ struct NeoHeader {
     ver: i32,
     vocab: i32,
     max_seq: i32,
+    e_emb: i32,
     d_model: i32,
     n_heads: i32,
     n_layers: i32,
@@ -41,24 +42,25 @@ fn load_weights_neo(path: &str) -> io::Result<(NeoHeader, Vec<f32>)> {
     let mut f = File::open(path)?;
     let mut bytes = Vec::new();
     f.read_to_end(&mut bytes)?;
-    if bytes.len() < 48 || &bytes[0..4] != b"RNE2" {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid RNE2 header"));
+    if bytes.len() < 52 || &bytes[0..4] != b"RNE3" {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid RNE3 header"));
     }
     let header = NeoHeader {
         ver: read_i32_le(&bytes[4..8]),
         vocab: read_i32_le(&bytes[8..12]),
         max_seq: read_i32_le(&bytes[12..16]),
-        d_model: read_i32_le(&bytes[16..20]),
-        n_heads: read_i32_le(&bytes[20..24]),
-        n_layers: read_i32_le(&bytes[24..28]),
-        ffn_dim: read_i32_le(&bytes[28..32]),
-        n_intents: read_i32_le(&bytes[32..36]),
-        n_tools: read_i32_le(&bytes[36..40]),
-        n_depths: read_i32_le(&bytes[40..44]),
-        emb_dim: read_i32_le(&bytes[44..48]),
+        e_emb: read_i32_le(&bytes[16..20]),
+        d_model: read_i32_le(&bytes[20..24]),
+        n_heads: read_i32_le(&bytes[24..28]),
+        n_layers: read_i32_le(&bytes[28..32]),
+        ffn_dim: read_i32_le(&bytes[32..36]),
+        n_intents: read_i32_le(&bytes[36..40]),
+        n_tools: read_i32_le(&bytes[40..44]),
+        n_depths: read_i32_le(&bytes[44..48]),
+        emb_dim: read_i32_le(&bytes[48..52]),
     };
-    let mut weights = Vec::with_capacity((bytes.len() - 48) / 4);
-    for chunk in bytes[48..].chunks_exact(4) {
+    let mut weights = Vec::with_capacity((bytes.len() - 52) / 4);
+    for chunk in bytes[52..].chunks_exact(4) {
         weights.push(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
     }
     Ok((header, weights))
@@ -71,10 +73,10 @@ fn main() {
                 "ReciBot Neo Rust Binary Loaded: {:?} | float32 tensors len={} | sample hash(b01)={} | gelu(1.0)={:.6}",
                 hdr,
                 w.len(),
-                1872 + (fnv1a_32(b"b01") & 127),
+                11808 + (fnv1a_32(b"b01") & 8191),
                 gelu_tanh(1.0)
             );
         }
-        Err(e) => eprintln!("Failed to load RNE2 weights: {}", e),
+        Err(e) => eprintln!("Failed to load RNE3 weights: {}", e),
     }
 }

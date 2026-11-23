@@ -11,13 +11,14 @@ from collections import Counter
 import json
 import math
 import random
+import re
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-VOCAB_SIZE = 2000
-NUM_DOMAIN_WORDS = 1868  # IDs 4..1871
-OOV_BUCKET_START = 1872  # IDs 1872..1999 (128 FNV-1a buckets)
-OOV_NUM_BUCKETS = 128
+VOCAB_SIZE = 20000
+NUM_DOMAIN_WORDS = 11804  # IDs 4..11807
+OOV_BUCKET_START = 11808  # IDs 11808..19999 (8192 FNV-1a buckets)
+OOV_NUM_BUCKETS = 8192   # 2^13 (bitmask & 8191, 64x lower collision rate)
 MAX_SEQ_LEN = 32
 
 MODEL_IDENTITIES = {
@@ -894,17 +895,17 @@ PRETRAINING_CORPUS: List[str] = [
     "mantener secuencias ncf vigentes clientes con rnc verificado y copias de respaldo reduce sanciones en inspecciones oficiales",
     "recibot neo es argon auditor especialista en razonamiento profundo auditoria legal y verificacion cruzada",
     "recibot flash es pulso agil asistente ligero destilado de neo para respuestas inmediatas en reciminsaapp",
-    "ambos modelos operan con un vocabulario expandido de dos mil tokens y ciento veintiocho buckets fnv",
+    "ambos modelos operan con un vocabulario expandido de veinte mil tokens y ocho mil ciento noventa y dos buckets fnv",
     "cuando preguntan por su identidad neo responde como argon auditor con enfoque analitico y multipaso",
     "cuando preguntan por su identidad flash responde como pulso agil con respuestas breves directas y veloces",
-    "la expansion a dos mil tokens amplia la cobertura semantica en facturacion inventarios flota y derecho corporativo",
-    "recibot neo combina transformer gpt con adaptadores lora r ocho alineacion dpo y recuperacion rag",
-    "recibot flash usa embeddings compactos pooling mean max y capa oculta destilada con temperatura dos punto cinco",
+    "la expansion a veinte mil tokens con embeddings factorizados tipo albert amplia la cobertura semantica en facturacion inventarios flota y derecho corporativo",
+    "recibot neo combina embeddings factorizados veinte mil por catorce proyectados a ciento doce transformer gpt lora dpo y rag",
+    "recibot flash usa embeddings factorizados veinte mil por ocho pooling mean max y capa oculta destilada con temperatura dos punto cinco",
     "argon auditor verifica coherencia entre facturas ncf balance caja inventario vacio y estado de cumplimiento dgii",
     "pulso agil entrega balance ingresos rutas pendientes y alertas clave en menos de un milisegundo en el navegador",
     "ambas inteligencias artificiales distinguen reciminsaapp de sus variantes de campo manteniendo la seguridad operativa",
     "los usuarios pueden consultar cuantos parametros y tokens tiene cada modelo desde la ventana conversacional",
-    "el vocabulario de mil ochocientos sesenta y ocho palabras de dominio mas ciento veintiocho buckets cubre jerga legal y reciclaje",
+    "el vocabulario de once mil ochocientos cuatro palabras de dominio mas ocho mil ciento noventa y dos buckets cubre jerga legal y reciclaje",
     "recibot neo explica riesgos laborales contractuales ambientales y tributarios paso a paso con recomendaciones accionables",
     "recibot flash sintetiza recordatorios legales rapidos e indicadores esenciales para decisiones agiles en movimiento",
     "ambos asistentes fueron creados exclusivamente para reciminsaapp y saben responder en primera persona sobre su origen y proposito",
@@ -913,7 +914,8 @@ PRETRAINING_CORPUS: List[str] = [
     "durante cada conversacion recibot conserva memoria de seis turnos para interpretar seguimientos sin perder contexto",
     "ni neo ni flash tienen sentimientos conciencia o vida biologica y sus dictamenes son orientacion tecnica y legal",
     "flash alcanza respuestas ultrarrapidas en milisegundos y recomienda pasar a neo para auditorias legales profundas de doce modulos",
-    "la version actual de recibot consolida dos mil tokens compartidos cuarenta y dos intenciones y setenta y siete documentos kb",
+    "la version actual de recibot consolida veinte mil tokens compartidos cuarenta y dos intenciones y setenta y siete documentos kb",
+    "recibot neo integra quinientos mil quinientos treinta parametros de inferencia y recibot flash ciento setenta y dos mil ochenta y siete parametros ligeros",
     "el ecosistema de reciminsaapp separa claramente la aplicacion principal de reciminsa field y reciminsa ops",
     "cuando alguien pregunta que sabes sobre ti los modelos responden de forma dinamica segun arquitectura memoria limites u origen",
     "cuarenta y dos intenciones y trece herramientas permiten auditar dgii rnc contratos rutas e inventarios en un solo chat",
@@ -1761,30 +1763,30 @@ KNOWLEDGE_BASE_DOCS: List[Dict] = [
     {
         "id": "kb_identity_neo",
         "intent": "identity_capabilities",
-        "title": "Identidad de ReciBot Neo (Argon-Auditor · 2,000 Tokens)",
+        "title": "Identidad de ReciBot Neo (Argon-Auditor · 20,000 Tokens · 500,530 Params)",
         "module": "chatbot",
         "category": "app",
-        "law_ref": "Arquitectura Transformer GPT + LoRA + DPO + RAG · 2,000 Tokens",
-        "tags": ["recibot neo", "argon auditor", "identidad", "parametros", "2000 tokens", "razonamiento profundo"],
-        "content": "ReciBot Neo es Argón-Auditor, el modelo de razonamiento profundo, auditoría legal empresarial y verificación multi-paso de ReciminsaApp con vocabulario expandido de 2,000 tokens.",
+        "law_ref": "ALBERT Factorized Embeddings 20,000x14->112 + Transformer GPT + LoRA + DPO + RAG",
+        "tags": ["recibot neo", "argon auditor", "identidad", "parametros", "500530", "20000 tokens", "factorizado", "razonamiento profundo"],
+        "content": "ReciBot Neo es Argón-Auditor, el modelo de razonamiento profundo, auditoría legal empresarial y verificación multi-paso de ReciminsaApp con vocabulario de 20,000 tokens y embeddings factorizados tipo ALBERT (20,000x14 proyectados a 112).",
         "facts": [
             "Identidad oficial de ReciBot Neo: Argón-Auditor, enfocado en precisión, auditoría integral y comprobaciones cruzadas antes de emitir conclusiones.",
-            "Arquitectura de ReciBot Neo: Transformer tipo GPT de 2 capas, 4 cabezales de atención, d_model=112, FFN=224, vocabulario de 2,000 tokens, adaptadores LoRA r=8, alineación DPO y proyección RAG de 64 dimensiones.",
+            "Arquitectura de ReciBot Neo: Embeddings factorizados ALBERT 20,000x14 -> 112 + Transformer GPT de 2 capas, 4 cabezales, FFN=220, 500,530 parámetros en inferencia, LoRA r=8, DPO y RAG 64D.",
             "ReciBot Neo consulta sus pesos y métricas en vivo (inference_parameters y total_params_with_lora) para informar con exactitud cuántos parámetros contiene.",
         ],
     },
     {
         "id": "kb_identity_flash",
         "intent": "identity_capabilities",
-        "title": "Identidad de ReciBot Flash (Pulso-Agil · 2,000 Tokens)",
+        "title": "Identidad de ReciBot Flash (Pulso-Agil · 20,000 Tokens · 172,087 Params)",
         "module": "chatbot",
         "category": "app",
-        "law_ref": "Arquitectura Destilada Ligera · 2,000 Tokens",
-        "tags": ["recibot flash", "pulso agil", "identidad", "parametros", "2000 tokens", "velocidad", "destilacion"],
-        "content": "ReciBot Flash es Pulso-Ágil, el modelo de respuesta ultrarrápida y ejecución directa destilado desde ReciBot Neo sobre el mismo vocabulario de 2,000 tokens.",
+        "law_ref": "Embedding Factorizado 20,000x8 + Destilacion Ligera",
+        "tags": ["recibot flash", "pulso agil", "identidad", "parametros", "172087", "20000 tokens", "velocidad", "destilacion"],
+        "content": "ReciBot Flash es Pulso-Ágil, el modelo de respuesta ultrarrápida y ejecución directa destilado desde ReciBot Neo sobre el mismo vocabulario de 20,000 tokens con embeddings factorizados 20,000x8.",
         "facts": [
             "Identidad oficial de ReciBot Flash: Pulso-Ágil, orientado a consultas instantáneas, métricas puntuales y respuestas concisas en milisegundos.",
-            "Arquitectura de ReciBot Flash: Embedding de 2,000 x 48, pooling Mean+Max (96 dimensiones), capa oculta ReLU de 72 neuronas y cabeza destilada desde ReciBot Neo.",
+            "Arquitectura de ReciBot Flash: Embedding factorizado de 20,000 x 8, pooling Mean+Max (16 dimensiones), capa oculta ReLU de 88 neuronas (172,087 parámetros) y cabeza destilada desde ReciBot Neo.",
             "ReciBot Flash responde en primera persona como Pulso-Ágil y muestra el conteo exacto de parámetros de ambos modelos al ser consultado.",
         ],
     },
@@ -1932,34 +1934,101 @@ def fnv1a_32(data: bytes) -> int:
 
 def build_domain_vocab(max_domain_words: int = NUM_DOMAIN_WORDS) -> Tuple[List[str], Dict[str, int]]:
     """
-    Deterministic ReciminsaApp vocabulary:
+    Deterministic 20,000-token ReciminsaApp vocabulary:
       0=<PAD>, 1=<UNK>, 2=<CLS>, 3=<SEP>,
-      4..447=top domain tokens,
-      448..511=64 FNV-1a OOV hash buckets.
+      4..11807=11,804 domain & legal/fiscal/numeric tokens (corpus priority + morphological expansion),
+      11808..19999=8,192 FNV-1a OOV hash buckets.
     """
+    _alnum_re = re.compile(r"[a-z0-9]+")
     counts: Counter = Counter()
     for intent_def in INTENT_DEFS:
         for p in intent_def["patterns"]:
             for tok in tokenize_ascii(p):
-                counts[tok] += 5
+                if _alnum_re.fullmatch(tok):
+                    counts[tok] += 5
     for sent in PRETRAINING_CORPUS:
         for tok in tokenize_ascii(sent):
-            counts[tok] += 3
+            if _alnum_re.fullmatch(tok):
+                counts[tok] += 3
     for doc in KNOWLEDGE_BASE_DOCS:
         doc_blob = (
             f"{doc['title']} {doc.get('law_ref', '')} {doc['content']} "
             f"{' '.join(doc.get('tags', []))} {' '.join(doc.get('facts', []))}"
         )
         for tok in tokenize_ascii(doc_blob):
-            counts[tok] += 2
+            if _alnum_re.fullmatch(tok):
+                counts[tok] += 2
     for text, _, _ in DPO_PREFERENCE_PAIRS:
         for tok in tokenize_ascii(text):
-            counts[tok] += 4
+            if _alnum_re.fullmatch(tok):
+                counts[tok] += 4
+
+    core_words = [
+        w for w, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ][:max_domain_words]
+    used = set(core_words)
+
+    ext_candidates: List[str] = []
+
+    def _add_ext(cand: str) -> None:
+        if cand not in used and _alnum_re.fullmatch(cand):
+            used.add(cand)
+            ext_candidates.append(cand)
+
+    if len(core_words) < max_domain_words:
+        # 1) Dominican corporate/fiscal/operations codes & domain numbers
+        for n in range(1, 18):
+            _add_ext(f"b{n:02d}")
+            _add_ext(f"ir{n}")
+        for n in range(31, 48):
+            _add_ext(f"e{n:02d}")
+        for code in ("606", "607", "608", "609", "it1"):
+            _add_ext(code)
+        for yr in range(2010, 2041):
+            _add_ext(str(yr))
+        for n in range(0, 1501):
+            _add_ext(str(n))
+        for n in range(2000, 501000, 500):
+            _add_ext(str(n))
+        for n in range(1, 51):
+            _add_ext(f"suc{n}")
+            _add_ext(f"camion{n:02d}")
+        for n in range(1, 100):
+            _add_ext(f"ncf{n:02d}")
+            _add_ext(f"lote{n:02d}")
+            _add_ext(f"ruta{n:02d}")
+        for n in range(1, 101):
+            _add_ext(f"cli{n:03d}")
+
+        # 2) Deterministic Spanish & domain morphological expansion from corpus roots
+        suffixes = (
+            "s", "es", "ar", "er", "ir", "ado", "ada", "ados", "adas",
+            "ando", "iendo", "cion", "ciones", "dor", "dora", "dores",
+            "mente", "ble", "bles", "ero", "era", "eros", "eras",
+            "ista", "istas", "al", "ales", "ivo", "iva", "ivos", "ivas",
+            "o", "a", "os", "as", "e", "en", "emos", "an", "amos",
+            "aba", "aban", "ara", "aran",
+        )
+        alpha_roots = [w for w in core_words if w.isalpha() and len(w) >= 4]
+        for root in alpha_roots:
+            for suf in suffixes:
+                _add_ext(f"{root}{suf}")
+            if len(core_words) + len(ext_candidates) >= max_domain_words * 2:
+                break
+
+        # 3) Fallback deterministic subword prefixes/suffixes if still needed
+        if len(core_words) + len(ext_candidates) < max_domain_words:
+            for w in sorted(counts.keys()):
+                if len(w) >= 3:
+                    for L in range(2, min(7, len(w))):
+                        _add_ext(w[:L])
+                        _add_ext(w[-L:])
+
+    need = max(0, max_domain_words - len(core_words))
+    top_words = core_words + sorted(ext_candidates)[:need]
 
     vocab_list = ["<PAD>", "<UNK>", "<CLS>", "<SEP>"]
-    # Sort descending by frequency, ascending alphabetically for exact determinism
-    top_words = [w for w, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:max_domain_words]]
-    vocab_list.extend(top_words)
+    vocab_list.extend(top_words[:max_domain_words])
     while len(vocab_list) < OOV_BUCKET_START:
         vocab_list.append(f"<RESERVED_{len(vocab_list)}>")
     for b_idx in range(OOV_NUM_BUCKETS):

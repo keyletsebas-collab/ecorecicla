@@ -1657,45 +1657,48 @@
   {
     "id": "kb_identity_neo",
     "intent": "identity_capabilities",
-    "title": "Identidad de ReciBot Neo (Argon-Auditor · 2,000 Tokens)",
+    "title": "Identidad de ReciBot Neo (Argon-Auditor · 20,000 Tokens · 500,530 Params)",
     "module": "chatbot",
     "category": "app",
-    "law_ref": "Arquitectura Transformer GPT + LoRA + DPO + RAG · 2,000 Tokens",
+    "law_ref": "ALBERT Factorized Embeddings 20,000x14->112 + Transformer GPT + LoRA + DPO + RAG",
     "tags": [
       "recibot neo",
       "argon auditor",
       "identidad",
       "parametros",
-      "2000 tokens",
+      "500530",
+      "20000 tokens",
+      "factorizado",
       "razonamiento profundo"
     ],
-    "content": "ReciBot Neo es Argón-Auditor, el modelo de razonamiento profundo, auditoría legal empresarial y verificación multi-paso de ReciminsaApp con vocabulario expandido de 2,000 tokens.",
+    "content": "ReciBot Neo es Argón-Auditor, el modelo de razonamiento profundo, auditoría legal empresarial y verificación multi-paso de ReciminsaApp con vocabulario de 20,000 tokens y embeddings factorizados tipo ALBERT (20,000x14 proyectados a 112).",
     "facts": [
       "Identidad oficial de ReciBot Neo: Argón-Auditor, enfocado en precisión, auditoría integral y comprobaciones cruzadas antes de emitir conclusiones.",
-      "Arquitectura de ReciBot Neo: Transformer tipo GPT de 2 capas, 4 cabezales de atención, d_model=112, FFN=224, vocabulario de 2,000 tokens, adaptadores LoRA r=8, alineación DPO y proyección RAG de 64 dimensiones.",
+      "Arquitectura de ReciBot Neo: Embeddings factorizados ALBERT 20,000x14 -> 112 + Transformer GPT de 2 capas, 4 cabezales, FFN=220, 500,530 parámetros en inferencia, LoRA r=8, DPO y RAG 64D.",
       "ReciBot Neo consulta sus pesos y métricas en vivo (inference_parameters y total_params_with_lora) para informar con exactitud cuántos parámetros contiene."
     ]
   },
   {
     "id": "kb_identity_flash",
     "intent": "identity_capabilities",
-    "title": "Identidad de ReciBot Flash (Pulso-Agil · 2,000 Tokens)",
+    "title": "Identidad de ReciBot Flash (Pulso-Agil · 20,000 Tokens · 172,087 Params)",
     "module": "chatbot",
     "category": "app",
-    "law_ref": "Arquitectura Destilada Ligera · 2,000 Tokens",
+    "law_ref": "Embedding Factorizado 20,000x8 + Destilacion Ligera",
     "tags": [
       "recibot flash",
       "pulso agil",
       "identidad",
       "parametros",
-      "2000 tokens",
+      "172087",
+      "20000 tokens",
       "velocidad",
       "destilacion"
     ],
-    "content": "ReciBot Flash es Pulso-Ágil, el modelo de respuesta ultrarrápida y ejecución directa destilado desde ReciBot Neo sobre el mismo vocabulario de 2,000 tokens.",
+    "content": "ReciBot Flash es Pulso-Ágil, el modelo de respuesta ultrarrápida y ejecución directa destilado desde ReciBot Neo sobre el mismo vocabulario de 20,000 tokens con embeddings factorizados 20,000x8.",
     "facts": [
       "Identidad oficial de ReciBot Flash: Pulso-Ágil, orientado a consultas instantáneas, métricas puntuales y respuestas concisas en milisegundos.",
-      "Arquitectura de ReciBot Flash: Embedding de 2,000 x 48, pooling Mean+Max (96 dimensiones), capa oculta ReLU de 72 neuronas y cabeza destilada desde ReciBot Neo.",
+      "Arquitectura de ReciBot Flash: Embedding factorizado de 20,000 x 8, pooling Mean+Max (16 dimensiones), capa oculta ReLU de 88 neuronas (172,087 parámetros) y cabeza destilada desde ReciBot Neo.",
       "ReciBot Flash responde en primera persona como Pulso-Ágil y muestra el conteo exacto de parámetros de ambos modelos al ser consultado."
     ]
   }

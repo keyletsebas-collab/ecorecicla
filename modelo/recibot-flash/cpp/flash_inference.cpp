@@ -203,8 +203,8 @@ int main() {
         return 1;
     }
     auto w2i = load_word_to_id("modelo/shared/vocab.json");
-    int oov_start = load_json_int_field("modelo/shared/vocab.json", "oov_bucket_start", 1872);
-    int oov_buckets = load_json_int_field("modelo/shared/vocab.json", "oov_num_buckets", 128);
+    int oov_start = load_json_int_field("modelo/shared/vocab.json", "oov_bucket_start", 11808);
+    int oov_buckets = load_json_int_field("modelo/shared/vocab.json", "oov_num_buckets", 8192);
     auto intents = load_intents("modelo/shared/taxonomy.json");
 
     const std::vector<std::string> tests = {

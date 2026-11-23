@@ -6,8 +6,8 @@ using LinearAlgebra
 function load_neo_bin(path::String)
     open(path, "r") do io
         magic = String(read(io, 4))
-        magic == "RNE2" || error("Invalid magic: $magic")
-        hdr = reinterpret(Int32, read(io, 44))
+        magic == "RNE3" || error("Invalid magic: $magic")
+        hdr = reinterpret(Int32, read(io, 48))
         raw = reinterpret(Float32, read(io))
         return hdr, raw
     end

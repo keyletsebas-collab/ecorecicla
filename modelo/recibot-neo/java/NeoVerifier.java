@@ -10,8 +10,8 @@ import java.util.*;
  */
 public class NeoVerifier {
     static final int MAX_SEQ = 32;
-    static final int OOV_START = 1872;
-    static final int OOV_BUCKETS = 128;
+    static final int OOV_START = 11808;
+    static final int OOV_BUCKETS = 8192;
 
     static int fnv1a32(byte[] data) {
         int h = (int) 2166136261L;
