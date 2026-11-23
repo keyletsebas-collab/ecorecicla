@@ -124,6 +124,10 @@ function renderSettingsPage(container) {
   const currentLang = settings.language || 'es';
   const currentTheme = settings.colorTheme || 'green';
   const darkMode = settings.darkMode !== false;
+  const ccBitEnabled = settings.controlCenterBitacora === true;
+  const ccFacEnabled = settings.controlCenterFactura === true;
+  const ccBitStatus = settings.controlCenterBitacoraStatus || (ccBitEnabled ? 'enabled' : 'disabled');
+  const ccFacStatus = settings.controlCenterFacturaStatus || (ccFacEnabled ? 'enabled' : 'disabled');
   const currentCur = 'dop';
   let rawFolderVal = localStorage.getItem(userKey('recim_gdrive_folder')) || localStorage.getItem('recim_gdrive_folder') || '';
   if (rawFolderVal === '[]' || rawFolderVal === 'null' || rawFolderVal === 'undefined') {
@@ -187,6 +191,68 @@ function renderSettingsPage(container) {
           <div style="display:flex; gap:8px; width:100%;">
             <button class="btn-secondary" style="flex:1; justify-content:center; font-size:0.76rem; padding:7px 8px;" onclick="openLegalPrivacyModal()">⚖️ Privacidad y Términos</button>
             <button class="btn-secondary" style="flex:1; justify-content:center; font-size:0.76rem; padding:7px 8px; color:#ef4444; border-color:rgba(239,68,68,0.35);" onclick="handleDeleteUserAccount()">🗑️ Eliminar Cuenta</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CENTRO DE CONTROL ANDROID (ACCESOS RÁPIDOS) ===== -->
+      <div class="card card--elevated settings-section" id="settings-control-center-card">
+        <h3 class="settings-section-title">🎛️ Centro de Control Android</h3>
+        <p style="font-size:0.8rem; color:var(--clr-text-muted); margin-bottom:12px; line-height:1.45;">
+          Activa estos 2 botones en el panel de Ajustes Rápidos de tu teléfono (junto a <b>Wi-Fi</b>, <b>Bluetooth</b> y <b>Linterna</b>) para abrir Facturas y Bitácoras de Recogida al instante.
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <!-- Botón 1: Bitácora Recogida -->
+          <div style="background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:var(--r-md); padding:12px 14px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <div>
+                <div style="font-weight:700; font-size:0.9rem; color:var(--clr-text);">🚛 Bitácora Recogida</div>
+                <span id="cc-tile-status-bitacora" class="badge" style="margin-top:4px; display:inline-block; font-size:0.72rem; padding:3px 8px; border-radius:6px; ${ccBitStatus === 'added' ? 'background:rgba(34,197,94,0.2); color:#86efac;' : (ccBitEnabled ? 'background:rgba(59,130,246,0.2); color:#93c5fd;' : 'background:rgba(148,163,184,0.16); color:#cbd5e1;')}">
+                  ${ccBitStatus === 'added' ? '✅ En Centro de Control' : (ccBitEnabled ? '🟢 Activado' : '⏸️ Desactivado')}
+                </span>
+              </div>
+              <label class="toggle-switch" title="Activar o desactivar Bitácora Recogida en el Centro de Control Android">
+                <input type="checkbox" id="toggle-cc-bitacora" ${ccBitEnabled ? 'checked' : ''} onchange="handleToggleControlCenterTile('bitacora', this.checked)" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn-secondary" style="flex:1; min-width:140px; justify-content:center; padding:6px 10px; font-size:0.76rem;" onclick="handleRequestAddControlCenterTile('bitacora')">
+                📲 Añadir al Centro de Control
+              </button>
+              <button type="button" class="btn-secondary" style="padding:6px 10px; font-size:0.76rem;" onclick="window.openQuickControlTool && window.openQuickControlTool('bitacora')">
+                ⚡ Abrir ahora
+              </button>
+            </div>
+          </div>
+
+          <!-- Botón 2: Nueva Factura -->
+          <div style="background:var(--clr-surface-3); border:1px solid var(--clr-border); border-radius:var(--r-md); padding:12px 14px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <div>
+                <div style="font-weight:700; font-size:0.9rem; color:var(--clr-text);">🧾 Nueva Factura</div>
+                <span id="cc-tile-status-factura" class="badge" style="margin-top:4px; display:inline-block; font-size:0.72rem; padding:3px 8px; border-radius:6px; ${ccFacStatus === 'added' ? 'background:rgba(34,197,94,0.2); color:#86efac;' : (ccFacEnabled ? 'background:rgba(59,130,246,0.2); color:#93c5fd;' : 'background:rgba(148,163,184,0.16); color:#cbd5e1;')}">
+                  ${ccFacStatus === 'added' ? '✅ En Centro de Control' : (ccFacEnabled ? '🟢 Activado' : '⏸️ Desactivado')}
+                </span>
+              </div>
+              <label class="toggle-switch" title="Activar o desactivar Nueva Factura en el Centro de Control Android">
+                <input type="checkbox" id="toggle-cc-factura" ${ccFacEnabled ? 'checked' : ''} onchange="handleToggleControlCenterTile('factura', this.checked)" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn-secondary" style="flex:1; min-width:140px; justify-content:center; padding:6px 10px; font-size:0.76rem;" onclick="handleRequestAddControlCenterTile('factura')">
+                📲 Añadir al Centro de Control
+              </button>
+              <button type="button" class="btn-secondary" style="padding:6px 10px; font-size:0.76rem;" onclick="window.openQuickControlTool && window.openQuickControlTool('factura')">
+                ⚡ Abrir ahora
+              </button>
+            </div>
+          </div>
+
+          <div style="padding:10px 12px; background:rgba(16,185,129,0.08); border:1px dashed rgba(34,197,94,0.35); border-radius:var(--r-md); font-size:0.76rem; line-height:1.45; color:var(--clr-text-secondary);">
+            💡 Al activar cada interruptor, confirma <b>«Agregar»</b> en el aviso de Android. Si tu teléfono (ej. Xiaomi/HyperOS/MIUI o Android anterior a 13) no muestra el aviso automático, desliza el Centro de Control, toca el lápiz ✏️ arriba a la derecha y añade <b>«Bitácora Recogida»</b> y <b>«Nueva Factura»</b>.
           </div>
         </div>
       </div>
@@ -415,6 +481,8 @@ function renderSettingsPage(container) {
   // Update Google Drive status badge
   setTimeout(() => updateGDriveStatusDOM(), 0);
 
+  // Sync Android Control Center toggles/badges
+  setTimeout(() => syncControlCenterSettingsUI(), 0);
 }
 
 // ---- Google Drive Backup Handlers ----
@@ -925,6 +993,103 @@ function handleDarkMode(enabled) {
   document.documentElement.setAttribute('data-theme', enabled ? 'dark' : 'light');
   showToast(enabled ? t('toast.dark') : t('toast.light'), 'success');
 }
+
+function syncControlCenterSettingsUI() {
+  const s = getSettings();
+  let nativeState = null;
+  if (window.AndroidNative && typeof window.AndroidNative.GetControlCenterTilesState === 'function') {
+    try {
+      nativeState = JSON.parse(window.AndroidNative.GetControlCenterTilesState() || 'null');
+    } catch (_) {
+      nativeState = null;
+    }
+  }
+
+  const updateRow = (tool, prefKey, statusKey, toggleId, badgeId) => {
+    const enabled = s[prefKey] === true;
+    const status = s[statusKey] || (enabled ? 'enabled' : 'disabled');
+    const toggleEl = document.getElementById(toggleId);
+    const badgeEl = document.getElementById(badgeId);
+
+    if (toggleEl) {
+      toggleEl.checked = enabled;
+    }
+    if (badgeEl) {
+      if (status === 'added' && enabled) {
+        badgeEl.textContent = '✅ En Centro de Control';
+        badgeEl.style.background = 'rgba(34,197,94,0.2)';
+        badgeEl.style.color = '#86efac';
+      } else if (enabled || (nativeState && nativeState[tool] === true && s[prefKey] === undefined)) {
+        badgeEl.textContent = enabled ? '🟢 Activado (listo para añadir)' : '🔵 Disponible en Centro de Control';
+        badgeEl.style.background = 'rgba(59,130,246,0.2)';
+        badgeEl.style.color = '#93c5fd';
+      } else {
+        badgeEl.textContent = '⏸️ Desactivado';
+        badgeEl.style.background = 'rgba(148,163,184,0.16)';
+        badgeEl.style.color = '#cbd5e1';
+      }
+    }
+  };
+
+  updateRow('bitacora', 'controlCenterBitacora', 'controlCenterBitacoraStatus', 'toggle-cc-bitacora', 'cc-tile-status-bitacora');
+  updateRow('factura', 'controlCenterFactura', 'controlCenterFacturaStatus', 'toggle-cc-factura', 'cc-tile-status-factura');
+}
+window.syncControlCenterSettingsUI = syncControlCenterSettingsUI;
+
+function handleToggleControlCenterTile(toolType, enabled) {
+  const normalized = String(toolType || '').toLowerCase() === 'factura' ? 'factura' : 'bitacora';
+  const label = normalized === 'factura' ? 'Nueva Factura' : 'Bitácora Recogida';
+  const prefKey = normalized === 'factura' ? 'controlCenterFactura' : 'controlCenterBitacora';
+  const statusKey = normalized === 'factura' ? 'controlCenterFacturaStatus' : 'controlCenterBitacoraStatus';
+
+  saveSetting(prefKey, Boolean(enabled));
+  saveSetting(statusKey, enabled ? 'enabled' : 'disabled');
+  syncControlCenterSettingsUI();
+
+  if (window.AndroidNative && typeof window.AndroidNative.SetControlCenterTileEnabled === 'function') {
+    try {
+      const msg = window.AndroidNative.SetControlCenterTileEnabled(normalized, Boolean(enabled));
+      if (msg && typeof showToast === 'function') {
+        showToast(msg, enabled ? 'info' : 'warning');
+      }
+      return;
+    } catch (_) {}
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(
+      enabled
+        ? `✅ '${label}' activado. En Android desliza el Centro de Control, toca el lápiz ✏️ y agrégalo.`
+        : `⏸️ '${label}' desactivado del Centro de Control.`,
+      enabled ? 'success' : 'info'
+    );
+  }
+}
+window.handleToggleControlCenterTile = handleToggleControlCenterTile;
+
+function handleRequestAddControlCenterTile(toolType) {
+  const normalized = String(toolType || '').toLowerCase() === 'factura' ? 'factura' : 'bitacora';
+  const prefKey = normalized === 'factura' ? 'controlCenterFactura' : 'controlCenterBitacora';
+  const statusKey = normalized === 'factura' ? 'controlCenterFacturaStatus' : 'controlCenterBitacoraStatus';
+
+  saveSetting(prefKey, true);
+  if (getSettings()[statusKey] !== 'added') {
+    saveSetting(statusKey, 'enabled');
+  }
+  syncControlCenterSettingsUI();
+
+  if (typeof window.requestAndroidControlCenterTiles === 'function') {
+    window.requestAndroidControlCenterTiles(normalized);
+  } else if (window.AndroidNative && typeof window.AndroidNative.RequestAddControlCenterTile === 'function') {
+    try {
+      const msg = window.AndroidNative.RequestAddControlCenterTile(normalized);
+      if (msg && typeof showToast === 'function') showToast(msg, 'info');
+    } catch (_) {}
+  } else if (typeof showToast === 'function') {
+    showToast('Desliza el Centro de Control de tu teléfono Android, toca el lápiz ✏️ y agrega el botón.', 'info');
+  }
+}
+window.handleRequestAddControlCenterTile = handleRequestAddControlCenterTile;
 
 function handleLangChange(code) {
   saveSetting('language', code);

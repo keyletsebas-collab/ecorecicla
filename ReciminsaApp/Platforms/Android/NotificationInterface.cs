@@ -775,11 +775,41 @@ public class NotificationInterface : Java.Lang.Object
             try
             {
                 var ctx = global::Android.App.Application.Context;
-                return ControlCenterNotificationHelper.RequestAddQuickTile(ctx, toolType ?? "bitacora");
+                return ControlCenterNotificationHelper.RequestAddQuickTile(ctx, toolType ?? "bitacora", _webView);
             }
             catch (Exception ex)
             {
                 return $"⚠️ No se pudo registrar acceso directo: {ex.Message}";
+            }
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("SetControlCenterTileEnabled")]
+        public string SetControlCenterTileEnabled(string toolType, bool enabled)
+        {
+            try
+            {
+                var ctx = global::Android.App.Application.Context;
+                return ControlCenterNotificationHelper.SetControlCenterTileEnabled(ctx, toolType ?? "bitacora", enabled, _webView);
+            }
+            catch (Exception ex)
+            {
+                return $"⚠️ No se pudo cambiar estado del botón: {ex.Message}";
+            }
+        }
+
+        [JavascriptInterface]
+        [Java.Interop.Export("GetControlCenterTilesState")]
+        public string GetControlCenterTilesState()
+        {
+            try
+            {
+                var ctx = global::Android.App.Application.Context;
+                return ControlCenterNotificationHelper.GetControlCenterTilesState(ctx);
+            }
+            catch
+            {
+                return "{\"bitacora\":true,\"factura\":true,\"supportsRequestAdd\":false,\"apiLevel\":0}";
             }
         }
     }

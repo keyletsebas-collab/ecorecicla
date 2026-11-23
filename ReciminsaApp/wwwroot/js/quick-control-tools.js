@@ -103,6 +103,25 @@
 
   function openQuickControlTool(mode = 'bitacora') {
     const safeMode = mode === 'factura' ? 'factura' : 'bitacora';
+
+    let activeUser = null;
+    try {
+      activeUser = typeof getCurrentUser === 'function'
+        ? getCurrentUser()
+        : JSON.parse(localStorage.getItem('recim_session') || 'null');
+    } catch (_) {
+      activeUser = null;
+    }
+    if (!activeUser || !activeUser.accountId) {
+      window.__PENDING_QUICK_TOOL__ = safeMode;
+      return;
+    }
+
+    window.__PENDING_QUICK_TOOL__ = '';
+    if (window.AndroidNative && typeof window.AndroidNative.ConsumePendingQuickTool === 'function') {
+      try { window.AndroidNative.ConsumePendingQuickTool(); } catch (_) {}
+    }
+
     closeQuickControlTool();
 
     const modal = document.createElement('div');
@@ -961,8 +980,30 @@
     }
   }
 
+  function onAndroidControlCenterTileResult(toolType, code, msg) {
+    const normalized = String(toolType || '').toLowerCase() === 'factura' ? 'factura' : 'bitacora';
+    const numCode = Number(code);
+    const statusVal = numCode === -100
+      ? 'disabled'
+      : ((numCode === 1 || numCode === 2) ? 'added' : 'enabled');
+
+    if (typeof saveSetting === 'function') {
+      saveSetting(normalized === 'factura' ? 'controlCenterFactura' : 'controlCenterBitacora', numCode !== -100);
+      saveSetting(normalized === 'factura' ? 'controlCenterFacturaStatus' : 'controlCenterBitacoraStatus', statusVal);
+    }
+
+    if (msg && typeof showToast === 'function') {
+      showToast(msg, (numCode === 1 || numCode === 2) ? 'success' : 'info');
+    }
+
+    if (typeof window.syncControlCenterSettingsUI === 'function') {
+      try { window.syncControlCenterSettingsUI(); } catch (_) {}
+    }
+  }
+
   window.openQuickControlTool = openQuickControlTool;
   window.closeQuickControlTool = closeQuickControlTool;
+  window.onAndroidControlCenterTileResult = onAndroidControlCenterTileResult;
   window.onQuickBitBranchChange = onQuickBitBranchChange;
   window.onQuickBitClientSelect = onQuickBitClientSelect;
   window.addQuickBitacoraRow = addQuickBitacoraRow;
