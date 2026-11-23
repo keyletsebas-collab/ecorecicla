@@ -1,0 +1,481 @@
+{
+  "vocab_size": 2000,
+  "max_seq_len": 32,
+  "d_in": 128,
+  "identities": {
+    "neo": {
+      "name": "ReciBot Neo",
+      "codename": "Argón-Auditor",
+      "role": "Auditoría Profunda y Razonamiento Corporativo",
+      "greeting": "Soy ReciBot Neo (Argón-Auditor), tu asistente de razonamiento profundo, auditoría legal y control operativo en ReciminsaApp.",
+      "style": "Analítico, verificador en multi-paso y exhaustivo; valido consistencia financiera, comprobantes NCF/DGII y cumplimiento legal antes de concluir.",
+      "traits": [
+        "Razonamiento multi-paso con Transformer GPT + LoRA + DPO",
+        "Verificación cruzada de finanzas, inventario y cumplimiento DGII/TSS",
+        "Análisis jurídico empresarial y redacción estructurada de cláusulas"
+      ]
+    },
+    "flash": {
+      "name": "ReciBot Flash",
+      "codename": "Pulso-Ágil",
+      "role": "Ejecución Ultrarrápida y Asistencia Directa",
+      "greeting": "Soy ReciBot Flash (Pulso-Ágil), tu asistente de respuesta instantánea y ejecución ágil en ReciminsaApp.",
+      "style": "Directo, veloz y concreto; priorizo darte métricas clave, atajos operativos y respuestas breves sin rodeos.",
+      "traits": [
+        "Inferencia ligera destilada desde ReciBot Neo en milisegundos",
+        "Consultas rápidas de balance, facturas, rutas, envases y recordatorios legales",
+        "Respuestas compactas optimizadas para operación continua en campo y oficina"
+      ]
+    }
+  },
+  "intents": [
+    {
+      "id": 0,
+      "name": "greeting",
+      "title": "Saludo inicial",
+      "depth": 0,
+      "tools": []
+    },
+    {
+      "id": 1,
+      "name": "thanks_farewell",
+      "title": "Agradecimiento y despedida",
+      "depth": 0,
+      "tools": []
+    },
+    {
+      "id": 2,
+      "name": "identity_capabilities",
+      "title": "Identidad y Capacidades de ReciBot Neo y Flash",
+      "depth": 0,
+      "tools": []
+    },
+    {
+      "id": 3,
+      "name": "audit_full_app",
+      "title": "Auditoria integral de toda la app",
+      "depth": 2,
+      "tools": [
+        "check_ncf_dgii",
+        "check_branches",
+        "check_finances",
+        "check_invoices_bitacoras",
+        "check_clients",
+        "check_materials_prices",
+        "check_system_sync"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "audit_dgii_ncf",
+      "title": "Auditoria y secuencias NCF DGII",
+      "depth": 2,
+      "tools": [
+        "check_ncf_dgii",
+        "check_invoices_bitacoras"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "dgii_reports_606_607_608",
+      "title": "Reportes fiscales DGII 606 607 608 y IT-1",
+      "depth": 2,
+      "tools": [
+        "check_ncf_dgii",
+        "check_invoices_bitacoras",
+        "check_finances"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "dgii_rnc_lookup",
+      "title": "Consulta y validacion de RNC o Cedula DGII",
+      "depth": 1,
+      "tools": [
+        "check_clients",
+        "check_ncf_dgii"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "invoice_create_help",
+      "title": "Como crear factura fiscal o sin comprobante",
+      "depth": 1,
+      "tools": [
+        "check_ncf_dgii",
+        "check_branches"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "invoice_summary_live",
+      "title": "Resumen en vivo de facturas emitidas",
+      "depth": 1,
+      "tools": [
+        "check_invoices_bitacoras",
+        "check_branches",
+        "check_finances"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "bitacora_create_help",
+      "title": "Como registrar una bitacora de recogida",
+      "depth": 1,
+      "tools": [
+        "check_branches",
+        "check_materials_prices",
+        "check_clients"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "bitacora_summary_live",
+      "title": "Resumen en vivo de bitacoras de recogida",
+      "depth": 1,
+      "tools": [
+        "check_invoices_bitacoras",
+        "check_branches"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "quote_help_and_live",
+      "title": "Cotizaciones de items y servicios",
+      "depth": 1,
+      "tools": [
+        "check_quotes_docs",
+        "check_branches"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "dispatch_conduce_help",
+      "title": "Despachos y conduces de entrega",
+      "depth": 1,
+      "tools": [
+        "check_quotes_docs",
+        "check_branches"
+      ]
+    },
+    {
+      "id": 13,
+      "name": "returns_credit_debit_notes",
+      "title": "Devoluciones y notas de credito B04 y debito B03",
+      "depth": 2,
+      "tools": [
+        "check_quotes_docs",
+        "check_ncf_dgii",
+        "check_invoices_bitacoras"
+      ]
+    },
+    {
+      "id": 14,
+      "name": "branches_overview_live",
+      "title": "Sucursales y ver datos de todas las sucursales",
+      "depth": 2,
+      "tools": [
+        "check_branches",
+        "check_invoices_bitacoras",
+        "check_clients"
+      ]
+    },
+    {
+      "id": 15,
+      "name": "clients_manage_live",
+      "title": "Gestion de clientes y sucursal asignada",
+      "depth": 1,
+      "tools": [
+        "check_clients",
+        "check_branches"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "materials_families_audit",
+      "title": "Codigos de materiales, familias y auditoria",
+      "depth": 2,
+      "tools": [
+        "check_materials_prices",
+        "check_invoices_bitacoras"
+      ]
+    },
+    {
+      "id": 17,
+      "name": "market_prices_margin",
+      "title": "Precios de mercado y calculo de margen",
+      "depth": 1,
+      "tools": [
+        "check_materials_prices",
+        "run_calculator_or_nav"
+      ]
+    },
+    {
+      "id": 18,
+      "name": "finance_cashflow_live",
+      "title": "Ingresos, egresos y balance financiero en vivo",
+      "depth": 2,
+      "tools": [
+        "check_finances",
+        "check_branches",
+        "check_invoices_bitacoras"
+      ]
+    },
+    {
+      "id": 19,
+      "name": "tax_math_calculator",
+      "title": "Calculadora ITBIS, retenciones y simulacion numerica",
+      "depth": 1,
+      "tools": [
+        "run_calculator_or_nav"
+      ]
+    },
+    {
+      "id": 20,
+      "name": "unit_converter",
+      "title": "Conversion de unidades de peso lb kg ton",
+      "depth": 0,
+      "tools": [
+        "run_calculator_or_nav"
+      ]
+    },
+    {
+      "id": 21,
+      "name": "routes_agenda_live",
+      "title": "Rutas de recogida y agenda de paradas",
+      "depth": 1,
+      "tools": [
+        "check_routes",
+        "check_branches",
+        "check_collaborators"
+      ]
+    },
+    {
+      "id": 22,
+      "name": "collaborators_roles_live",
+      "title": "Colaboradores, empleados, roles y sucursales",
+      "depth": 1,
+      "tools": [
+        "check_collaborators",
+        "check_branches"
+      ]
+    },
+    {
+      "id": 23,
+      "name": "pdf_printing_layout",
+      "title": "Formato PDF carta ticket 80mm e impresion termica",
+      "depth": 1,
+      "tools": [
+        "check_branches"
+      ]
+    },
+    {
+      "id": 24,
+      "name": "android_control_center",
+      "title": "Botones del Centro de Control Android",
+      "depth": 1,
+      "tools": [
+        "check_control_center"
+      ]
+    },
+    {
+      "id": 25,
+      "name": "supabase_sync_delete",
+      "title": "Sincronizacion Supabase, offline y eliminacion real",
+      "depth": 2,
+      "tools": [
+        "check_system_sync"
+      ]
+    },
+    {
+      "id": 26,
+      "name": "gdrive_backup_excel",
+      "title": "Respaldo en Google Drive y Excel",
+      "depth": 1,
+      "tools": [
+        "check_system_sync"
+      ]
+    },
+    {
+      "id": 27,
+      "name": "security_biometric_legal",
+      "title": "Seguridad, biometria, privacidad y eliminacion de cuenta",
+      "depth": 1,
+      "tools": [
+        "check_system_sync"
+      ]
+    },
+    {
+      "id": 28,
+      "name": "white_label_settings",
+      "title": "Marca blanca, logo, idioma, temas y apariencia",
+      "depth": 0,
+      "tools": [
+        "check_branches"
+      ]
+    },
+    {
+      "id": 29,
+      "name": "ecology_impact_live",
+      "title": "Impacto ecologico y sostenibilidad",
+      "depth": 1,
+      "tools": [
+        "check_invoices_bitacoras",
+        "check_materials_prices"
+      ]
+    },
+    {
+      "id": 30,
+      "name": "system_health_check",
+      "title": "Salud de la app, red y almacenamiento local",
+      "depth": 2,
+      "tools": [
+        "check_system_sync",
+        "check_branches",
+        "check_control_center"
+      ]
+    },
+    {
+      "id": 31,
+      "name": "navigate_or_open_tool",
+      "title": "Navegar a modulo o abrir herramienta rapida",
+      "depth": 1,
+      "tools": [
+        "run_calculator_or_nav",
+        "check_control_center"
+      ]
+    },
+    {
+      "id": 32,
+      "name": "legal_tax_code_ncf",
+      "title": "Ley 11-92 Codigo Tributario, Decreto 254-06 y Norma 06-2018 NCF",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_ncf_dgii",
+        "check_invoices_bitacoras"
+      ]
+    },
+    {
+      "id": 33,
+      "name": "legal_ecf_electronic_invoicing",
+      "title": "Ley 32-23 Facturacion Electronica e-CF Serie E",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_ncf_dgii"
+      ]
+    },
+    {
+      "id": 34,
+      "name": "legal_retentions_itbis_isr",
+      "title": "Normas 02-05, 07-07 y 05-2019 Retenciones ITBIS ISR y Calendario",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_ncf_dgii",
+        "check_finances"
+      ]
+    },
+    {
+      "id": 35,
+      "name": "legal_environmental_waste",
+      "title": "Ley 64-00 Medio Ambiente y Ley 225-20 Gestion de Residuos",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_invoices_bitacoras",
+        "check_routes"
+      ]
+    },
+    {
+      "id": 36,
+      "name": "legal_corporate_branches_rnc",
+      "title": "Ley 479-08 Sociedades Comerciales, Registro Mercantil y Sucursales",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_branches"
+      ]
+    },
+    {
+      "id": 37,
+      "name": "legal_commercial_contracts_docs",
+      "title": "Validez Juridica de Cotizaciones, Conduces y Documentos Mercantiles",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_quotes_docs",
+        "check_invoices_bitacoras"
+      ]
+    },
+    {
+      "id": 38,
+      "name": "legal_labor_tss_safety",
+      "title": "Codigo de Trabajo Ley 16-92, TSS Ley 87-01 e INFOTEP",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_collaborators",
+        "check_routes"
+      ]
+    },
+    {
+      "id": 39,
+      "name": "legal_data_privacy_cyber",
+      "title": "Ley 172-13 Datos Personales, Ley 126-02 Electronica y Ley 53-07",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_clients",
+        "check_system_sync"
+      ]
+    },
+    {
+      "id": 40,
+      "name": "legal_aml_scrap_compliance",
+      "title": "Ley 155-17 Antilavado y Trazabilidad de Origen en Compra de Chatarra",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_clients",
+        "check_materials_prices",
+        "check_invoices_bitacoras"
+      ]
+    },
+    {
+      "id": 41,
+      "name": "legal_audit_risk_scenario",
+      "title": "Auditoria Juridica Empresarial, Riesgos y Clausulas ReciminsaApp",
+      "depth": 2,
+      "tools": [
+        "check_legal_compliance",
+        "check_ncf_dgii",
+        "check_branches",
+        "check_clients",
+        "check_collaborators",
+        "check_system_sync"
+      ]
+    }
+  ],
+  "tools": [
+    "check_ncf_dgii",
+    "check_branches",
+    "check_finances",
+    "check_invoices_bitacoras",
+    "check_clients",
+    "check_materials_prices",
+    "check_quotes_docs",
+    "check_routes",
+    "check_collaborators",
+    "check_system_sync",
+    "check_control_center",
+    "run_calculator_or_nav",
+    "check_legal_compliance"
+  ],
+  "depth_labels": [
+    "direct",
+    "verified_single",
+    "deep_multi_check"
+  ]
+}

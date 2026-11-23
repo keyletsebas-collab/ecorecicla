@@ -309,3 +309,393 @@
     transform: translateY(0) !important;
   }
 }
+
+/* ==========================================================================
+   ReciBot Dual Model UI (Neo & Flash Switcher, Live Verifications & Trace)
+   ========================================================================== */
+
+.chatbot-title {
+  min-width: 0;
+  gap: 8px;
+}
+
+.chatbot-title-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.chatbot-title-text span {
+  font-weight: 700;
+  font-size: 0.94rem;
+}
+
+.chatbot-title-text small {
+  font-size: 0.68rem;
+  color: var(--clr-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recibot-model-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  margin-left: auto;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: var(--clr-bg);
+  border: 1px solid var(--clr-border-strong);
+  flex-shrink: 0;
+}
+
+.recibot-model-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--clr-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  white-space: nowrap;
+}
+
+.recibot-model-btn:hover {
+  color: var(--clr-text);
+}
+
+.recibot-model-btn[data-model="neo"].active {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
+}
+
+.recibot-model-btn[data-model="flash"].active {
+  background: linear-gradient(135deg, #d97706, #16a34a);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
+}
+
+.chatbot-window[data-recibot-model="neo"] .chatbot-status-dot {
+  background: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+}
+
+.chatbot-window[data-recibot-model="flash"] .chatbot-status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+}
+
+.recibot-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+}
+
+.recibot-mode-badge--neo {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.recibot-mode-badge--flash {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+:root[data-theme="light"] .recibot-mode-badge--neo,
+body.light-mode .recibot-mode-badge--neo {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+:root[data-theme="light"] .recibot-mode-badge--flash,
+body.light-mode .recibot-mode-badge--flash {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.recibot-rag-answer,
+.recibot-live-box,
+.recibot-highlight-box,
+.recibot-alert-box,
+.recibot-rag-extra {
+  margin-top: 6px;
+  font-size: 0.86rem;
+  line-height: 1.42;
+}
+
+.recibot-highlight-box {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.recibot-live-box {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+}
+
+.recibot-live-box ul,
+.recibot-alert-box ul,
+.recibot-trace-body ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.recibot-live-box li,
+.recibot-alert-box li,
+.recibot-trace-body li {
+  margin-bottom: 3px;
+}
+
+.recibot-alert-box {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.recibot-action-row,
+.recibot-quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chatbot-action-btn,
+.recibot-chip {
+  appearance: none;
+  border: 1px solid var(--clr-border-strong);
+  background: var(--clr-surface-3);
+  color: var(--clr-text);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.chatbot-action-btn:hover,
+.recibot-chip:hover {
+  border-color: var(--clr-primary);
+  background: var(--clr-surface);
+  transform: translateY(-1px);
+}
+
+.recibot-trace {
+  margin-top: 8px;
+  border-top: 1px dashed var(--clr-border);
+  padding-top: 6px;
+  font-size: 0.75rem;
+  color: var(--clr-text-secondary);
+}
+
+.recibot-trace summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+  outline: none;
+}
+
+.recibot-trace-body {
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: var(--clr-bg);
+  border: 1px solid var(--clr-border);
+  line-height: 1.4;
+}
+
+.recibot-flash-meta {
+  margin-top: 6px;
+  color: var(--clr-text-muted);
+  font-size: 0.71rem;
+}
+
+@media (max-width: 480px) {
+  .recibot-model-btn {
+    padding: 4px 7px;
+    font-size: 0.69rem;
+  }
+  .chatbot-title-text small {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   ReciBot Corporate Legal Boxes, Law Pills, Clause Drafter & Follow-up Chips
+   ========================================================================== */
+
+.recibot-law-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.recibot-law-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.14);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.34);
+}
+
+:root[data-theme="light"] .recibot-law-pill,
+body.light-mode .recibot-law-pill {
+  color: #6b21a8;
+  background: rgba(168, 85, 247, 0.10);
+}
+
+.recibot-legal-box {
+  margin-top: 7px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.11);
+  border: 1px solid rgba(139, 92, 246, 0.32);
+  font-size: 0.85rem;
+  line-height: 1.42;
+}
+
+.recibot-legal-box ul,
+.recibot-rag-answer ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.recibot-legal-box li,
+.recibot-rag-answer li {
+  margin-bottom: 4px;
+}
+
+.recibot-clause-box {
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: var(--clr-bg);
+  border: 1px dashed var(--clr-primary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.recibot-clause-box p {
+  margin: 5px 0 0 0;
+  user-select: text;
+}
+
+.recibot-followups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.recibot-followup-btn {
+  appearance: none;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.10);
+  color: var(--clr-text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  text-align: left;
+}
+
+.recibot-followup-btn:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+.recibot-disclaimer {
+  margin-top: 7px;
+  padding-top: 5px;
+  border-top: 1px solid var(--clr-border);
+  font-size: 0.70rem;
+  color: var(--clr-text-muted);
+  line-height: 1.35;
+}
+
+.recibot-identity-card {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface-2, rgba(15, 23, 42, 0.35));
+  color: var(--clr-text);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.recibot-identity-card--neo {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(59, 130, 246, 0.08));
+}
+
+.recibot-identity-card--flash {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(59, 130, 246, 0.06));
+}
+
+.recibot-identity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.recibot-identity-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: rgba(15, 23, 42, 0.18);
+  border: 1px solid var(--clr-border);
+  color: var(--clr-text);
+}
+
+.recibot-identity-specs {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--clr-border);
+  font-size: 0.78rem;
+}
+
+.recibot-identity-specs ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.recibot-identity-specs li {
+  margin-bottom: 2px;
+}

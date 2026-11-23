@@ -1,0 +1,1702 @@
+[
+  {
+    "id": "kb_neo_flash",
+    "intent": "identity_capabilities",
+    "title": "Modos ReciBot Neo vs ReciBot Flash",
+    "module": "recibot",
+    "tags": [
+      "recibot",
+      "neo",
+      "flash",
+      "ia",
+      "modelo",
+      "diferencia",
+      "capacidades"
+    ],
+    "content": "ReciBot Neo utiliza arquitectura Transformer multi-cabeza entrenada con preentrenamiento ReciminsaApp, LoRA, alineacion DPO y RAG hibrido; ejecuta comprobaciones cruzadas en vivo (NCF DGII, sucursales, finanzas, materiales, sincronizacion) antes de responder. ReciBot Flash usa un modelo destilado liviano optimizado para respuestas instantaneas.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "ReciBot Neo utiliza arquitectura Transformer multi-cabeza entrenada con preentrenamiento ReciminsaApp, LoRA, alineacion DPO y RAG hibrido; ejecuta comprobaciones cruzadas en vivo (NCF DGII, sucursales, finanzas, materiales, sincronizacion) antes de responder.",
+      "ReciBot Flash usa un modelo destilado liviano optimizado para respuestas instantaneas."
+    ]
+  },
+  {
+    "id": "kb_audit_full",
+    "intent": "audit_full_app",
+    "title": "Auditoria Integral del Sistema ReciminsaApp",
+    "module": "auditoria",
+    "tags": [
+      "auditoria",
+      "diagnostico",
+      "completo",
+      "legal",
+      "empresa",
+      "fallos"
+    ],
+    "content": "La auditoria integral inspecciona secuencias NCF DGII agotadas o vencidas, facturas B01/B14/B15 sin RNC valido, sucursales configuradas, clientes/materiales sin asignacion, margenes negativos, flujo de caja y estado de sincronizacion en Supabase.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "La auditoria integral inspecciona secuencias NCF DGII agotadas o vencidas, facturas B01/B14/B15 sin RNC valido, sucursales configuradas, clientes/materiales sin asignacion, margenes negativos, flujo de caja y estado de sincronizacion en Supabase."
+    ]
+  },
+  {
+    "id": "kb_dgii_ncf_law",
+    "intent": "audit_dgii_ncf",
+    "title": "Cumplimiento Legal NCF DGII y Bloqueo en Cero",
+    "module": "facturas",
+    "tags": [
+      "ncf",
+      "dgii",
+      "b01",
+      "b02",
+      "b14",
+      "b15",
+      "e31",
+      "agotada",
+      "vencida",
+      "ilegal"
+    ],
+    "content": "En Parametrizaciones NCF debes registrar rango inicial, final y fecha de vencimiento autorizados por la DGII. Si una secuencia llega a 0 disponibles o vence, ReciminsaApp bloquea la emision fiscal y exige solicitar nuevos NCF en la DGII o facturar explicitamente como Sin Comprobante Fiscal.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Parametrizaciones NCF debes registrar rango inicial, final y fecha de vencimiento autorizados por la DGII.",
+      "Si una secuencia llega a 0 disponibles o vence, ReciminsaApp bloquea la emision fiscal y exige solicitar nuevos NCF en la DGII o facturar explicitamente como Sin Comprobante Fiscal."
+    ]
+  },
+  {
+    "id": "kb_dgii_606_607_608",
+    "intent": "dgii_reports_606_607_608",
+    "title": "Formatos Fiscales 606, 607, 608, 609 e IT-1",
+    "module": "manejo_dgii",
+    "tags": [
+      "606",
+      "607",
+      "608",
+      "609",
+      "it1",
+      "txt",
+      "oficina virtual",
+      "anulados"
+    ],
+    "content": "El modulo Manejo DGII genera archivos TXT oficiales: 606 (compras/costos con NCF), 607 (ventas con NCF emitido), 608 (comprobantes anulados al eliminar o cancelar una factura fiscal) y borrador IT-1 mensual.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "El modulo Manejo DGII genera archivos TXT oficiales: 606 (compras/costos con NCF), 607 (ventas con NCF emitido), 608 (comprobantes anulados al eliminar o cancelar una factura fiscal) y borrador IT-1 mensual."
+    ]
+  },
+  {
+    "id": "kb_dgii_rnc",
+    "intent": "dgii_rnc_lookup",
+    "title": "Validacion de RNC (9 digitos) y Cedula (11 digitos) DGII",
+    "module": "clientes",
+    "tags": [
+      "rnc",
+      "cedula",
+      "dgii",
+      "lupa",
+      "validar",
+      "razon social",
+      "9 digitos",
+      "11 digitos"
+    ],
+    "content": "Usa el boton lupa junto al campo RNC o Nombre en Clientes, Facturas o Mini Factura para consultar el padron DGII en linea. Para comprobantes B01, E31, B14, E44, B15 y E45 es obligatorio un RNC de 9 digitos o Cedula de 11 digitos.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Usa el boton lupa junto al campo RNC o Nombre en Clientes, Facturas o Mini Factura para consultar el padron DGII en linea.",
+      "Para comprobantes B01, E31, B14, E44, B15 y E45 es obligatorio un RNC de 9 digitos o Cedula de 11 digitos."
+    ]
+  },
+  {
+    "id": "kb_invoice_create",
+    "intent": "invoice_create_help",
+    "title": "Emision Unificada de Facturas (Fiscal y Comercial)",
+    "module": "facturas",
+    "tags": [
+      "factura",
+      "emitir",
+      "crear",
+      "b01",
+      "b02",
+      "itbis",
+      "isc",
+      "retencion",
+      "conduce"
+    ],
+    "content": "En Facturacion -> Facturas puedes emitir con comprobante DGII (si hay lote activo con saldo) o Sin Comprobante Fiscal. Soporta ITBIS 18%/16%/0%, ISC, retenciones de ISR e ITBIS, seleccion de sucursal, PDF Carta o Ticket 80mm y conversion a Conduce.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Facturacion -> Facturas puedes emitir con comprobante DGII (si hay lote activo con saldo) o Sin Comprobante Fiscal.",
+      "Soporta ITBIS 18%/16%/0%, ISC, retenciones de ISR e ITBIS, seleccion de sucursal, PDF Carta o Ticket 80mm y conversion a Conduce."
+    ]
+  },
+  {
+    "id": "kb_invoice_summary",
+    "intent": "invoice_summary_live",
+    "title": "Historial de Facturas Emitidas y Totales",
+    "module": "historial",
+    "tags": [
+      "facturas",
+      "emitidas",
+      "resumen",
+      "total",
+      "ventas",
+      "sucursal"
+    ],
+    "content": "Las facturas emitidas se almacenan en recim_invoices con tipo local/empresa, NCF asignado, sucursal de origen y su respectivo movimiento de ingreso en Finanzas.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Las facturas emitidas se almacenan en recim_invoices con tipo local/empresa, NCF asignado, sucursal de origen y su respectivo movimiento de ingreso en Finanzas."
+    ]
+  },
+  {
+    "id": "kb_bitacora_create",
+    "intent": "bitacora_create_help",
+    "title": "Registro de Bitacoras de Recogida de Materiales",
+    "module": "bitacoras",
+    "tags": [
+      "bitacora",
+      "recogida",
+      "camion",
+      "ficha",
+      "chofer",
+      "pesos",
+      "egreso"
+    ],
+    "content": "Las Bitacoras registran recogidas y compras de materiales por sucursal, cliente, chofer y ficha. Al guardar, calculan compra vs venta esperada, registran solo el egreso de compra en Finanzas y sincronizan en Supabase.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Las Bitacoras registran recogidas y compras de materiales por sucursal, cliente, chofer y ficha.",
+      "Al guardar, calculan compra vs venta esperada, registran solo el egreso de compra en Finanzas y sincronizan en Supabase."
+    ]
+  },
+  {
+    "id": "kb_bitacora_summary",
+    "intent": "bitacora_summary_live",
+    "title": "Miniaturas y Resumen de Bitacoras en Vivo",
+    "module": "bitacoras",
+    "tags": [
+      "bitacoras",
+      "cuantas",
+      "ultimas",
+      "miniaturas",
+      "recogidas",
+      "choferes"
+    ],
+    "content": "En Bitacoras -> Conteo y Miniaturas puedes inspeccionar cada bitacora con su badge de sucursal, cliente, materiales y total de compra, o ver el consolidado de todas las sucursales.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Bitacoras -> Conteo y Miniaturas puedes inspeccionar cada bitacora con su badge de sucursal, cliente, materiales y total de compra, o ver el consolidado de todas las sucursales."
+    ]
+  },
+  {
+    "id": "kb_quotes",
+    "intent": "quote_help_and_live",
+    "title": "Cotizaciones Ampliadas: Modo Item y Modo Servicio",
+    "module": "facturas",
+    "tags": [
+      "cotizacion",
+      "cotizaciones",
+      "item",
+      "servicio",
+      "nombre del servicio",
+      "precio",
+      "descripcion"
+    ],
+    "content": "En Facturacion -> Cotizaciones puedes combinar filas tipo Item (material, cantidad, unidad, precio unitario + descripcion opcional) y filas tipo Servicio (Nombre del Servicio, Precio del Servicio y Descripcion del Servicio) con calculo en vivo de ITBIS y exportacion PDF.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Facturacion -> Cotizaciones puedes combinar filas tipo Item (material, cantidad, unidad, precio unitario + descripcion opcional) y filas tipo Servicio (Nombre del Servicio, Precio del Servicio y Descripcion del Servicio) con calculo en vivo de ITBIS y exportacion PDF."
+    ]
+  },
+  {
+    "id": "kb_dispatches",
+    "intent": "dispatch_conduce_help",
+    "title": "Despachos y Conduces de Entrega",
+    "module": "facturas",
+    "tags": [
+      "despacho",
+      "conduce",
+      "entrega",
+      "placa",
+      "conductor",
+      "pdf"
+    ],
+    "content": "Los Despachos o Conduces documentan salida fisica de materiales reciclados indicando vehiculo, chofer, sucursal de origen, items entregados y destino.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Los Despachos o Conduces documentan salida fisica de materiales reciclados indicando vehiculo, chofer, sucursal de origen, items entregados y destino."
+    ]
+  },
+  {
+    "id": "kb_notes_returns",
+    "intent": "returns_credit_debit_notes",
+    "title": "Devoluciones, Notas de Credito (B04) y Notas de Debito (B03)",
+    "module": "nota_credito",
+    "tags": [
+      "devolucion",
+      "nota de credito",
+      "nota de debito",
+      "b03",
+      "b04",
+      "ncf afectado"
+    ],
+    "content": "Las Notas de Credito (B04) ajustan o anulan ventas referenciando el NCF original afectado; las Notas de Debito (B03) cargan intereses o recargos adicionales con formato DGII completo.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Las Notas de Credito (B04) ajustan o anulan ventas referenciando el NCF original afectado; las Notas de Debito (B03) cargan intereses o recargos adicionales con formato DGII completo."
+    ]
+  },
+  {
+    "id": "kb_branches",
+    "intent": "branches_overview_live",
+    "title": "Multi-Sucursal: Ver Todas las Sucursales y Trazabilidad",
+    "module": "parametrizaciones_empresa",
+    "tags": [
+      "sucursal",
+      "sucursales",
+      "todas",
+      "historial",
+      "empleados",
+      "ubicacion",
+      "razon social"
+    ],
+    "content": "En Parametrizaciones de Empresa (donde se ingresa primero Nombre/Razon Social y luego RNC) se gestionan sucursales y se anaden usuarios/colaboradores a cada sede. En Historial y Bitacoras el boton 'Ver los datos de todas las sucursales' consolida facturas, bitacoras y clientes por sucursal.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Parametrizaciones de Empresa (donde se ingresa primero Nombre/Razon Social y luego RNC) se gestionan sucursales y se anaden usuarios/colaboradores a cada sede.",
+      "En Historial y Bitacoras el boton 'Ver los datos de todas las sucursales' consolida facturas, bitacoras y clientes por sucursal."
+    ]
+  },
+  {
+    "id": "kb_clients",
+    "intent": "clients_manage_live",
+    "title": "Directorio de Clientes y Sucursal de Compra",
+    "module": "clientes",
+    "tags": [
+      "cliente",
+      "clientes",
+      "dropdown",
+      "sucursal",
+      "rnc",
+      "editar",
+      "eliminar"
+    ],
+    "content": "Al crear o editar un cliente en Clientes aparece el selector de sucursal (#cli-branch-select) para asignar en cual sede compra, con filtro por sucursal, vista de detalles con ubicacion y borrado real en Supabase.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Al crear o editar un cliente en Clientes aparece el selector de sucursal (#cli-branch-select) para asignar en cual sede compra, con filtro por sucursal, vista de detalles con ubicacion y borrado real en Supabase."
+    ]
+  },
+  {
+    "id": "kb_materials",
+    "intent": "materials_families_audit",
+    "title": "Codigos de Materiales, Familias y Auditoria",
+    "module": "codigos",
+    "tags": [
+      "material",
+      "materiales",
+      "codigo",
+      "familia",
+      "familias",
+      "auditar",
+      "trading"
+    ],
+    "content": "Cada material debe pertenecer a una Familia de Materiales para habilitar graficos Trading por familia y evitar materiales sin clasificar o con precio $0.00.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Cada material debe pertenecer a una Familia de Materiales para habilitar graficos Trading por familia y evitar materiales sin clasificar o con precio $0.00."
+    ]
+  },
+  {
+    "id": "kb_prices_margin",
+    "intent": "market_prices_margin",
+    "title": "Indice de Precios de Mercado y Margen de Rentabilidad",
+    "module": "codigos",
+    "tags": [
+      "precio",
+      "precios",
+      "margen",
+      "ganancia",
+      "compra",
+      "venta",
+      "tonelada"
+    ],
+    "content": "ReciminsaApp mantiene precios sugeridos de compra y venta por codigo de material para autocompletar Bitacoras y Facturas, calculando margen bruto por kilo/libra y utilidad por tonelada.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "ReciminsaApp mantiene precios sugeridos de compra y venta por codigo de material para autocompletar Bitacoras y Facturas, calculando margen bruto por kilo/libra y utilidad por tonelada."
+    ]
+  },
+  {
+    "id": "kb_finances",
+    "intent": "finance_cashflow_live",
+    "title": "Finanzas: Flujo de Caja, Ingresos y Egresos",
+    "module": "ingresos",
+    "tags": [
+      "finanzas",
+      "balance",
+      "ingreso",
+      "egreso",
+      "flujo",
+      "caja",
+      "neto"
+    ],
+    "content": "Ingresos registra ventas de facturas y cobros; Egresos registra compras de bitacoras, transporte, salarios y mantenimiento. Al eliminar una factura o bitacora tambien se elimina su movimiento financiero vinculado en Supabase.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Ingresos registra ventas de facturas y cobros; Egresos registra compras de bitacoras, transporte, salarios y mantenimiento.",
+      "Al eliminar una factura o bitacora tambien se elimina su movimiento financiero vinculado en Supabase."
+    ]
+  },
+  {
+    "id": "kb_calculator",
+    "intent": "tax_math_calculator",
+    "title": "Calculadora Fiscal ITBIS, Retenciones e Importes",
+    "module": "facturas",
+    "tags": [
+      "calcular",
+      "itbis",
+      "18",
+      "16",
+      "retencion",
+      "isr",
+      "simula",
+      "multiplicar"
+    ],
+    "content": "Calculo oficial RD: Subtotal = suma(cantidad * precio), ITBIS = Subtotal * (tasa/100), ISC aplicable segun configuracion, Retencion ISR sobre subtotal y Retencion ITBIS sobre el ITBIS facturado.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Calculo oficial RD: Subtotal = suma(cantidad * precio), ITBIS = Subtotal * (tasa/100), ISC aplicable segun configuracion, Retencion ISR sobre subtotal y Retencion ITBIS sobre el ITBIS facturado."
+    ]
+  },
+  {
+    "id": "kb_unit_conv",
+    "intent": "unit_converter",
+    "title": "Conversor de Peso Reciclaje (lb, kg, ton)",
+    "module": "bitacoras",
+    "tags": [
+      "convertir",
+      "libras",
+      "lbs",
+      "kilos",
+      "kg",
+      "toneladas",
+      "ton",
+      "peso"
+    ],
+    "content": "Factores oficiales: 1 kg = 2.20462 lb, 1 lb = 0.453592 kg, 1 tonelada metrica = 1,000 kg = 2,204.62 lb.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Factores oficiales: 1 kg = 2.20462 lb, 1 lb = 0.453592 kg, 1 tonelada metrica = 1,000 kg = 2,204.62 lb."
+    ]
+  },
+  {
+    "id": "kb_routes",
+    "intent": "routes_agenda_live",
+    "title": "Rutas de Recogida y Agenda de Paradas",
+    "module": "rutas",
+    "tags": [
+      "rutas",
+      "agenda",
+      "paradas",
+      "recoleccion",
+      "chofer",
+      "recordatorio"
+    ],
+    "content": "En Rutas y Agenda planificas paradas con cliente, chofer y fecha; al completar una parada puedes abrir Bitacoras prellenada y marcarla completada automaticamente.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Rutas y Agenda planificas paradas con cliente, chofer y fecha; al completar una parada puedes abrir Bitacoras prellenada y marcarla completada automaticamente."
+    ]
+  },
+  {
+    "id": "kb_collaborators",
+    "intent": "collaborators_roles_live",
+    "title": "Colaboradores, Roles, Permisos y Sucursales",
+    "module": "colaboradores",
+    "tags": [
+      "colaborador",
+      "colaboradores",
+      "empleado",
+      "rol",
+      "permisos",
+      "sucursal",
+      "admin"
+    ],
+    "content": "En Colaboradores registras choferes y auxiliares con rol y sucursal asignada (boton 'Anadir a sucursal'), controlando permisos por modulo para usuarios no administradores.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Colaboradores registras choferes y auxiliares con rol y sucursal asignada (boton 'Anadir a sucursal'), controlando permisos por modulo para usuarios no administradores."
+    ]
+  },
+  {
+    "id": "kb_pdf_layout",
+    "intent": "pdf_printing_layout",
+    "title": "Estructura Oficial de PDFs (Carta y Ticket 80mm)",
+    "module": "pdf",
+    "tags": [
+      "pdf",
+      "ticket",
+      "80mm",
+      "58mm",
+      "termica",
+      "logo",
+      "sucursal",
+      "ubicacion"
+    ],
+    "content": "Todos los documentos PDF siguen este orden estricto: 1) Logo arriba, 2) Nombre de la empresa + 'Sucursal: [Nombre]' + ubicacion de la sucursal, 3) Datos del cliente, 4) Datos del consumo y totales, 5) Logo de la empresa centrado al final.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Todos los documentos PDF siguen este orden estricto: 1) Logo arriba, 2) Nombre de la empresa + 'Sucursal: [Nombre]' + ubicacion de la sucursal, 3) Datos del cliente, 4) Datos del consumo y totales, 5) Logo de la empresa centrado al final."
+    ]
+  },
+  {
+    "id": "kb_control_center",
+    "intent": "android_control_center",
+    "title": "Centro de Control Android: Bitacora Recogida y Nueva Factura",
+    "module": "ajustes",
+    "tags": [
+      "centro de control",
+      "android",
+      "ajustes",
+      "tile",
+      "bitacora recogida",
+      "nueva factura",
+      "wifi",
+      "lapiz"
+    ],
+    "content": "En Ajustes -> Centro de Control Android activas los interruptores 'Bitacora Recogida' y 'Nueva Factura'. En Android 13+ confirma Agregar en el aviso; si tu capa (MIUI/HyperOS o Android < 13) requiere paso manual, desliza el Centro de Control, toca el lapiz arriba a la derecha y anade ambos botones. Abren mini formularios sincronizados con Supabase.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Ajustes -> Centro de Control Android activas los interruptores 'Bitacora Recogida' y 'Nueva Factura'.",
+      "En Android 13+ confirma Agregar en el aviso; si tu capa (MIUI/HyperOS o Android < 13) requiere paso manual, desliza el Centro de Control, toca el lapiz arriba a la derecha y anade ambos botones.",
+      "Abren mini formularios sincronizados con Supabase."
+    ]
+  },
+  {
+    "id": "kb_supabase_delete",
+    "intent": "supabase_sync_delete",
+    "title": "Sincronizacion en Nube Supabase y Eliminacion Real Permanente",
+    "module": "sync",
+    "tags": [
+      "supabase",
+      "sincronizacion",
+      "borrar",
+      "eliminar",
+      "tombstones",
+      "offline",
+      "nube"
+    ],
+    "content": "Cada modificacion sincroniza con user_data y tablas de Supabase. Al eliminar factura, bitacora, cliente, material o finanza se borra de Supabase y se registra un tombstone persistente en recim_deleted_tombstones para evitar que reaparezca tras sincronizaciones desde otros dispositivos.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Cada modificacion sincroniza con user_data y tablas de Supabase.",
+      "Al eliminar factura, bitacora, cliente, material o finanza se borra de Supabase y se registra un tombstone persistente en recim_deleted_tombstones para evitar que reaparezca tras sincronizaciones desde otros dispositivos."
+    ]
+  },
+  {
+    "id": "kb_gdrive_excel",
+    "intent": "gdrive_backup_excel",
+    "title": "Respaldos en Google Drive y Exportacion Excel (.xlsx)",
+    "module": "ajustes",
+    "tags": [
+      "google drive",
+      "apps script",
+      "backup",
+      "excel",
+      "xlsx",
+      "exportar",
+      "importar"
+    ],
+    "content": "En Ajustes -> Respaldo en Google Drive vinculas tu carpeta y Google Apps Script para copias automaticas; Herramientas de Datos permite exportar/importar todo en Excel (.xlsx).",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Ajustes -> Respaldo en Google Drive vinculas tu carpeta y Google Apps Script para copias automaticas; Herramientas de Datos permite exportar/importar todo en Excel (.xlsx)."
+    ]
+  },
+  {
+    "id": "kb_security_bio",
+    "intent": "security_biometric_legal",
+    "title": "Seguridad Biometrica SQLite, Auditoria y Eliminacion de Cuenta",
+    "module": "ajustes",
+    "tags": [
+      "biometria",
+      "huella",
+      "rostro",
+      "sqlite",
+      "privacidad",
+      "eliminar cuenta",
+      "seguridad"
+    ],
+    "content": "Ajustes permite activar autenticacion biometrica sobre SQLite local, consultar politicas legales de privacidad, aplicar doble confirmacion en acciones destructivas y eliminar cuenta permanentemente.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Ajustes permite activar autenticacion biometrica sobre SQLite local, consultar politicas legales de privacidad, aplicar doble confirmacion en acciones destructivas y eliminar cuenta permanentemente."
+    ]
+  },
+  {
+    "id": "kb_white_label",
+    "intent": "white_label_settings",
+    "title": "Personalizacion Marca Blanca, Temas e Idioma",
+    "module": "ajustes",
+    "tags": [
+      "marca blanca",
+      "logo",
+      "tema",
+      "oscuro",
+      "claro",
+      "idioma",
+      "modulos"
+    ],
+    "content": "Desde Ajustes y Parametrizaciones de Empresa personalizas nombre comercial, logo, RNC, tema de color, modo oscuro/claro, idioma (ES/EN) y visibilidad de modulos en el menu lateral.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Desde Ajustes y Parametrizaciones de Empresa personalizas nombre comercial, logo, RNC, tema de color, modo oscuro/claro, idioma (ES/EN) y visibilidad de modulos en el menu lateral."
+    ]
+  },
+  {
+    "id": "kb_ecology",
+    "intent": "ecology_impact_live",
+    "title": "Calculo de Impacto Ecologico (Arboles, Agua, Energia, CO2)",
+    "module": "ecologia",
+    "tags": [
+      "ecologia",
+      "arboles",
+      "agua",
+      "co2",
+      "energia",
+      "medioambiental",
+      "sostenibilidad"
+    ],
+    "content": "Calcula arboles salvados (~17 por tonelada de papel/carton), agua preservada, energia electrica ahorrada (kWh) y emisiones de CO2 evitadas segun los pesos reciclados en bitacoras.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Calcula arboles salvados (~17 por tonelada de papel/carton), agua preservada, energia electrica ahorrada (kWh) y emisiones de CO2 evitadas segun los pesos reciclados en bitacoras."
+    ]
+  },
+  {
+    "id": "kb_health",
+    "intent": "system_health_check",
+    "title": "Diagnostico de Salud Tecnica de ReciminsaApp",
+    "module": "ajustes",
+    "tags": [
+      "salud",
+      "health",
+      "diagnostico",
+      "red",
+      "online",
+      "offline",
+      "localstorage",
+      "cache"
+    ],
+    "content": "Inspecciona conectividad de red, uso de almacenamiento en localStorage, registros cacheados, estado de cola de sincronizacion y plataforma de ejecucion (Android HybridWebView / Windows / Web).",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Inspecciona conectividad de red, uso de almacenamiento en localStorage, registros cacheados, estado de cola de sincronizacion y plataforma de ejecucion (Android HybridWebView / Windows / Web)."
+    ]
+  },
+  {
+    "id": "kb_navigation",
+    "intent": "navigate_or_open_tool",
+    "title": "Navegacion Rapida y Apertura de Herramientas",
+    "module": "app",
+    "tags": [
+      "ir",
+      "abrir",
+      "navegar",
+      "mini bitacora",
+      "mini factura",
+      "parametrizaciones ncf",
+      "sucursales"
+    ],
+    "content": "ReciBot puede llevarte a historial, bitacoras, rutas, facturas, nota_credito, nota_debito, manejo_dgii, codigos, clientes, ingresos, egresos, ecologia, colaboradores, parametrizaciones_empresa o ajustes, o abrir directamente Mini Bitacora, Mini Factura o Parametrizaciones NCF.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "ReciBot puede llevarte a historial, bitacoras, rutas, facturas, nota_credito, nota_debito, manejo_dgii, codigos, clientes, ingresos, egresos, ecologia, colaboradores, parametrizaciones_empresa o ajustes, o abrir directamente Mini Bitacora, Mini Factura o Parametrizaciones NCF."
+    ]
+  },
+  {
+    "id": "kb_ncf_e31_ecf",
+    "intent": "audit_dgii_ncf",
+    "title": "Comprobantes Electronicos Serie E (E31, E32, E44, E45)",
+    "module": "facturas",
+    "tags": [
+      "e31",
+      "e32",
+      "e44",
+      "e45",
+      "ecf",
+      "serie e",
+      "13 digitos",
+      "dgii"
+    ],
+    "content": "Los comprobantes electronicos e-CF serie E tienen 13 caracteres (ej. E31 + 10 digitos), a diferencia de la serie B de 11 caracteres (ej. B01 + 8 digitos). ReciminsaApp valida formato estricto antes de emitir.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Los comprobantes electronicos e-CF serie E tienen 13 caracteres (ej.",
+      "E31 + 10 digitos), a diferencia de la serie B de 11 caracteres (ej.",
+      "B01 + 8 digitos).",
+      "ReciminsaApp valida formato estricto antes de emitir."
+    ]
+  },
+  {
+    "id": "kb_itbis_retenciones",
+    "intent": "tax_math_calculator",
+    "title": "Retenciones ISR (2%/10%), Retencion ITBIS (30%/100%) e ISC",
+    "module": "facturas",
+    "tags": [
+      "retencion",
+      "isr",
+      "itbis",
+      "isc",
+      "porcentaje",
+      "impuestos",
+      "subtotal"
+    ],
+    "content": "En la factura unificada el ISC y el ITBIS (18% o 16%) se suman sobre el subtotal; la Retencion de ISR se descuenta del subtotal y la Retencion de ITBIS se descuenta del monto de ITBIS.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En la factura unificada el ISC y el ITBIS (18% o 16%) se suman sobre el subtotal; la Retencion de ISR se descuenta del subtotal y la Retencion de ITBIS se descuenta del monto de ITBIS."
+    ]
+  },
+  {
+    "id": "kb_control_center_xiaomi",
+    "intent": "android_control_center",
+    "title": "Agregar Botones Rapidos en Xiaomi, Samsung y Android 13+",
+    "module": "ajustes",
+    "tags": [
+      "xiaomi",
+      "miui",
+      "hyperos",
+      "samsung",
+      "lapiz",
+      "editar",
+      "centro de control",
+      "tile"
+    ],
+    "content": "En Xiaomi HyperOS/MIUI y Android general, desliza el Centro de Control hacia abajo, pulsa el icono de lapiz (Editar) arriba a la derecha y arrastra 'Bitacora Recogida' y 'Nueva Factura' a la rejilla activa junto a Wi-Fi y Bluetooth.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "En Xiaomi HyperOS/MIUI y Android general, desliza el Centro de Control hacia abajo, pulsa el icono de lapiz (Editar) arriba a la derecha y arrastra 'Bitacora Recogida' y 'Nueva Factura' a la rejilla activa junto a Wi-Fi y Bluetooth."
+    ]
+  },
+  {
+    "id": "kb_quote_service_mode",
+    "intent": "quote_help_and_live",
+    "title": "Modo Servicio en Cotizaciones (Nombre, Precio y Descripcion)",
+    "module": "facturas",
+    "tags": [
+      "servicio",
+      "cotizacion",
+      "nombre del servicio",
+      "precio del servicio",
+      "descripcion del servicio"
+    ],
+    "content": "Al marcar Modo Servicio o pulsar '+ Agregar Servicio' en Cotizaciones se muestran los campos Nombre del Servicio, Precio del Servicio y Descripcion del Servicio, ideal para recoleccion o fletes.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Al marcar Modo Servicio o pulsar '+ Agregar Servicio' en Cotizaciones se muestran los campos Nombre del Servicio, Precio del Servicio y Descripcion del Servicio, ideal para recoleccion o fletes."
+    ]
+  },
+  {
+    "id": "kb_quote_item_optional_desc",
+    "intent": "quote_help_and_live",
+    "title": "Modo Item en Cotizaciones con Descripcion Opcional",
+    "module": "facturas",
+    "tags": [
+      "item",
+      "material",
+      "descripcion opcional",
+      "cotizacion",
+      "cantidad",
+      "unidad"
+    ],
+    "content": "Cada fila tipo Item en Cotizaciones registra material, cantidad, unidad y precio unitario, mas un campo opcional para especificaciones de calidad o empaque que aparece debajo del nombre en el PDF.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Cada fila tipo Item en Cotizaciones registra material, cantidad, unidad y precio unitario, mas un campo opcional para especificaciones de calidad o empaque que aparece debajo del nombre en el PDF."
+    ]
+  },
+  {
+    "id": "kb_branches_company_setup",
+    "intent": "branches_overview_live",
+    "title": "Formulario Crear Empresa (Nombre/Razon Social primero, luego RNC) y Sucursales",
+    "module": "parametrizaciones_empresa",
+    "tags": [
+      "crear empresa",
+      "razon social",
+      "rnc",
+      "sucursal",
+      "usuarios",
+      "empleados"
+    ],
+    "content": "Al crear una cuenta empresarial el formulario solicita primero el Nombre o Razon Social y luego el RNC; dentro de Sucursales y Colaboradores puedes asignar usuarios y empleados a sucursales especificas.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Al crear una cuenta empresarial el formulario solicita primero el Nombre o Razon Social y luego el RNC; dentro de Sucursales y Colaboradores puedes asignar usuarios y empleados a sucursales especificas."
+    ]
+  },
+  {
+    "id": "kb_mini_bitacora_cc",
+    "intent": "bitacora_create_help",
+    "title": "Mini Bitacora de Recogida desde Centro de Control Android",
+    "module": "bitacoras",
+    "tags": [
+      "mini bitacora",
+      "centro de control",
+      "rapida",
+      "supabase",
+      "egreso",
+      "materiales"
+    ],
+    "content": "El boton Bitacora Recogida abre la Mini Bitacora de Recogida con selector de sucursal, cliente, chofer y materiales con precios sugeridos, guardando en recim_invoices, finanza de egreso y Supabase al instante.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "El boton Bitacora Recogida abre la Mini Bitacora de Recogida con selector de sucursal, cliente, chofer y materiales con precios sugeridos, guardando en recim_invoices, finanza de egreso y Supabase al instante."
+    ]
+  },
+  {
+    "id": "kb_mini_factura_cc",
+    "intent": "invoice_create_help",
+    "title": "Mini Factura Rapida desde Centro de Control Android",
+    "module": "facturas",
+    "tags": [
+      "mini factura",
+      "centro de control",
+      "dgii",
+      "rnc",
+      "ncf",
+      "supabase"
+    ],
+    "content": "El boton Nueva Factura abre la Mini Factura con busqueda DGII de RNC/Nombre, selector de sucursal y validacion NCF obligatoria, consumiendo secuencia y sincronizando la venta directamente a Supabase.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "El boton Nueva Factura abre la Mini Factura con busqueda DGII de RNC/Nombre, selector de sucursal y validacion NCF obligatoria, consumiendo secuencia y sincronizando la venta directamente a Supabase."
+    ]
+  },
+  {
+    "id": "kb_pdf_logo_footer",
+    "intent": "pdf_printing_layout",
+    "title": "Logo Superior, Sucursal con Ubicacion y Logo Final en PDFs",
+    "module": "pdf",
+    "tags": [
+      "logo",
+      "pie de pagina",
+      "sucursal",
+      "ubicacion",
+      "pdf",
+      "ticket",
+      "cotizacion"
+    ],
+    "content": "Tanto las facturas carta con o sin NCF, tickets 80mm, cotizaciones, conduces y notas de credito/debito colocan el logo arriba, seguido de Empresa + Sucursal: [Nombre] + ubicacion, Cliente, Consumo y el logo centrado al final.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Tanto las facturas carta con o sin NCF, tickets 80mm, cotizaciones, conduces y notas de credito/debito colocan el logo arriba, seguido de Empresa + Sucursal: [Nombre] + ubicacion, Cliente, Consumo y el logo centrado al final."
+    ]
+  },
+  {
+    "id": "kb_delete_cascade_finance",
+    "intent": "supabase_sync_delete",
+    "title": "Eliminacion en Cascada de Finanzas Vinculadas y Tombstones",
+    "module": "sync",
+    "tags": [
+      "eliminar",
+      "cascada",
+      "finanzas",
+      "supabase",
+      "tombstones",
+      "resurreccion"
+    ],
+    "content": "Al eliminar una factura o bitacora tambien se eliminan los ingresos o egresos asociados a su ID, se borra el registro remoto en Supabase y se sincroniza el mapa de tombstones para que ningun equipo lo restaure.",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "Al eliminar una factura o bitacora tambien se eliminan los ingresos o egresos asociados a su ID, se borra el registro remoto en Supabase y se sincroniza el mapa de tombstones para que ningun equipo lo restaure."
+    ]
+  },
+  {
+    "id": "kb_greeting_intro",
+    "intent": "greeting",
+    "title": "Asistencia Conversacional ReciBot",
+    "module": "recibot",
+    "tags": [
+      "hola",
+      "buenas",
+      "saludos",
+      "asistente",
+      "ayuda"
+    ],
+    "content": "ReciBot responde saludos y consultas operativas de ReciminsaApp en modo Neo (razonamiento profundo con verificacion en vivo) o modo Flash (respuesta rapida).",
+    "category": "app",
+    "law_ref": "",
+    "facts": [
+      "ReciBot responde saludos y consultas operativas de ReciminsaApp en modo Neo (razonamiento profundo con verificacion en vivo) o modo Flash (respuesta rapida)."
+    ]
+  },
+  {
+    "id": "kb_thanks_close",
+    "intent": "thanks_farewell",
+    "title": "Cierre de Conversacion y Despedida",
+    "module": "recibot",
+    "category": "app",
+    "law_ref": "",
+    "tags": [
+      "gracias",
+      "adios",
+      "excelente",
+      "listo",
+      "perfecto"
+    ],
+    "content": "Confirmacion amable de cierre para agradecimientos o despedidas del operador de ReciminsaApp.",
+    "facts": [
+      "Cuando agradeces o te despides, ReciBot confirma disponibilidad continua en modo Neo o Flash."
+    ]
+  },
+  {
+    "id": "kb_legal_tax_11_92_ncf",
+    "intent": "legal_tax_code_ncf",
+    "title": "Codigo Tributario Ley 11-92, Decreto 254-06 y Norma 06-2018 sobre NCF",
+    "module": "manejo_dgii",
+    "category": "legal",
+    "law_ref": "Ley 11-92 · Decreto 254-06 · Norma 06-2018",
+    "tags": [
+      "codigo tributario",
+      "ley 11-92",
+      "decreto 254-06",
+      "norma 06-2018",
+      "ncf",
+      "vencido",
+      "agotado",
+      "sancion"
+    ],
+    "content": "Todo comprobante fiscal serie B debe emitirse dentro del rango numerico y la fecha de vigencia autorizados por la DGII. Emitir NCF agotados o vencidos invalida el credito fiscal del comprador y expone a sanciones por incumplimiento de deberes formales.",
+    "facts": [
+      "Segun el Decreto 254-06 y la Norma 06-2018, todo NCF emitido debe pertenecer a una secuencia activa y vigente ante la DGII.",
+      "Usar secuencias agotadas o vencidas constituye una infraccion formal tributaria (Ley 11-92) e invalida la deduccion de ITBIS/ISR al receptor.",
+      "En ReciminsaApp el bloqueo automatico en cero y las alertas de Parametrizaciones NCF impiden emitir NCF agotados o expirados."
+    ]
+  },
+  {
+    "id": "kb_legal_art50_retention_10y",
+    "intent": "legal_tax_code_ncf",
+    "title": "Conservacion Obligatoria de Libros y Facturas por 10 Anos (Art. 50 Ley 11-92)",
+    "module": "historial",
+    "category": "legal",
+    "law_ref": "Ley 11-92 Art. 50",
+    "tags": [
+      "articulo 50",
+      "10 anos",
+      "conservar",
+      "archivo",
+      "libros",
+      "auditoria",
+      "respaldo"
+    ],
+    "content": "El articulo 50 del Codigo Tributario obliga a conservar facturas, comprobantes, libros contables y soportes digitales durante un minimo de diez anos en soporte legible ante requerimientos de la DGII.",
+    "facts": [
+      "El Articulo 50 del Codigo Tributario (Ley 11-92) obliga a conservar facturas, comprobantes y registros operativos durante al menos 10 anos.",
+      "La falta de respaldo historico o contable ante fiscalizacion puede derivar en determinacion de oficio e imposicion de multas.",
+      "ReciminsaApp facilita la preservacion historica combinando Supabase, exportacion anual a Excel (.xlsx) y copias periodicas en Google Drive."
+    ]
+  },
+  {
+    "id": "kb_legal_b04_30days_itbis",
+    "intent": "legal_tax_code_ncf",
+    "title": "Regla Legal de 30 Dias para Recuperar ITBIS en Notas de Credito B04",
+    "module": "nota_credito",
+    "category": "legal",
+    "law_ref": "Ley 11-92 Art. 338 · Regl. ITBIS 293-11",
+    "tags": [
+      "b04",
+      "nota de credito",
+      "30 dias",
+      "itbis",
+      "devolucion",
+      "recuperar",
+      "plazo"
+    ],
+    "content": "Conforme al Reglamento 293-11 del Codigo Tributario, solo puede deducirse o recuperarse el ITBIS de una venta anulada o devuelta mediante Nota de Credito B04/E34 cuando ocurre dentro de los 30 dias calendario posteriores a la emision de la factura original.",
+    "facts": [
+      "El Reglamento 293-11 del ITBIS permite recuperar el impuesto facturado con Nota de Credito B04 solo dentro de los 30 dias siguientes a la factura original.",
+      "Si la devolucion ocurre despues de 30 dias (ej. 45 o 60 dias), el ajuste contable comercial procede, pero no puedes deducir ese ITBIS en el IT-1.",
+      "En ReciminsaApp la Nota de Credito B04 exige vincular el NCF afectado y su fecha para controlar el reporte en el 607 dentro o fuera del plazo."
+    ]
+  },
+  {
+    "id": "kb_legal_b01_vs_b02_vs_none",
+    "intent": "legal_tax_code_ncf",
+    "title": "Regimen Juridico de B01 Credito Fiscal, B02 Consumo y Documentos Internos",
+    "module": "facturas",
+    "category": "legal",
+    "law_ref": "Norma 06-2018 · Decreto 254-06",
+    "tags": [
+      "b01",
+      "b02",
+      "sin comprobante",
+      "credito fiscal",
+      "consumidor final",
+      "rnc",
+      "deducible"
+    ],
+    "content": "El comprobante B01 sustenta gastos y creditos fiscales de contribuyentes con RNC/Cedula valido; el B02 cubre ventas a consumidores finales sin derecho a credito fiscal. Emitir facturas comerciales sin NCF solo sirve como soporte interno no fiscal y no otorga credito tributario.",
+    "facts": [
+      "El B01 (o E31) exige RNC de 9 digitos o Cedula de 11 digitos valido para otorgar credito fiscal y gasto deducible al cliente.",
+      "El B02 (Consumo) respalda operaciones con consumidor final (y debe reportarse en 607; individual si supera RD$250,000).",
+      "La opcion Sin Comprobante Fiscal en ReciminsaApp solo documenta control comercial interno y nunca debe sustituir una obligacion gravada ante DGII."
+    ]
+  },
+  {
+    "id": "kb_legal_ley_32_23_ecf",
+    "intent": "legal_ecf_electronic_invoicing",
+    "title": "Ley 32-23 de Facturacion Electronica Obligatoria en Republica Dominicana",
+    "module": "manejo_dgii",
+    "category": "legal",
+    "law_ref": "Ley 32-23 · Decreto 587-24",
+    "tags": [
+      "ley 32-23",
+      "facturacion electronica",
+      "ecf",
+      "e31",
+      "calendario",
+      "obligatoria",
+      "pymes"
+    ],
+    "content": "La Ley 32-23 declara obligatorio el uso de Comprobantes Fiscales Electronicos (e-CF) segun calendario gradual por categoria de contribuyente (grandes, medianas y pequenas empresas) fijado por la DGII.",
+    "facts": [
+      "La Ley 32-23 establece adopcion obligatoria escalonada de e-CF (E31, E32, E33, E34, E44, E45) segun tamano ante la DGII.",
+      "Incumplir el plazo asignado acarrea imposibilidad de autorizar comprobantes serie B adicionales y sanciones del Art. 257 del Codigo Tributario.",
+      "ReciminsaApp ya soporta estructura Serie E de 13 caracteres (E31/E44/E45) en secuencias y validacion previa de emision."
+    ]
+  },
+  {
+    "id": "kb_legal_ecf_xml_qr_firma",
+    "intent": "legal_ecf_electronic_invoicing",
+    "title": "Requisitos Tecnicos-Legales de e-CF: Firma Digital, XML y QR",
+    "module": "facturas",
+    "category": "legal",
+    "law_ref": "Ley 32-23 · Ley 126-02",
+    "tags": [
+      "firma digital",
+      "xml",
+      "qr",
+      "representacion impresa",
+      "ecf",
+      "certificado"
+    ],
+    "content": "Un e-CF solo adquiere validez tributaria cuando el archivo XML firmado con certificado digital emitido por una prestadora acreditada recibe aceptacion de la DGII y su representacion impresa exhibe codigo QR de verificacion.",
+    "facts": [
+      "La validez legal de un e-CF exige XML firmado digitalmente y acuse de aprobacion por el webservice oficial de la DGII.",
+      "La Representacion Impresa (RI) en papel o PDF debe mostrar codigo QR y codigo de seguridad para validacion instantanea del cliente.",
+      "Mientras no cuentes con certificacion de emisor electronico DGII habilitada, debes operar tus lotes Serie B autorizados en Parametrizaciones."
+    ]
+  },
+  {
+    "id": "kb_legal_norma_02_05_07_07",
+    "intent": "legal_retentions_itbis_isr",
+    "title": "Reglas Legales de Retencion de ITBIS (30% y 100%) e ISR (2% y 10%)",
+    "module": "facturas",
+    "category": "legal",
+    "law_ref": "Norma 02-05 · Norma 07-07 · Ley 11-92 Art. 309",
+    "tags": [
+      "retencion",
+      "itbis",
+      "30",
+      "100",
+      "isr",
+      "2",
+      "10",
+      "agente de retencion"
+    ],
+    "content": "Las sociedades que contratan servicios profesionales de personas juridicas retienen normalmente el 30% del ITBIS (Norma 02-05); a personas fisicas no acogidas retienen 100% del ITBIS y 10% ISR por honorarios o 2% ISR por servicios tecnicos/transporte (Art. 309).",
+    "facts": [
+      "Norma 02-05: cuando una sociedad paga servicios gravados a otra entidad juridica puede aplicar retencion del 30% sobre el ITBIS facturado.",
+      "Cuando se paga a una persona fisica por servicios gravados o profesionales aplica 100% retencion del ITBIS mas 10% ISR (honorarios) o 2% ISR (servicios tecnicos/mano de obra).",
+      "En ReciminsaApp la calculadora y el formulario unificado de Facturas desglosan automaticamente estas retenciones sin alterar el historial."
+    ]
+  },
+  {
+    "id": "kb_legal_dgii_calendar_606_it1",
+    "intent": "legal_retentions_itbis_isr",
+    "title": "Calendario Fiscal DGII: Formatos 606/607/608 (Dia 15) e IT-1 (Dia 20)",
+    "module": "manejo_dgii",
+    "category": "legal",
+    "law_ref": "Norma 07-2018 · Ley 11-92 Art. 252",
+    "tags": [
+      "dia 15",
+      "dia 20",
+      "606",
+      "607",
+      "608",
+      "it1",
+      "mora",
+      "calendario",
+      "plazo"
+    ],
+    "content": "Los envios informativos 606, 607, 608 y 609 vencen el dia 15 de cada mes; la declaracion y pago del IT-1 e IR-17 vencen el dia 20 (o primer dia habil siguiente). El atraso genera 10% de recargo primer mes, 4% subsiguientes y 1.10% interes mensual.",
+    "facts": [
+      "Plazo legal mensual DGII: formatos 606, 607, 608 y 609 se remiten hasta el dia 15; IT-1 e IR-17 se declaran y pagan hasta el dia 20.",
+      "El retraso tributario activa automaticamente 10% de recargo por mora el primer mes, 4% cada mes o fraccion adicional y 1.10% de interes indemnizatorio mensual.",
+      "Manejo DGII en ReciminsaApp consolida tus TXT del mes (606/607/608) para entregarlos antes del dia 15 sin errores de formato."
+    ]
+  },
+  {
+    "id": "kb_legal_informal_b11_purchases",
+    "intent": "legal_retentions_itbis_isr",
+    "title": "Sustento Fiscal en Compras de Materiales a Recicladores Informales (NCF B11)",
+    "module": "bitacoras",
+    "category": "hybrid",
+    "law_ref": "Norma 05-2019 · Art. 309 Ley 11-92",
+    "tags": [
+      "b11",
+      "informal",
+      "reciclador",
+      "chatarra",
+      "compra",
+      "bitacora",
+      "606",
+      "deducible"
+    ],
+    "content": "Para deducir fiscalmente compras de chatarra o residuos a recolectores informales sin RNC emisor, las empresas utilizan Comprobantes de Compras B11/E41 reportados en el 606 con cedula del proveedor y retenciones aplicables.",
+    "facts": [
+      "Una bitacora de recogida controla peso, costo y egreso interno, pero para deducibilidad ante DGII la compra informal requiere NCF B11 (Comprobante de Compras).",
+      "En B11 es obligatorio identificar cedula del vendedor informal y reportarlo en el Formato 606 evaluando si aplica retencion ISR (2% servicios).",
+      "Las Bitacoras de ReciminsaApp guardan cliente/proveedor, ficha, material y peso para conciliar facilmente con tus B11 mensuales."
+    ]
+  },
+  {
+    "id": "kb_legal_ley_225_20_waste",
+    "intent": "legal_environmental_waste",
+    "title": "Ley 225-20 de Gestion Integral de Residuos Solidos y Gestores Autorizados",
+    "module": "bitacoras",
+    "category": "legal",
+    "law_ref": "Ley 225-20 · Reglamento de Aplicacion",
+    "tags": [
+      "ley 225-20",
+      "residuos",
+      "gestor",
+      "autorizado",
+      "valorizacion",
+      "rep",
+      "reciclaje"
+    ],
+    "content": "La Ley 225-20 regula la cadena de recoleccion, acopio, transporte y valorizacion de residuos solidos, exigiendo autorizacion como gestor ante MIMARENA, trazabilidad documental y registro estadistico de toneladas recuperadas.",
+    "facts": [
+      "La Ley 225-20 obliga a centros de acopio y recicladores formales a contar con registro y autorizacion ambiental de gestor de residuos ante MIMARENA.",
+      "Promueve la Responsabilidad Extendida del Productor (REP) y ordena trazabilidad documental sobre volumenes valorizados vs dispuestos.",
+      "ReciminsaApp automatiza el historial de pesos por familia de material (carton, plastico, vidrio, metal) en Bitacoras y Ecologia para tus informes anuales."
+    ]
+  },
+  {
+    "id": "kb_legal_ley_64_00_environmental",
+    "intent": "legal_environmental_waste",
+    "title": "Ley 64-00 de Medio Ambiente, Permisos MIMARENA y Residuos Peligrosos",
+    "module": "rutas",
+    "category": "legal",
+    "law_ref": "Ley 64-00 Arts. 40, 99, 175",
+    "tags": [
+      "ley 64-00",
+      "mimarena",
+      "permiso ambiental",
+      "peligrosos",
+      "acopio",
+      "sancion",
+      "transporte"
+    ],
+    "content": "La Ley General sobre Medio Ambiente 64-00 exige licencia o permiso ambiental para operar plantas de acopio o reciclaje, prohibe mezclar residuos peligrosos (baterias acido-plomo, aceites usados) sin permiso especial y sanciona el vertido ilegal.",
+    "facts": [
+      "Segun la Ley 64-00, toda instalacion de acopio, compactacion o transformacion de desechos requiere evaluacion y permiso vigente de MIMARENA.",
+      "Manipular o transportar residuos peligrosos (baterias, aceites, electronicos contaminados) sin autorizacion especial acarrea multas administrativas y responsabilidad civil/penal.",
+      "Mantener rutas programadas en Rutas-Agenda junto a Conduces de destino autorizado demuestra control operativo limpio ante inspecciones."
+    ]
+  },
+  {
+    "id": "kb_legal_eco_certificates_scope",
+    "intent": "legal_environmental_waste",
+    "title": "Alcance Juridico de Constancias Ecologicas PDF en ReciminsaApp",
+    "module": "ecologia",
+    "category": "hybrid",
+    "law_ref": "Ley 225-20 · Politica Informativa ReciminsaApp",
+    "tags": [
+      "certificado",
+      "ecologia",
+      "pdf",
+      "iso",
+      "informativo",
+      "co2",
+      "constancia"
+    ],
+    "content": "Las metricas de impacto ecologico (arboles salvados, agua, kWh y CO2 evitado) y constancias PDF de Ecologia son reportes estimativos informativos basados en factores promedio y no sustituyen certificaciones oficiales de MIMARENA ni auditorias ISO.",
+    "facts": [
+      "Las constancias PDF de Ecologia tienen valor informativo y comercial de respaldo segun pesos registrados, no son certificacion gubernamental MIMARENA ni sello ISO 14001.",
+      "Para certificar cumplimiento ambiental oficial ante clientes corporativos se deben anexar licencias MIMARENA vigentes, bitacoras de pesaje y conduces de entrega.",
+      "Puedes verificar esta aclaracion legal directamente en Ajustes -> Politicas Legales dentro de la app."
+    ]
+  },
+  {
+    "id": "kb_legal_ley_479_08_entities",
+    "intent": "legal_corporate_branches_rnc",
+    "title": "Ley 479-08 de Sociedades: SRL, EIRL, SAS y Registro Mercantil",
+    "module": "parametrizaciones_empresa",
+    "category": "legal",
+    "law_ref": "Ley 479-08 (mod. Ley 31-11)",
+    "tags": [
+      "ley 479-08",
+      "srl",
+      "eirl",
+      "sas",
+      "registro mercantil",
+      "camara de comercio",
+      "socios"
+    ],
+    "content": "La Ley 479-08 regula los vehiculos societarios dominicanos (SRL de 2 a 50 socios con responsabilidad limitada; EIRL para dueno unico con patrimonio separado) y exige renovar el Registro Mercantil cada dos anos ante la Camara de Comercio.",
+    "facts": [
+      "En una SRL o SAS la responsabilidad de los socios se limita a sus aportes de capital; una EIRL permite empresario unico con patrimonio separado del personal.",
+      "Toda sociedad formal debe renovar su Registro Mercantil cada 2 anos y presentar declaracion anual de impuesto sobre la renta (IR-2) aunque no tenga movimiento.",
+      "Registrar exactamente la Razon Social y RNC de tu entidad en Parametrizaciones de Empresa garantiza coherencia juridica en todos tus PDFs."
+    ]
+  },
+  {
+    "id": "kb_legal_branches_same_rnc",
+    "intent": "legal_corporate_branches_rnc",
+    "title": "Regimen Tributario y Legal de Sucursales bajo el Mismo RNC Matriz",
+    "module": "parametrizaciones_empresa",
+    "category": "hybrid",
+    "law_ref": "Ley 479-08 · Ley 11-92 · Norma DGII",
+    "tags": [
+      "sucursal",
+      "sucursales",
+      "mismo rnc",
+      "otro rnc",
+      "establecimiento",
+      "matriz",
+      "onapi"
+    ],
+    "content": "Las sucursales operativas de una misma sociedad NO obtienen un RNC distinto: comparten el mismo RNC y Razon Social de la casa matriz ante la DGII, declarando cada local adicional como sucursal o establecimiento.",
+    "facts": [
+      "Si abres varias sucursales de la misma sociedad no necesitas crear un RNC nuevo: todas operan bajo el RNC unico de la empresa matriz.",
+      "Debes notificar cada nueva direccion fisica a la DGII (actualizacion de datos RNC) y en Parametrizaciones puedes distinguir su nombre y ubicacion para impresiones.",
+      "Solo si constituyes una compania juridicamente distinta (otra SRL/EIRL) tendra RNC, contabilidad y lotes de NCF independientes."
+    ]
+  },
+  {
+    "id": "kb_legal_onapi_trade_name",
+    "intent": "legal_corporate_branches_rnc",
+    "title": "Razon Social vs Nombre Comercial ONAPI y Encabezados Obligatorios",
+    "module": "parametrizaciones_empresa",
+    "category": "legal",
+    "law_ref": "Ley 20-00 Propiedad Industrial · Ley 479-08",
+    "tags": [
+      "onapi",
+      "nombre comercial",
+      "razon social",
+      "marca",
+      "encabezado",
+      "factura"
+    ],
+    "content": "El Nombre Comercial protegido por ONAPI identifica al negocio en el mercado, mientras la Razon Social incluye el tipo societario (SRL/EIRL) registrado en DGII; ambos deben corresponderse en facturas y cotizaciones oficiales.",
+    "facts": [
+      "El certificado de Nombre Comercial en ONAPI otorga exclusividad de marca comercial antes de constituir la sociedad e inscribir el RNC.",
+      "Facturar con un nombre comercial distinto al titular del RNC sin respaldo puede provocar rechazo de gastos o notas de reparo por parte de compradores.",
+      "ReciminsaApp solicita Razon Social/Nombre y RNC para estampar ambos junto al nombre de sucursal y ubicacion en todos tus PDFs."
+    ]
+  },
+  {
+    "id": "kb_legal_quotes_commercial_validity",
+    "intent": "legal_commercial_contracts_docs",
+    "title": "Validez Juridica de Cotizaciones y Vigencia de Precios en Reciclaje",
+    "module": "facturas",
+    "category": "legal",
+    "law_ref": "Codigo de Comercio RD · Codigo Civil Art. 1134",
+    "tags": [
+      "cotizacion",
+      "oferta",
+      "validez",
+      "vigencia",
+      "contrato",
+      "metales",
+      "clausula"
+    ],
+    "content": "Una cotizacion aceptada por escrito configura una oferta contractual mercantil vinculante sobre precios y alcance, pero NO constituye factura fiscal ni autoriza traslado sin factura o conduce definitivo.",
+    "facts": [
+      "Segun el Codigo Civil y de Comercio, una cotizacion aceptada genera obligacion bilateral en precios y terminos descritos mientras este vigente.",
+      "Nunca reemplaza una factura con NCF ni sirve para acreditar credito fiscal o deducir ITBIS ante la DGII.",
+      "En materiales volatiles (cobre, aluminio, carton) conviene fijar plazo corto de vigencia (ej. 5 o 7 dias) y sujeto a verificacion de peso en bascula."
+    ]
+  },
+  {
+    "id": "kb_legal_conduce_delivery_proof",
+    "intent": "legal_commercial_contracts_docs",
+    "title": "Valor Probatorio del Conduce o Despacho frente a Impagos y Disputas",
+    "module": "facturas",
+    "category": "legal",
+    "law_ref": "Codigo de Comercio Art. 109",
+    "tags": [
+      "conduce",
+      "despacho",
+      "entrega",
+      "prueba",
+      "cobro",
+      "credito",
+      "firma"
+    ],
+    "content": "El conduce o nota de despacho firmada por el receptor acredita entrega material, cantidad, peso y estado conforme Art. 109 del Codigo de Comercio, siendo prueba clave ante reclamos de impago o diferencias de pesaje.",
+    "facts": [
+      "El Conduce de entrega firmado con nombre, cedula y fecha demuestra recepcion conforme de los bienes en litigios mercantiles.",
+      "Por si solo un conduce no cumple deber tributario de venta; debe facturarse con su NCF correspondiente segun cierre acordado.",
+      "En ReciminsaApp puedes convertir cualquier factura o despacho en PDF estructurado con sucursal, conductor, placa y detalle de items."
+    ]
+  },
+  {
+    "id": "kb_legal_credit_collection_clauses",
+    "intent": "legal_commercial_contracts_docs",
+    "title": "Clausulas de Mora, Ventas a Credito y Retiro de Mercancia",
+    "module": "facturas",
+    "category": "legal",
+    "law_ref": "Codigo de Comercio RD · Codigo Civil Arts. 1153, 1650",
+    "tags": [
+      "clausula",
+      "mora",
+      "credito",
+      "cobro",
+      "redacta",
+      "terminos",
+      "disputa"
+    ],
+    "content": "Pactar por escrito vencimiento de credito, recargo por mora convencional, conformidad de pesaje al retiro y jurisdiccion competente fortalece la recuperacion judicial o extrajudicial de facturas pendientes.",
+    "facts": [
+      "Las facturas a credito sin fecha de vencimiento ni firma de recepcion dificultan el cobro ejecutivo y el devengo claro de mora.",
+      "Incluir aceptacion expresa de peso verificado en bascula certificada evita reclamos posteriores por mermas o humedad.",
+      "ReciBot puede redactar clausulas comerciales adaptadas con el nombre y RNC reales configurados en tu empresa."
+    ]
+  },
+  {
+    "id": "kb_legal_labor_16_92_contracts",
+    "intent": "legal_labor_tss_safety",
+    "title": "Codigo de Trabajo Ley 16-92: Contratos, Jornada, 80/20 y Desahucio",
+    "module": "colaboradores",
+    "category": "legal",
+    "law_ref": "Ley 16-92 Codigo de Trabajo",
+    "tags": [
+      "codigo de trabajo",
+      "ley 16-92",
+      "contrato",
+      "desahucio",
+      "cesantia",
+      "preaviso",
+      "regalia",
+      "80/20"
+    ],
+    "content": "Todo trabajador subordinado en patios o rutas se rige por la Ley 16-92: jornada ordinaria maxima de 44h semanales, regalia pascual obligatoria en diciembre, regla 80/20 de nacionalidad y prestaciones (preaviso y cesantia) pagaderas en 10 dias tras desahucio.",
+    "facts": [
+      "Si un chofer o auxiliar cumple horario, recibe salario y responde a ordenes de la empresa, existe contrato de trabajo real aunque no se firme papel.",
+      "El desahucio sin causa justificada obliga a pagar preaviso, cesantia y derechos adquiridos dentro de los 10 dias siguientes (Art. 86) bajo penalidad diaria.",
+      "Ademas exige mantener al menos 80% de empleados dominicanos (Arts. 135-145) y pagar salario de Navidad antes del 20 de diciembre."
+    ]
+  },
+  {
+    "id": "kb_legal_tss_87_01_idoppril",
+    "intent": "legal_labor_tss_safety",
+    "title": "Tesoreria de Seguridad Social (TSS Ley 87-01), Riesgos Laborales e INFOTEP",
+    "module": "colaboradores",
+    "category": "hybrid",
+    "law_ref": "Ley 87-01 · Ley 397-19 IDOPPRIL · Ley 116-80 INFOTEP",
+    "tags": [
+      "tss",
+      "ley 87-01",
+      "idoppril",
+      "riesgos laborales",
+      "infotep",
+      "sfs",
+      "afp",
+      "accidente"
+    ],
+    "content": "Registrar colaboradores en ReciminsaApp controla accesos operativos por sucursal, pero NO sustituye la inscripcion obligatoria ante la TSS (SUIR+) para SFS, AFP, Seguro de Riesgos Laborales (IDOPPRIL) ni el aporte de 1% al INFOTEP.",
+    "facts": [
+      "Registrar un empleado en ReciminsaApp es un control interno de software y NO equivale a reportarlo en la planilla oficial de la TSS.",
+      "Si un chofer o manipulador de chatarra se accidenta sin afiliacion activa en TSS/IDOPPRIL, la empresa asume gastos medicos, indemnizaciones y multas.",
+      "Las novedades de ingreso y salida en TSS deben cargarse en el SUIR+ dentro de los primeros 3 dias habiles para evitar recargos."
+    ]
+  },
+  {
+    "id": "kb_legal_industrial_safety_epp",
+    "intent": "legal_labor_tss_safety",
+    "title": "Seguridad Ocupacional y EPP Obligatorio en Centros de Acopio (Reglamento 522-06)",
+    "module": "colaboradores",
+    "category": "legal",
+    "law_ref": "Decreto 522-06 Seguridad y Salud en el Trabajo",
+    "tags": [
+      "epp",
+      "seguridad",
+      "reglamento 522-06",
+      "chatarra",
+      "casco",
+      "guantes",
+      "accidente"
+    ],
+    "content": "El Reglamento 522-06 de Seguridad y Salud en el Trabajo exige entregar gratuitamente Equipos de Proteccion Personal (guantes anticorte, botas punta de acero, lentes, faja y chaleco) al personal de acopio y camiones de reciclaje.",
+    "facts": [
+      "En manipulacion de metales cortantes y carga pesada es obligatorio proveer EPP adecuado y documentar firma de entrega al colaborador.",
+      "Incumplir medidas de higiene y seguridad expone a sanciones del Ministerio de Trabajo y recargos en primas de riesgos laborales.",
+      "Puedes vincular cada chofer y sucursal asignada en Colaboradores y Rutas para mantener trazabilidad operativa de brigadas."
+    ]
+  },
+  {
+    "id": "kb_legal_ley_172_13_privacy",
+    "intent": "legal_data_privacy_cyber",
+    "title": "Ley 172-13 de Proteccion de Datos Personales y Derecho de Supresion",
+    "module": "clientes",
+    "category": "legal",
+    "law_ref": "Ley 172-13 Proteccion de Datos Personales",
+    "tags": [
+      "ley 172-13",
+      "datos personales",
+      "privacidad",
+      "cedula",
+      "clientes",
+      "consentimiento",
+      "supresion"
+    ],
+    "content": "La Ley 172-13 protege cedulas, telefonos, correos y direcciones de personas fisicas recolectadas por la empresa, exigiendo finalidad legitima, confidencialidad, seguridad tecnica y atencion a solicitudes de rectificacion o supresion.",
+    "facts": [
+      "La Ley 172-13 permite recopilar datos de identidad y contacto necesarios para facturacion, entrega y cumplimiento legal sin cederlos a terceros sin consentimiento.",
+      "Exige medidas de seguridad razonables contra divulgacion o uso ilicito de listados de clientes y colaboradores.",
+      "La eliminacion real en Supabase mas tombstones y la opcion de eliminar cuenta en Ajustes facilitan atender derechos de cancelacion de datos no sujetos a conservacion fiscal."
+    ]
+  },
+  {
+    "id": "kb_legal_ley_126_02_53_07_cyber",
+    "intent": "legal_data_privacy_cyber",
+    "title": "Ley 126-02 de Comercio Electronico y Ley 53-07 de Delitos de Alta Tecnologia",
+    "module": "ajustes",
+    "category": "legal",
+    "law_ref": "Ley 126-02 · Ley 53-07",
+    "tags": [
+      "ley 126-02",
+      "ley 53-07",
+      "alta tecnologia",
+      "firma digital",
+      "seguridad",
+      "acceso",
+      "biometria"
+    ],
+    "content": "La Ley 126-02 reconoce validez probatoria a mensajes de datos y registros digitales conservados integralmente; la Ley 53-07 penaliza el acceso ilicito, robo de credenciales o alteracion maliciosa de registros contables y bases en la nube.",
+    "facts": [
+      "Bajo la Ley 126-02 no se niega efecto juridico a registros electronicos de facturas, bitacoras o auditorias por el solo hecho de constar en formato digital.",
+      "La Ley 53-07 castiga con prision y multas el acceso indebido a cuentas Supabase/Google Drive, sustraccion de bases de clientes o sabotaje de datos.",
+      "Activar bloqueo biometrico SQLite, restringir permisos por rol en Colaboradores y guardar respaldos en cuentas seguras refuerza la defensa legal."
+    ]
+  },
+  {
+    "id": "kb_legal_ley_155_17_aml_cash",
+    "intent": "legal_aml_scrap_compliance",
+    "title": "Ley 155-17 contra Lavado de Activos, Umbrales en Efectivo y KYC",
+    "module": "bitacoras",
+    "category": "legal",
+    "law_ref": "Ley 155-17 Art. 64 · Normativa UAF",
+    "tags": [
+      "ley 155-17",
+      "lavado de activos",
+      "efectivo",
+      "umbral",
+      "kyc",
+      "bancarizacion",
+      "fraccionamiento"
+    ],
+    "content": "La Ley 155-17 restringe liquidaciones elevadas en efectivo en determinados sectores y sanciona el fraccionamiento deliberado de pagos; ademas exige conocer al proveedor/cliente mediante documento de identidad valido y soporte documental de origen licito.",
+    "facts": [
+      "Pagar sumas elevadas en efectivo sin soporte ni identificacion o fraccionar facturas para ocultar montos constituye senal critica bajo Ley 155-17.",
+      "Para compras recurrentes o de alto valor de metales industriales conviene exigir cedula/RNC verificable y pagar por transferencia bancaria o cheque.",
+      "Ademas protege la deducibilidad fiscal del gasto, pues pagos elevados sin medio bancario trazable pueden ser impugnados por la DGII."
+    ]
+  },
+  {
+    "id": "kb_legal_scrap_copper_theft_prevention",
+    "intent": "legal_aml_scrap_compliance",
+    "title": "Prevencion de Receptacion y Control de Origen en Compra de Cobre y Chatarra",
+    "module": "bitacoras",
+    "category": "legal",
+    "law_ref": "Codigo Penal RD Art. 460 · Ley 155-17",
+    "tags": [
+      "cobre",
+      "chatarra",
+      "cable",
+      "robado",
+      "receptacion",
+      "procedencia",
+      "origen licito",
+      "cedula"
+    ],
+    "content": "Comprar cableado de cobre, bronce, tapas metalicas o chatarra de procedencia ilicita sin exigir identificacion del vendedor ni dejar bitacora firmada expone al patio reciclador al delito de receptacion, comiso del material y cierre.",
+    "facts": [
+      "Quien adquiere cobre, aluminio o hierro robado (especialmente cableado electrico o telecomunicaciones) responde penalmente por receptacion si omite diligencia minima.",
+      "Buenas practicas obligatorias en acopio: exigir cedula o pasaporte vigente, anotar placa del vehiculo, describir el material y conservar recibo/bitacora firmada de origen licito.",
+      "En ReciminsaApp debes crear al proveedor en Clientes con su cedula/RNC antes de cerrar la Bitacora de Recogida para mantener trazabilidad completa."
+    ]
+  },
+  {
+    "id": "kb_legal_full_inspection_checklist",
+    "intent": "legal_audit_risk_scenario",
+    "title": "Checklist Legal Ante Inspeccion de DGII, MIMARENA o Ministerio de Trabajo",
+    "module": "auditoria",
+    "category": "legal",
+    "law_ref": "DGII · MIMARENA · Min. Trabajo · TSS",
+    "tags": [
+      "inspeccion",
+      "fiscalizacion",
+      "checklist",
+      "multas",
+      "auditoria legal",
+      "documentos visibles"
+    ],
+    "content": "Ante una inspeccion empresarial en Republica Dominicana deben estar vigentes: Certificado de RNC y Registro Mercantil visible, secuencias NCF autorizadas sin vencer, envios 606/607/608/IT-1 al dia, permiso ambiental MIMARENA, planilla TSS/IDOPPRIL y protocolos de compra de chatarra.",
+    "facts": [
+      "Fiscalizacion DGII verifica concordancia entre secuencias NCF emitidas, libros de ventas/compras (607/606), facturas B01 con RNC valido y envios IT-1.",
+      "Inspeccion MIMARENA/Trabajo verifica licencia ambiental del patio, EPP al personal, cobertura activa TSS/IDOPPRIL y registro limpio de pesos transportados.",
+      "ReciBot Neo cruza en vivo tus NCF, facturas sin RNC, clientes sin identificacion, sucursales y respaldos para estimar tu nivel de riesgo actual."
+    ]
+  },
+  {
+    "id": "kb_legal_general_terms_drafting",
+    "intent": "legal_audit_risk_scenario",
+    "title": "Diseno Dinamico de Clausulas Legales Comerciales y Declaraciones para Reciclaje",
+    "module": "facturas",
+    "category": "hybrid",
+    "law_ref": "Codigo Civil · Codigo de Comercio · Ley 172-13 · Ley 155-17",
+    "tags": [
+      "redacta",
+      "clausula",
+      "terminos",
+      "condiciones",
+      "declaracion",
+      "privacidad",
+      "cotizacion"
+    ],
+    "content": "ReciminsaApp permite personalizar documentos y ReciBot puede generar borradores orientativos de clausulas de validez de cotizaciones, mora en facturas, aviso de privacidad de datos y declaracion de origen licito de chatarra con el RNC y razon social de tu empresa.",
+    "facts": [
+      "Toda clausula comercial debe especificar identificacion completa (Razon Social y RNC), vigencia o plazo de pago, aceptacion de peso y jurisdiccion competente.",
+      "Las declaraciones de compra de chatarra deben dejar constancia del nombre, cedula y manifestacion de propiedad licita del vendedor bajo fe de juramento.",
+      "Los textos generados son borradores practicos de referencia empresarial y deben ser validados por un abogado corporativo para operaciones de gran cuantia."
+    ]
+  },
+  {
+    "id": "kb_legal_cross_app_controls",
+    "intent": "legal_audit_risk_scenario",
+    "title": "Controles Preventivos Integrados en ReciminsaApp Frente a Errores Legales",
+    "module": "auditoria",
+    "category": "hybrid",
+    "law_ref": "Compliance ReciminsaApp",
+    "tags": [
+      "controles",
+      "prevenir",
+      "brechas",
+      "cumplimiento",
+      "compliance",
+      "auditoria"
+    ],
+    "content": "ReciminsaApp combina candados tecnicos: validacion de 9/11 digitos en RNC para B01/E31, bloqueo de NCF agotados/vencidos, tombstone anti-resurreccion en borrados, asignacion de cliente por sucursal y respaldo en Drive/Excel.",
+    "facts": [
+      "El mayor riesgo legal en software PYME es emitir NCF ya agotados o asignar credito fiscal B01 sin RNC valido; la verificacion en vivo de ReciBot Neo los detecta al instante.",
+      "Otro riesgo comun es mantener clientes sin cedula en compras en efectivo o operar sin respaldo historico para el plazo legal de 10 anos.",
+      "Activar Google Drive backup, revisar Parametrizaciones NCF antes de fin de mes y completar RNC de clientes eleva tu indice de cumplimiento."
+    ]
+  },
+  {
+    "id": "kb_legal_tax_penalties_recargos",
+    "intent": "legal_tax_code_ncf",
+    "title": "Sanciones y Recargos Tributarios por Incumplimiento Formal o Mora (Ley 11-92)",
+    "module": "manejo_dgii",
+    "category": "legal",
+    "law_ref": "Ley 11-92 Arts. 252, 257",
+    "tags": [
+      "multa",
+      "sancion",
+      "recargo",
+      "mora",
+      "penalidad",
+      "articulo 257",
+      "dgii"
+    ],
+    "content": "El incumplimiento de deberes formales tributarios (no emitir comprobante, usar NCF invalidos, no enviar 606/607/608 a tiempo o no actualizar domicilio) conlleva multas de salarios minimos del sector publico ademas de recargos por mora sobre impuestos dejados de pagar.",
+    "facts": [
+      "Art. 257 del Codigo Tributario sanciona deberes formales con multas pecuniarias de 5 a 30 salarios minimos segun gravedad y reincidencia.",
+      "La omision o retraso en pago de impuestos (Art. 252) suma 10% de recargo primer mes, 4% mensual subsiguiente y 1.10% de interes indemnizatorio mensual.",
+      "Revisar semanalmente el modulo Manejo DGII y tus alertas de ReciBot Neo previene cierres y penalidades acumulativas."
+    ]
+  },
+  {
+    "id": "kb_legal_accounting_books_audit",
+    "intent": "legal_audit_risk_scenario",
+    "title": "Correspondencia Contable entre Ingresos, Egresos, Facturas y Bitacoras",
+    "module": "ingresos",
+    "category": "hybrid",
+    "law_ref": "Codigo de Comercio Arts. 8-11 · Ley 11-92",
+    "tags": [
+      "contabilidad",
+      "conciliacion",
+      "ingresos",
+      "egresos",
+      "auditoria",
+      "soporte",
+      "balance"
+    ],
+    "content": "Todo registro financiero en Ingresos y Egresos debe corresponder con un documento de respaldo verificable (factura de venta con NCF, bitacora con recibo/B11 o comprobante de gasto 606) para cuadrar contabilidad y auditoria fiscal.",
+    "facts": [
+      "Cada movimiento de caja o banco sin factura o soporte 606 valido puede ser rechazado como gasto deducible en la declaracion anual IR-2.",
+      "La eliminacion en cascada de finanzas vinculadas en ReciminsaApp evita ingresos o egresos huerfanos tras anular documentos.",
+      "Conciliar mensualmente Ingresos vs 607 y Egresos vs 606 garantiza estados financieros consistentes."
+    ]
+  },
+  {
+    "id": "kb_legal_b14_b15_special_regimes",
+    "intent": "legal_retentions_itbis_isr",
+    "title": "Regimenes Especiales (B14) y Comprobantes Gubernamentales (B15)",
+    "module": "facturas",
+    "category": "legal",
+    "law_ref": "Decreto 254-06 · Norma 05-2019",
+    "tags": [
+      "b14",
+      "b15",
+      "zona franca",
+      "regimen especial",
+      "gubernamental",
+      "exento",
+      "retencion estado"
+    ],
+    "content": "El comprobante B14 (E44) factura ventas exentas de ITBIS a entidades acogidas a regimenes especiales (ej. zonas francas con carnet vigente); el B15 (E45) respalda ventas al Estado dominicano sujeto a retencion del 5% de ISR y normas de compras publicas.",
+    "facts": [
+      "Al emitir B14 debes verificar la vigencia de la certificacion o carnet de exencion de ITBIS del cliente (zona franca, ley especial) para respaldar la tasa 0%.",
+      "Al facturar al Estado con B15 aplica normalmente retencion estatal del 5% de ISR sobre pagos de bienes/servicios (Art. 309 literal e) y reportarlo en el 607.",
+      "Ambos tipos de comprobante estan disponibles en Facturacion y exigen RNC de 9 digitos valido."
+    ]
+  },
+  {
+    "id": "kb_legal_b03_debit_notes_law",
+    "intent": "legal_tax_code_ncf",
+    "title": "Uso Legal de Notas de Debito (B03/E33) para Intereses y Ajustes Positivos",
+    "module": "nota_debito",
+    "category": "legal",
+    "law_ref": "Decreto 254-06 · Norma 06-2018",
+    "tags": [
+      "b03",
+      "e33",
+      "nota de debito",
+      "intereses",
+      "mora",
+      "ajuste",
+      "ncf afectado"
+    ],
+    "content": "Las Notas de Debito B03 (o E33) aumentan legalmente el valor e ITBIS de una factura fiscal previamente emitida por recargos, fletes omitidos, intereses moratorios o diferencias de precio, referenciando siempre el NCF original.",
+    "facts": [
+      "Nunca debes modificar directamente una factura fiscal ya emitida y reportada en el 607; los incrementos posteriores se documentan con Nota de Debito B03.",
+      "El B03 requiere obligatoriamente el NCF original afectado y grava ITBIS si el concepto adicional esta sujeto al impuesto.",
+      "ReciminsaApp gestiona las Notas de Debito en su propio modulo vinculandolas al historial y al reporte 607."
+    ]
+  },
+  {
+    "id": "kb_legal_driver_route_liability",
+    "intent": "legal_labor_tss_safety",
+    "title": "Responsabilidad Civil y Laboral en Rutas de Camiones y Choferes",
+    "module": "rutas",
+    "category": "hybrid",
+    "law_ref": "Codigo Civil Art. 1384 · Ley 63-17 Transito · Ley 87-01",
+    "tags": [
+      "chofer",
+      "camion",
+      "accidente",
+      "transito",
+      "ley 63-17",
+      "responsabilidad",
+      "ruta"
+    ],
+    "content": "Bajo la Ley 63-17 y el Art. 1384 del Codigo Civil, la empresa propietaria del camion es civilmente responsable solidaria por danos en ruta; ademas requiere licencia vigente del chofer, seguro vehicular al dia y cobertura de riesgos laborales IDOPPRIL.",
+    "facts": [
+      "Todo conductor en rutas de recogida debe portar licencia de categoria acorde al camion, matricula, seguro obligatorio vigente y conduccion segura de carga.",
+      "En accidentes viales con carga suelta o sin seguro, la empresa propietaria enfrenta responsabilidad civil directa frente a terceros.",
+      "Asignar chofer, ficha vehicular y destino exacto en Rutas y Bitacoras fortalece la supervision de flota."
+    ]
+  },
+  {
+    "id": "kb_identity_neo",
+    "intent": "identity_capabilities",
+    "title": "Identidad de ReciBot Neo (Argon-Auditor · 2,000 Tokens)",
+    "module": "chatbot",
+    "category": "app",
+    "law_ref": "Arquitectura Transformer GPT + LoRA + DPO + RAG · 2,000 Tokens",
+    "tags": [
+      "recibot neo",
+      "argon auditor",
+      "identidad",
+      "parametros",
+      "2000 tokens",
+      "razonamiento profundo"
+    ],
+    "content": "ReciBot Neo es Argón-Auditor, el modelo de razonamiento profundo, auditoría legal empresarial y verificación multi-paso de ReciminsaApp con vocabulario expandido de 2,000 tokens.",
+    "facts": [
+      "Identidad oficial de ReciBot Neo: Argón-Auditor, enfocado en precisión, auditoría integral y comprobaciones cruzadas antes de emitir conclusiones.",
+      "Arquitectura de ReciBot Neo: Transformer tipo GPT de 2 capas, 4 cabezales de atención, d_model=112, FFN=224, vocabulario de 2,000 tokens, adaptadores LoRA r=8, alineación DPO y proyección RAG de 64 dimensiones.",
+      "ReciBot Neo consulta sus pesos y métricas en vivo (inference_parameters y total_params_with_lora) para informar con exactitud cuántos parámetros contiene."
+    ]
+  },
+  {
+    "id": "kb_identity_flash",
+    "intent": "identity_capabilities",
+    "title": "Identidad de ReciBot Flash (Pulso-Agil · 2,000 Tokens)",
+    "module": "chatbot",
+    "category": "app",
+    "law_ref": "Arquitectura Destilada Ligera · 2,000 Tokens",
+    "tags": [
+      "recibot flash",
+      "pulso agil",
+      "identidad",
+      "parametros",
+      "2000 tokens",
+      "velocidad",
+      "destilacion"
+    ],
+    "content": "ReciBot Flash es Pulso-Ágil, el modelo de respuesta ultrarrápida y ejecución directa destilado desde ReciBot Neo sobre el mismo vocabulario de 2,000 tokens.",
+    "facts": [
+      "Identidad oficial de ReciBot Flash: Pulso-Ágil, orientado a consultas instantáneas, métricas puntuales y respuestas concisas en milisegundos.",
+      "Arquitectura de ReciBot Flash: Embedding de 2,000 x 48, pooling Mean+Max (96 dimensiones), capa oculta ReLU de 72 neuronas y cabeza destilada desde ReciBot Neo.",
+      "ReciBot Flash responde en primera persona como Pulso-Ágil y muestra el conteo exacto de parámetros de ambos modelos al ser consultado."
+    ]
+  }
+]

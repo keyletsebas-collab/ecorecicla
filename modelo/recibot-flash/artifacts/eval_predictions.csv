@@ -1,0 +1,883 @@
+idx,true_intent,pred_intent,confidence,correct,top_tool,text
+0,legal_labor_tss_safety,legal_labor_tss_safety,0.996065,1,check_legal_compliance,dime diferencia entre permiso de acceso en la app y contrato laboral firmado rapidamente
+1,invoice_create_help,invoice_create_help,0.98028,1,check_branches,dime hacer facturas con credito fiscal b01 rapidamente
+2,invoice_summary_live,invoice_summary_live,0.987791,1,check_finances,urgente cuanto he vendido facturas
+3,system_health_check,system_health_check,0.989175,1,check_branches,dime informacion de plataforma android web rapidamente
+4,dgii_reports_606_607_608,dgii_reports_606_607_608,0.9977,1,check_finances,reporte 607 ventas dgii paso a paso
+5,bitacora_summary_live,bitacora_summary_live,0.996382,1,check_branches,que choferes hicieron bitacoras hoy
+6,dgii_rnc_lookup,dgii_rnc_lookup,0.9941,1,check_clients,oye recibot cliente necesita nit obligatorio para b01 hoy
+7,routes_agenda_live,routes_agenda_live,0.997346,1,check_branches,necesito saber convertir parada ruta bitacora completada en reciminsa
+8,legal_data_privacy_cyber,legal_data_privacy_cyber,0.998666,1,check_system_sync,desde mi celular como cumplen supabase y tombstones con eliminacion definitiva datos
+9,identity_capabilities,identity_capabilities,0.999636,1,none,cuantos parametros tiene neo hoy
+10,dgii_reports_606_607_608,dgii_reports_606_607_608,0.996422,1,check_finances,quiero generar formato 606 compras urgente
+11,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998731,1,check_legal_compliance,plazo de vigencia y terminos legales recomendados en cotizaciones ante la dgii
+12,branches_overview_live,branches_overview_live,0.976685,1,check_invoices_bitacoras,puedes resumen consolidado por sucursalles ahora
+13,collaborators_roles_live,collaborators_roles_live,0.996486,1,check_collaborators,puedes roles disponibles para trabajadores
+14,collaborators_roles_live,collaborators_roles_live,0.994139,1,check_collaborators,en reciminsaapp agregar nuevo empleado o chofer rapidamente
+15,security_biometric_legal,security_biometric_legal,0.995477,1,check_system_sync,en reciminsaapp activar huella o biometria para iniciar sesion paso a paso
+16,navigate_or_open_tool,navigate_or_open_tool,0.998422,1,check_control_center,puedes abrir mini factura ahora por favor
+17,routes_agenda_live,routes_agenda_live,0.99663,1,check_branches,dime recordatorios de rutas en el telefono paso a paso
+18,navigate_or_open_tool,navigate_or_open_tool,0.999399,1,run_calculator_or_nav,en reciminsaapp abrir manejo dgii hoy
+19,routes_agenda_live,routes_agenda_live,0.993569,1,check_routes,revisa agenda del dia para camiones rapidamente
+20,audit_full_app,audit_full_app,0.996116,1,check_system_sync,auditoria total de la app en la app
+21,legal_audit_risk_scenario,legal_audit_risk_scenario,0.996749,1,check_legal_compliance,explicame evalua el riesgo legal de operar sin respaldo ni comprobantes al dia en la app
+22,dgii_reports_606_607_608,dgii_reports_606_607_608,0.996761,1,check_ncf_dgii,dime exportar txt para oficina virtual dgii
+23,unit_converter,unit_converter,0.996375,1,run_calculator_or_nav,cuantos kilos son 4800 libras
+24,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.997752,1,check_legal_compliance,revisa nombre comercial certificado por onapi vs denominacion social
+25,ecology_impact_live,ecology_impact_live,0.995735,1,check_invoices_bitacoras,quiero cuantos arboles agua y co2 he ahorrado en la app
+26,legal_audit_risk_scenario,legal_audit_risk_scenario,0.997988,1,check_legal_compliance,evalua el riesgo legal de operar sin respaldo ni comprobantes al dia
+27,audit_dgii_ncf,audit_dgii_ncf,0.997466,1,check_invoices_bitacoras,parametrizaciones ncf inventario de comprobantes en la app
+28,finance_cashflow_live,finance_cashflow_live,0.995764,1,check_invoices_bitacoras,en reciminsaapp como registro un ingreso o egreso manual urgente
+29,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998501,1,check_quotes_docs,revisa como me respaldo legalmente cuando entrego material a credito sin pago por favor
+30,legal_tax_code_ncf,legal_tax_code_ncf,0.997448,1,check_invoices_bitacoras,desde mi celular multa por facturar sin secuencia autorizada ante la dgii legalmente
+31,routes_agenda_live,routes_agenda_live,0.996145,1,check_routes,revisa paradas pendientes en agenda por favor
+32,pdf_printing_layout,pdf_printing_layout,0.996786,1,check_branches,revisa como imprimir ticket 80mm o 58mm en impresora termica en la app
+33,gdrive_backup_excel,gdrive_backup_excel,0.998398,1,check_system_sync,urgente probar conexion con google drive en reciminsa
+34,white_label_settings,white_label_settings,0.970893,1,check_branches,desde mi celular al crear empresa va primero nombre o razon social luego rnc paso a paso
+35,audit_dgii_ncf,audit_dgii_ncf,0.997593,1,check_invoices_bitacoras,puedes parametrizaciones ncf inventario de comprobantes
+36,clients_manage_live,clients_manage_live,0.978422,1,check_clients,necesito saber como editar o borrar un cliente en supabase por favor
+37,navigate_or_open_tool,navigate_or_open_tool,0.99686,1,run_calculator_or_nav,en reciminsaapp abrir codigos de materiales en la app
+38,invoice_summary_live,invoice_summary_live,0.992683,1,check_finances,puedes cuantas facturas hay con ncf y sin ncf urgente
+39,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.999623,1,check_branches,diferencia entre sociedad srl y empresa individual eirl
+40,system_health_check,system_health_check,0.99021,1,check_branches,por favor cuanta memoria localstorage estoy usando por favor
+41,thanks_farewell,thanks_farewell,0.994587,1,none,por favor chao por favor
+42,clients_manage_live,clients_manage_live,0.981933,1,check_branches,oye recibot lista de clientes activos paso a paso
+43,branches_overview_live,branches_overview_live,0.99492,1,check_invoices_bitacoras,urgente como veo de que sucursal es cada facturas y bitacora urgente
+44,bitacora_create_help,bitacora_create_help,0.997353,1,check_clients,dime descargar excel al guardar una bitacora en reciminsa
+45,dispatch_conduce_help,dispatch_conduce_help,0.995731,1,check_branches,puedes hacer conduce salida mercancia en reciminsa
+46,bitacora_create_help,bitacora_create_help,0.993756,1,check_branches,urgente vincular parada de ruta con vitacoras
+47,returns_credit_debit_notes,returns_credit_debit_notes,0.99756,1,check_quotes_docs,quiero emitir nota de credito b04
+48,security_biometric_legal,security_biometric_legal,0.992133,1,check_system_sync,dime politica privacidad terminos legales en reciminsa
+49,legal_audit_risk_scenario,legal_audit_risk_scenario,0.995667,1,check_legal_compliance,ayudame a evalua el riesgo juridico de operar sin respaldo ni comprobantes al dia legalmente
+50,clients_manage_live,clients_manage_live,0.996474,1,check_branches,ver detalles y ubicacion de clientes
+51,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.997376,1,check_legal_compliance,es legal como se prepara reciminsaapp comprobantes e31 serie e ahora
+52,dgii_reports_606_607_608,dgii_reports_606_607_608,0.997523,1,check_ncf_dgii,auditar comprobantes para 607 y 608 en reciminsa
+53,white_label_settings,white_label_settings,0.972673,1,check_branches,cambiar logo y nombre de empresa marca blanca en la app
+54,legal_labor_tss_safety,legal_labor_tss_safety,0.995468,1,check_legal_compliance,inscripcion en tss ley 87 01 infotep riesgos laborales idoppril segun la ley
+55,legal_environmental_waste,legal_environmental_waste,0.998362,1,check_routes,las constancias pdf de impacto ecologico tienen valor de certificacion oficial
+56,collaborators_roles_live,collaborators_roles_live,0.995817,1,check_branches,puedes anadir empleado a una sucursal
+57,security_biometric_legal,security_biometric_legal,0.996937,1,check_system_sync,por favor proteccion de contrasena y sesion rapidamente
+58,gdrive_backup_excel,gdrive_backup_excel,0.99795,1,check_system_sync,urgente importar datos desde excel
+59,system_health_check,system_health_check,0.97102,1,check_branches,en reciminsaapp estado de la app por favor
+60,thanks_farewell,thanks_farewell,0.993358,1,none,nos vemos hoy
+61,audit_full_app,audit_full_app,0.997817,1,check_invoices_bitacoras,auditar toda la aplicacion
+62,pdf_printing_layout,pdf_printing_layout,0.996094,1,check_branches,puedes compartir factura pdf por whatsapp paso a paso
+63,system_health_check,system_health_check,0.984476,1,check_branches,en reciminsaapp salud de la app ahora
+64,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.99731,1,check_legal_compliance,oye recibot validez tributaria de comprobantes e31 e32 e33 e34 e44 e45 hoy
+65,greeting,greeting,0.996372,1,none,hola amigo
+66,dgii_rnc_lookup,dgii_rnc_lookup,0.998522,1,check_ncf_dgii,quiero nit de 9 digitos y cedula de 11 digitos por favor
+67,audit_full_app,audit_full_app,0.998468,1,check_materials_prices,puedes hazme chequeo profundo todo sistema rapidamente
+68,gdrive_backup_excel,gdrive_backup_excel,0.992653,1,check_system_sync,desde mi celular enviar respaldo de bitacoras a drive ahora en reciminsa
+69,legal_data_privacy_cyber,legal_data_privacy_cyber,0.998043,1,check_legal_compliance,por favor obligaciones bajo ley 172 13 de proteccion datos personales
+70,clients_manage_live,clients_manage_live,0.98285,1,check_branches,como editar o borrar un cliente supabase en la app
+71,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.984623,1,check_legal_compliance,explicame diferencia legal entre serie b tradicional y serie e electronica segun la ley
+72,android_control_center,android_control_center,0.966125,1,check_control_center,abrir mini bitacoras o mini factura rapida rapidamente
+73,dgii_rnc_lookup,dgii_rnc_lookup,0.990588,1,check_ncf_dgii,buscar razon social por nit paso a paso
+74,thanks_farewell,thanks_farewell,0.997091,1,none,adios
+75,routes_agenda_live,routes_agenda_live,0.992961,1,check_branches,necesito saber como creo una ruta de recoleccion
+76,navigate_or_open_tool,navigate_or_open_tool,0.997936,1,run_calculator_or_nav,urgente abrir codigos de materiales rapidamente
+77,navigate_or_open_tool,navigate_or_open_tool,0.999333,1,run_calculator_or_nav,dime abrir manejo dgii por favor
+78,invoice_create_help,invoice_create_help,0.960779,1,check_ncf_dgii,en reciminsaapp como convierto una factura en conduce o despacho en reciminsa
+79,audit_dgii_ncf,audit_dgii_ncf,0.990591,1,check_invoices_bitacoras,necesito saber es ilegal faturar b01 sin secuencia comprobante fiscal rapidamente
+80,tax_math_calculator,tax_math_calculator,0.99848,1,run_calculator_or_nav,calcula 120 kg a 60
+81,branches_overview_live,branches_overview_live,0.996358,1,check_clients,desde mi celular cuantas sucursalles tengo configuradas
+82,audit_dgii_ncf,audit_dgii_ncf,0.97184,1,check_invoices_bitacoras,tengo ncf disponibles para b01 y b02
+83,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.998136,1,check_materials_prices,desde mi celular umbrales de transacciones en efectivo bajo ley 155 17 republica dominicana paso a paso
+84,materials_families_audit,materials_families_audit,0.997561,1,check_invoices_bitacoras,por favor eliminar material en supabase ahora
+85,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.998716,1,check_legal_compliance,transicion legal de facturas serie b a comprobantes electronicos
+86,pdf_printing_layout,pdf_printing_layout,0.994722,1,check_branches,oye recibot descargar pdf tamano carta facturas o cotizacion por favor
+87,bitacora_summary_live,bitacora_summary_live,0.987469,1,check_invoices_bitacoras,resumen de recogidas y compras por favor
+88,supabase_sync_delete,supabase_sync_delete,0.99771,1,check_system_sync,ayudame a cola de sincronizacion pendiente
+89,returns_credit_debit_notes,returns_credit_debit_notes,0.981797,1,check_invoices_bitacoras,urgente diferencia entre b03 y b04 dgii en la app
+90,ecology_impact_live,ecology_impact_live,0.996519,1,check_invoices_bitacoras,en reciminsaapp ver reporte ecologico en vivo hoy
+91,greeting,greeting,0.991499,1,none,buenos dias ahora
+92,invoice_create_help,invoice_create_help,0.992136,1,check_ncf_dgii,facturar consumidor final b02
+93,legal_data_privacy_cyber,legal_data_privacy_cyber,0.998565,1,check_system_sync,desde mi celular derecho de rectificacion y supresion real de datos personales rapidamente
+94,bitacora_summary_live,bitacora_summary_live,0.996562,1,check_branches,quiero ver miniaturas de bitacoras
+95,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.997394,1,check_quotes_docs,oye recibot diferencia juridica entre cotisaciones conduce y factura con ncf
+96,greeting,greeting,0.989684,1,none,por favor hey bot por favor
+97,pdf_printing_layout,pdf_printing_layout,0.99564,1,check_branches,quiero por que va el logo arriba y al final la factura pdf ahora
+98,legal_audit_risk_scenario,legal_audit_risk_scenario,0.996318,1,check_legal_compliance,explicame guia legal integral para operar una empresa recicladora formal en rd ante la dgii
+99,legal_environmental_waste,legal_environmental_waste,0.996425,1,check_legal_compliance,manifiesto de carga y bitacora de recogida ante inspeccion ambiental
+100,dispatch_conduce_help,dispatch_conduce_help,0.990938,1,check_branches,urgente como creo un despacho o conduce ahora
+101,ecology_impact_live,ecology_impact_live,0.996527,1,check_invoices_bitacoras,quiero cuantos arboles agua co2 he ahorrado en reciminsa
+102,navigate_or_open_tool,navigate_or_open_tool,0.993482,1,check_control_center,abrir ingresos
+103,legal_labor_tss_safety,legal_labor_tss_safety,0.992553,1,check_legal_compliance,que pasa si nacionalizacion de nomina regla 80 20 codigo de trabajo dominicano urgente
+104,legal_data_privacy_cyber,legal_data_privacy_cyber,0.996922,1,check_legal_compliance,revisa riesgo legal compartir bases datos de clientes sin autorizacion ante la dgii
+105,white_label_settings,white_label_settings,0.960313,1,check_branches,dime activar o desactivar modulos en ajustes por favor
+106,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.99663,1,check_legal_compliance,cual es la ley sobre fecha limite juridico enviar formatos 606 607 y 608 dia 15
+107,system_health_check,system_health_check,0.988521,1,check_branches,revisa informacion de plataforma android web hoy
+108,market_prices_margin,market_prices_margin,0.995817,1,run_calculator_or_nav,puedes ver tendencia de precios historicos
+109,pdf_printing_layout,pdf_printing_layout,0.990609,1,check_branches,desde mi celular descargar pdf tamano carta de factura o cotizacion paso a paso
+110,supabase_sync_delete,supabase_sync_delete,0.997356,1,check_system_sync,en reciminsaapp forzar sincronizacion nube paso a paso
+111,thanks_farewell,thanks_farewell,0.995945,1,none,necesito saber chao ahora
+112,bitacora_create_help,bitacora_create_help,0.990193,1,check_clients,desde mi celular recogida suma egreso o ingreso en reciminsa
+113,white_label_settings,white_label_settings,0.965039,1,check_branches,revisa cambiar el logo y nombre de la empresa marca blanca por favor
+114,finance_cashflow_live,finance_cashflow_live,0.992742,1,check_branches,en reciminsaapp ultimos movimientos financieros en reciminsa
+115,legal_data_privacy_cyber,legal_data_privacy_cyber,0.994825,1,check_legal_compliance,quiero medidas de seguridad recomendadas biometria permisos y copias drive legalmente
+116,invoice_create_help,invoice_create_help,0.969972,1,check_ncf_dgii,dime como convierto una factura en conduce o despacho en reciminsa
+117,android_control_center,android_control_center,0.979972,1,check_control_center,quiero abrir mini bitacora o mini facturas rapida paso a paso
+118,legal_audit_risk_scenario,legal_audit_risk_scenario,0.998386,1,check_system_sync,por favor cuales son mis principales brechas legales actuales segun mis datos
+119,market_prices_margin,market_prices_margin,0.99642,1,run_calculator_or_nav,quiero tabla de precios sugeridos
+120,audit_full_app,audit_full_app,0.996714,1,check_system_sync,revisar errores legales y de datos
+121,quote_help_and_live,quote_help_and_live,0.986427,1,check_quotes_docs,oye recibot convertir cotizacion factura
+122,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.999466,1,check_invoices_bitacoras,responsabilidad penal por receptacion de material robado sin respaldo
+123,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.995701,1,check_legal_compliance,revisa obligaciones mensuales 606 607 608 it1 e ir17 segun la ley
+124,dgii_reports_606_607_608,dgii_reports_606_607_608,0.994163,1,check_finances,necesito saber facturas anuladas para reporte 608 hoy
+125,navigate_or_open_tool,navigate_or_open_tool,0.997552,1,run_calculator_or_nav,navegar a ecologia
+126,invoice_create_help,invoice_create_help,0.989472,1,check_ncf_dgii,aplicar isc itbis y retenciones isr en factura
+127,android_control_center,android_control_center,0.99856,1,check_control_center,en reciminsaapp activar los 2 botones en ajustes hoy
+128,legal_tax_code_ncf,legal_tax_code_ncf,0.998278,1,check_legal_compliance,revisa puedo recuperar itbis con nota de credito b04 despues de 30 dias
+129,legal_audit_risk_scenario,legal_audit_risk_scenario,0.997329,1,check_system_sync,revisa que me revisaria un inspector de la dgii o de medio ambiente hoy
+130,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998762,1,check_quotes_docs,proteccion legal ante impagos o disputas de peso en despachos urgente
+131,security_biometric_legal,security_biometric_legal,0.997987,1,check_system_sync,necesito saber activar huella o biometria iniciar sesion en la app
+132,security_biometric_legal,security_biometric_legal,0.993829,1,check_system_sync,por favor politica de privacidad y terminos legales hoy
+133,returns_credit_debit_notes,returns_credit_debit_notes,0.995508,1,check_invoices_bitacoras,ncf afectado en nota de credito por favor
+134,gdrive_backup_excel,gdrive_backup_excel,0.998327,1,check_system_sync,en reciminsaapp exportar toda app excel xlsx hoy
+135,legal_data_privacy_cyber,legal_data_privacy_cyber,0.99114,1,check_legal_compliance,en mi empresa norma 126 02 sobre validez juridica de documentos y firmas electronicas rapidamente
+136,dgii_reports_606_607_608,dgii_reports_606_607_608,0.993806,1,check_invoices_bitacoras,dime resumen fiscal mensual dgii rapidamente
+137,ecology_impact_live,ecology_impact_live,0.996574,1,check_invoices_bitacoras,puedes cuantos arboles agua y co2 he ahorrado ahora
+138,legal_tax_code_ncf,legal_tax_code_ncf,0.997347,1,check_legal_compliance,plazo legal de 30 dias para anulacion y devolucion de itbis b04
+139,legal_environmental_waste,legal_environmental_waste,0.995992,1,check_legal_compliance,responsabilidad extendida del productor rep en reciclaje empresarial
+140,gdrive_backup_excel,gdrive_backup_excel,0.998389,1,check_system_sync,necesito saber enviar respaldo bitacoras drive ahora
+141,gdrive_backup_excel,gdrive_backup_excel,0.998752,1,check_system_sync,quiero descargar reporte excel personalizado
+142,tax_math_calculator,tax_math_calculator,0.8872,1,check_finances,urgente retencion de itbis 30 o 100 por ciento rapidamente
+143,dispatch_conduce_help,dispatch_conduce_help,0.992296,1,check_quotes_docs,puedes convertir factura en conduce de entrega
+144,quote_help_and_live,quote_help_and_live,0.988418,1,check_branches,quiero cuantas cotizaciones tengo guardadas paso a paso
+145,android_control_center,android_control_center,0.997638,1,check_control_center,agregar boton recogida recogida y nueva factura junto al wifi y bluetooth paso a paso
+146,unit_converter,unit_converter,0.99883,1,run_calculator_or_nav,ayudame a cuantos kilos son 2000 libras
+147,audit_full_app,audit_full_app,0.995933,1,check_clients,revisa supervision completa modo neo paso a paso
+148,legal_environmental_waste,legal_environmental_waste,0.994464,1,check_legal_compliance,en reciminsaapp como ayudan bitacoras conduces trazabilidad ambiental mimarena paso a paso
+149,materials_families_audit,materials_families_audit,0.995322,1,check_invoices_bitacoras,oye recibot revisar codigos de materiales en reciminsa
+150,thanks_farewell,thanks_farewell,0.993126,1,none,gracias
+151,tax_math_calculator,tax_math_calculator,0.99838,1,run_calculator_or_nav,calcula 500 kg a 35
+152,routes_agenda_live,routes_agenda_live,0.992112,1,check_routes,ayudame a convertir parada de ruta en recogida completada
+153,system_health_check,system_health_check,0.98811,1,check_branches,dime limpiar cache de facturas o finanzas hoy
+154,bitacora_create_help,bitacora_create_help,0.9972,1,check_materials_prices,necesito saber registrar compra materiales reciclados urgente
+155,legal_environmental_waste,legal_environmental_waste,0.996421,1,check_legal_compliance,dime manejo de baterias aceites o desechos peligrosos bajo ley 64 00
+156,invoice_summary_live,invoice_summary_live,0.972459,1,check_branches,oye recibot resumen de facturas de venta ahora
+157,audit_full_app,audit_full_app,0.995041,1,check_system_sync,en reciminsaapp hazme un chequeo profundo de todo el sistema en reciminsa
+158,bitacora_create_help,bitacora_create_help,0.992103,1,check_materials_prices,quiero pesar carton plastico aluminio en bitacora por favor
+159,quote_help_and_live,quote_help_and_live,0.990736,1,check_branches,dime ver historial de cotizaciones hoy
+160,supabase_sync_delete,supabase_sync_delete,0.997179,1,check_system_sync,revisa como funciona sincronizacion supabase ahora
+161,finance_cashflow_live,finance_cashflow_live,0.994433,1,check_invoices_bitacoras,urgente ganancia neta del negocio hoy
+162,clients_manage_live,clients_manage_live,0.994857,1,check_branches,revisa clientes sin sucursal asignada paso a paso
+163,materials_families_audit,materials_families_audit,0.995772,1,check_invoices_bitacoras,necesito saber asociar codigo materiales una familia
+164,branches_overview_live,branches_overview_live,0.988725,1,check_clients,asignar usuario o empleado a una sucursales urgente
+165,collaborators_roles_live,collaborators_roles_live,0.990726,1,check_branches,desde mi celular roles disponibles trabajadores en reciminsa
+166,navigate_or_open_tool,navigate_or_open_tool,0.999338,1,run_calculator_or_nav,abrir manejo dgii
+167,invoice_summary_live,invoice_summary_live,0.960177,1,check_branches,dime ver detalles de mis facturas guardadas ahora
+168,system_health_check,system_health_check,0.990084,1,check_branches,cuanta memoria localstorage estoy usando
+169,routes_agenda_live,routes_agenda_live,0.994167,1,check_routes,revisa cuantas rutas tengo activas en reciminsa
+170,identity_capabilities,identity_capabilities,0.996986,1,none,necesito saber de que empresa eres
+171,bitacora_summary_live,bitacora_summary_live,0.994653,1,check_invoices_bitacoras,revisa cuantas recogidas hice urgente
+172,dispatch_conduce_help,dispatch_conduce_help,0.997329,1,check_branches,cuantos despachos tengo emitidos hoy
+173,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.9925,1,check_legal_compliance,diferencia legal entre serie b tradicional y serie e electronica rapidamente
+174,legal_labor_tss_safety,legal_labor_tss_safety,0.996818,1,check_legal_compliance,dime como evitar demandas laborales por mal manejo despidos
+175,legal_labor_tss_safety,legal_labor_tss_safety,0.991126,1,check_legal_compliance,por favor riesgo legal tener colaboradores informales manejando camiones
+176,routes_agenda_live,routes_agenda_live,0.996071,1,check_routes,dime agenda del dia para camiones urgente
+177,legal_data_privacy_cyber,legal_data_privacy_cyber,0.997457,1,check_legal_compliance,medidas de seguridad recomendadas biometria permisos y copias drive
+178,audit_full_app,audit_full_app,0.990268,1,check_system_sync,necesito saber revisar errores legales y de datos en la app
+179,materials_families_audit,materials_families_audit,0.997447,1,check_invoices_bitacoras,puedes como creo familias materiales urgente
+180,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.998814,1,check_materials_prices,oye recibot controles legales en compra de acero cobre bronce y aluminio
+181,ecology_impact_live,ecology_impact_live,0.998093,1,check_invoices_bitacoras,como se calcula el ahorro de energia y co2
+182,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998851,1,check_quotes_docs,necesito saber diferencia juridica entre cotizaciones conduce y factura con ncf hoy
+183,branches_overview_live,branches_overview_live,0.997026,1,check_clients,dime ubicacion cada sucursal facturas tarjetas ahora
+184,materials_families_audit,materials_families_audit,0.994778,1,check_materials_prices,oye recibot eliminar un materiales en supabase ahora
+185,legal_audit_risk_scenario,legal_audit_risk_scenario,0.998976,1,check_legal_compliance,ayudame a identificar riesgos legales ocultos en mi configuracion
+186,invoice_create_help,invoice_create_help,0.980867,1,check_ncf_dgii,por favor factura comercial interna sin ncf paso a paso
+187,white_label_settings,white_label_settings,0.978824,1,check_branches,oye recibot al crear empresa va primero nombre o razon social luego rnc paso a paso
+188,bitacora_summary_live,bitacora_summary_live,0.990167,1,check_branches,desde mi celular cuantos viajes de recogida llevo en reciminsa
+189,supabase_sync_delete,supabase_sync_delete,0.996198,1,check_system_sync,revisa por que no vuelven a aparecer los datos borrados tombstones
+190,legal_labor_tss_safety,legal_labor_tss_safety,0.993923,1,check_legal_compliance,que pasa si inscripcion en tss ley 87 01 infotep y riesgos laborales idoppril hoy
+191,legal_labor_tss_safety,legal_labor_tss_safety,0.96594,1,check_legal_compliance,es legal uso obligatorio de equipo de proteccion personal epp en acopio de chatarra ante la dgii
+192,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.997795,1,check_legal_compliance,me pueden multar si deben figurar razon social rnc matriz en todas las facturas sucursal urgente
+193,system_health_check,system_health_check,0.989447,1,check_control_center,oye recibot salud de la app
+194,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.992726,1,check_legal_compliance,es legal fecha limite declaracion jurada it1 dia 20 de cada mes paso a paso
+195,legal_data_privacy_cyber,legal_data_privacy_cyber,0.994039,1,check_legal_compliance,puedes ley 126 02 sobre validez juridica de documentos y firmas electronicas rapidamente
+196,dgii_reports_606_607_608,dgii_reports_606_607_608,0.990284,1,check_finances,desde mi celular facturas anuladas para reporte 608 en reciminsa
+197,dgii_rnc_lookup,dgii_rnc_lookup,0.999624,1,check_clients,el clientes necesita rnc obligatorio para b01 paso a paso
+198,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.999402,1,check_branches,quiero como se declaran multiples sucursales en la app y ante impuestos internos
+199,routes_agenda_live,routes_agenda_live,0.99738,1,check_routes,recordatorios de rutas en el telefono
+200,thanks_farewell,thanks_farewell,0.996833,1,none,chao hoy
+201,android_control_center,android_control_center,0.997485,1,check_control_center,ayudame a tocar lapiz en android anadir vitacora recogida nueva factura rapidamente
+202,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.992893,1,check_legal_compliance,revisa requisitos legales de firma digital xml y codigo qr en ecf urgente
+203,thanks_farewell,thanks_farewell,0.996865,1,none,super bien
+204,legal_audit_risk_scenario,legal_audit_risk_scenario,0.998198,1,check_system_sync,ayudame a cuales son mis principales brechas legales actuales segun mis datos legalmente
+205,android_control_center,android_control_center,0.983546,1,check_control_center,ayudame a abrir mini bitacora o mini factura rapida
+206,invoice_create_help,invoice_create_help,0.99261,1,check_ncf_dgii,aplicar isc itbis y retenciones isr factura
+207,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.997125,1,check_legal_compliance,en mi empresa plazo de vigencia y terminos legales recomendados en cotizaciones
+208,materials_families_audit,materials_families_audit,0.996186,1,check_invoices_bitacoras,eliminar material supabase
+209,legal_tax_code_ncf,legal_tax_code_ncf,0.99607,1,check_invoices_bitacoras,necesito saber que dice codigo tributario ley 11 92 sobre comprobantes fiscales en reciminsa
+210,invoice_summary_live,invoice_summary_live,0.973065,1,check_branches,quiero ver detalles de mis facturas guardadas hoy
+211,unit_converter,unit_converter,0.997218,1,run_calculator_or_nav,cuantos kilos son 120 libras
+212,branches_overview_live,branches_overview_live,0.996111,1,check_clients,por favor ubicacion de cada sucursal en facturas y tarjetas
+213,returns_credit_debit_notes,returns_credit_debit_notes,0.988533,1,check_invoices_bitacoras,oye recibot anular parcialmente factura con b04
+214,greeting,greeting,0.997937,1,none,oye recibot hola
+215,bitacora_summary_live,bitacora_summary_live,0.996946,1,check_branches,ayudame a ultimas bitacoras recogida ahora
+216,greeting,greeting,0.994869,1,none,saludos ahora
+217,legal_tax_code_ncf,legal_tax_code_ncf,0.996853,1,check_invoices_bitacoras,puedes decreto 254 06 regulacion de comprobantes fiscales comprobante fiscal hoy
+218,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.994534,1,check_legal_compliance,explicame transicion juridico de facturas serie b a comprobantes electronicos en la app
+219,legal_audit_risk_scenario,legal_audit_risk_scenario,0.987737,1,check_legal_compliance,me pueden multar si guia legal integral para operar una empresa recicladora formal en rd en reciminsa
+220,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998785,1,check_legal_compliance,necesito saber el conduce o despacho sustituye a la factura fiscal ante dgii
+221,collaborators_roles_live,collaborators_roles_live,0.993552,1,check_branches,revisa asignar colaborador a sucursal especifica rapidamente
+222,tax_math_calculator,tax_math_calculator,0.997509,1,run_calculator_or_nav,quiero simula 350 x 24 ahora
+223,dgii_reports_606_607_608,dgii_reports_606_607_608,0.995081,1,check_finances,facturas anuladas para reporte 608 por favor
+224,finance_cashflow_live,finance_cashflow_live,0.990268,1,check_invoices_bitacoras,ver egresos de transporte salarios mantenimiento urgente
+225,legal_audit_risk_scenario,legal_audit_risk_scenario,0.995948,1,check_legal_compliance,cual es la ley sobre necesito una evaluacion juridica de mis secuencias clientes y sucursales
+226,android_control_center,android_control_center,0.996192,1,check_control_center,puedes no veo botones reciminsa en centro de control paso a paso
+227,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.99494,1,check_legal_compliance,ayudame a quienes estan obligados segun calendario dgii ley 32 23
+228,dispatch_conduce_help,dispatch_conduce_help,0.990117,1,check_quotes_docs,urgente convertir factura en conduce de entrega ahora
+229,market_prices_margin,market_prices_margin,0.993247,1,run_calculator_or_nav,en reciminsaapp calcular margen compra a 10 y venta a 18
+230,dgii_rnc_lookup,dgii_rnc_lookup,0.998464,1,check_ncf_dgii,como busco una empresa en la dgii al facturar en reciminsa
+231,routes_agenda_live,routes_agenda_live,0.996846,1,check_routes,puedes recordatorios de rutas en telefono hoy
+232,navigate_or_open_tool,navigate_or_open_tool,0.99905,1,run_calculator_or_nav,dime ir a historial
+233,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.999633,1,check_branches,como se declaran multiples sucursales en la app y ante impuestos internos
+234,invoice_create_help,invoice_create_help,0.885706,1,check_ncf_dgii,ayudame a como convierto una factura en conduce o conduce en la app
+235,returns_credit_debit_notes,returns_credit_debit_notes,0.989965,1,check_invoices_bitacoras,urgente crear nota de debito b03 en la app
+236,invoice_summary_live,invoice_summary_live,0.968728,1,check_branches,oye recibot revisar facturas por sucursal
+237,invoice_summary_live,invoice_summary_live,0.937335,1,check_branches,desde mi celular muestrame las ultimas facturas en la app
+238,invoice_create_help,invoice_create_help,0.944126,1,check_ncf_dgii,oye recibot hacer factura con credito fiscal b01 urgente
+239,branches_overview_live,branches_overview_live,0.994557,1,check_invoices_bitacoras,quiero como veo que sucursal es cada facturas y bitacora paso a paso
+240,invoice_create_help,invoice_create_help,0.984715,1,check_branches,dime como selecciono metodo de pago al facturar por favor
+241,bitacora_summary_live,bitacora_summary_live,0.99554,1,check_branches,puedes que choferes hicieron bitacoras
+242,audit_dgii_ncf,audit_dgii_ncf,0.998796,1,check_invoices_bitacoras,estado ncf dgii
+243,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998829,1,check_quotes_docs,puedes como me respaldo legalmente cuando entrego material a credito sin pago
+244,invoice_create_help,invoice_create_help,0.979174,1,check_branches,en reciminsaapp emitir facturas sin comprobante fiscal hoy
+245,tax_math_calculator,tax_math_calculator,0.996998,1,run_calculator_or_nav,simula 250 x 35
+246,unit_converter,unit_converter,0.996863,1,run_calculator_or_nav,ayudame a cuantas libras tiene un kilogramo por favor
+247,security_biometric_legal,security_biometric_legal,0.99817,1,check_system_sync,activar huella o biometria para iniciar sesion hoy
+248,legal_environmental_waste,legal_environmental_waste,0.995653,1,check_legal_compliance,en mi empresa requisitos legales de transporte autorizado residuos rutas
+249,white_label_settings,white_label_settings,0.953496,1,check_branches,necesito saber activar o desactivar modulos en ajustes paso a paso
+250,dgii_rnc_lookup,dgii_rnc_lookup,0.999441,1,check_ncf_dgii,verificar si un rnc esta activo en dgii
+251,audit_full_app,audit_full_app,0.997139,1,check_clients,supervision completa modo neo rapidamente
+252,dgii_rnc_lookup,dgii_rnc_lookup,0.994367,1,check_ncf_dgii,puedes el cliente necesita rnc obligatorio para b01 paso a paso
+253,legal_audit_risk_scenario,legal_audit_risk_scenario,0.996746,1,check_legal_compliance,en reciminsaapp evalua el riesgo legal operar sin respaldo ni comprobantes al dia en la app
+254,dgii_reports_606_607_608,dgii_reports_606_607_608,0.997241,1,check_finances,ayudame a cuanto debo reportar en el 607 urgente
+255,security_biometric_legal,security_biometric_legal,0.976395,1,check_system_sync,necesito saber auditoria de seguridad y log de actividad en reciminsa
+256,tax_math_calculator,tax_math_calculator,0.998649,1,run_calculator_or_nav,simula 120 x 60
+257,system_health_check,system_health_check,0.989081,1,check_branches,quiero salud de app ahora
+258,returns_credit_debit_notes,returns_credit_debit_notes,0.995521,1,check_invoices_bitacoras,cuantas notas de credito tengo
+259,tax_math_calculator,tax_math_calculator,0.996025,1,run_calculator_or_nav,cuanto es 1200 libras por 15 pesos
+260,quote_help_and_live,quote_help_and_live,0.988379,1,check_branches,necesito saber ver historial de cotizaciones urgente
+261,bitacora_summary_live,bitacora_summary_live,0.983815,1,check_invoices_bitacoras,por favor resumen recogidas y compras en reciminsa
+262,dgii_rnc_lookup,dgii_rnc_lookup,0.999365,1,check_ncf_dgii,rnc de 9 digitos y cedula de 11 digitos
+263,legal_data_privacy_cyber,legal_data_privacy_cyber,0.998407,1,check_legal_compliance,revisa es legal guardar cedulas telefonos y direcciones de clientes en la nube legalmente
+264,finance_cashflow_live,finance_cashflow_live,0.993644,1,check_invoices_bitacoras,urgente cuanto dinero he ingresado y gastado urgente
+265,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.999022,1,check_materials_prices,ley 155 17 contra lavado de activos y limites de pagos en efectivo en la app
+266,security_biometric_legal,security_biometric_legal,0.994415,1,check_system_sync,ayudame a inicio rapido con sqlite y biometria rapidamente
+267,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.997764,1,check_quotes_docs,dime codigo de comercio pruebas mercantiles de entrega y aceptacion
+268,thanks_farewell,thanks_farewell,0.991235,1,none,oye recibot chao en la app
+269,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998756,1,check_quotes_docs,dime una cotizacion firmada tiene validez contractual u obligacion legal
+270,supabase_sync_delete,supabase_sync_delete,0.997667,1,check_system_sync,necesito saber forzar sincronizacion la nube por favor
+271,ecology_impact_live,ecology_impact_live,0.999058,1,check_invoices_bitacoras,urgente estadisticas sostenibilidad
+272,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.984307,1,check_legal_compliance,cual es la ley sobre estructura legal 13 caracteres comprobantes electronicos ecf en la app
+273,navigate_or_open_tool,navigate_or_open_tool,0.997354,1,run_calculator_or_nav,llevame a facturas rapidamente
+274,gdrive_backup_excel,gdrive_backup_excel,0.998219,1,check_system_sync,puedes enviar respaldo de bitacoras a drive ahora hoy
+275,supabase_sync_delete,supabase_sync_delete,0.996279,1,check_system_sync,necesito saber como funciona la sincronizacion con supabase
+276,legal_environmental_waste,legal_environmental_waste,0.99454,1,check_legal_compliance,por favor requisitos legales de transporte autorizado de residuos en rutas segun la ley
+277,market_prices_margin,market_prices_margin,0.993372,1,run_calculator_or_nav,como actualizo precios de compra y venta
+278,audit_dgii_ncf,audit_dgii_ncf,0.99341,1,check_invoices_bitacoras,quiero es ilegal facturar b01 sin secuencia ncf por favor
+279,pdf_printing_layout,pdf_printing_layout,0.99754,1,check_branches,oye recibot como imprimir ticket 80mm o 58mm en impresora termica
+280,legal_environmental_waste,legal_environmental_waste,0.992474,1,check_legal_compliance,desde mi celular diferencia legal entre residuos no peligrosos valorizables y peligrosos legalmente
+281,security_biometric_legal,security_biometric_legal,0.996782,1,check_system_sync,oye recibot doble confirmacion antes de borrar datos
+282,collaborators_roles_live,collaborators_roles_live,0.986937,1,check_branches,desde mi celular cuantos colaboradores o empleados tengo hoy
+283,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.99677,1,check_legal_compliance,puedes multa por declarar tarde el itbis it1 o formato 607 ahora
+284,gdrive_backup_excel,gdrive_backup_excel,0.998736,1,check_system_sync,en reciminsaapp configurar google apps script web app
+285,bitacora_create_help,bitacora_create_help,0.998147,1,check_branches,descargar excel al guardar una bitacora ahora
+286,tax_math_calculator,tax_math_calculator,0.99846,1,run_calculator_or_nav,cuanto es 2500 lbs por 75 pesos
+287,invoice_create_help,invoice_create_help,0.987719,1,check_branches,quiero como convierto una facturas en conduce o despacho hoy
+288,legal_labor_tss_safety,legal_labor_tss_safety,0.994433,1,check_legal_compliance,revisa nacionalizacion de nomina regla 80 20 codigo de trabajo dominicano en reciminsa
+289,materials_families_audit,materials_families_audit,0.985922,1,check_invoices_bitacoras,desde mi celular auditar materiales en la app
+290,legal_data_privacy_cyber,legal_data_privacy_cyber,0.99793,1,check_clients,ayudame a es legal guardar cedulas telefonos y direcciones de clientes en la nube paso a paso
+291,finance_cashflow_live,finance_cashflow_live,0.995964,1,check_invoices_bitacoras,cual es mi balance financiero hoy
+292,bitacora_summary_live,bitacora_summary_live,0.988177,1,check_branches,urgente ver miniaturas de bitacoras en la app
+293,navigate_or_open_tool,navigate_or_open_tool,0.999336,1,check_control_center,abrir bitacoras
+294,system_health_check,system_health_check,0.992231,1,check_branches,limpiar cache de facturas o finanzas en la app
+295,bitacora_summary_live,bitacora_summary_live,0.984952,1,check_invoices_bitacoras,dime resumen de recogidas y compras rapidamente
+296,legal_labor_tss_safety,legal_labor_tss_safety,0.992353,1,check_collaborators,oye recibot diferencia juridico entre contrato por tiempo indefinido y contratista independiente en la app
+297,routes_agenda_live,routes_agenda_live,0.996641,1,check_branches,por favor recordatorios de rutas en el telefono por favor
+298,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.996609,1,check_materials_prices,urgente redacta un recibo o declaracion de origen licito para compra de metales rapidamente
+299,android_control_center,android_control_center,0.998473,1,check_control_center,por favor activar los 2 botones en ajustes por favor
+300,supabase_sync_delete,supabase_sync_delete,0.993945,1,check_system_sync,dime cuando borro una factura se borra en supabase paso a paso
+301,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.990662,1,check_legal_compliance,me pueden multar si que dice la norma 479 08 sobre sucursales srl eirl y sas paso a paso
+302,finance_cashflow_live,finance_cashflow_live,0.996389,1,check_invoices_bitacoras,cual es mi balance financiero
+303,legal_labor_tss_safety,legal_labor_tss_safety,0.99407,1,check_legal_compliance,riesgo legal de tener colaboradores informales manejando camiones
+304,quote_help_and_live,quote_help_and_live,0.986322,1,check_branches,necesito saber como hago una cotizacion en la app
+305,supabase_sync_delete,supabase_sync_delete,0.995742,1,check_system_sync,puedes como verifico si estoy sincronizado en reciminsa
+306,tax_math_calculator,tax_math_calculator,0.994698,1,run_calculator_or_nav,hazme una simulacion de precio por peso
+307,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.998373,1,check_legal_compliance,en reciminsaapp si abro dos sucursalles necesito otro rnc o uso el mismo de la empresa en la app
+308,finance_cashflow_live,finance_cashflow_live,0.985678,1,check_invoices_bitacoras,por favor como va el flujo de caja hoy hoy
+309,android_control_center,android_control_center,0.99908,1,check_control_center,por favor como pongo los accesos rapidos en la barra de configuracion rapidos
+310,legal_tax_code_ncf,legal_tax_code_ncf,0.997079,1,check_invoices_bitacoras,ayudame a revisar cumplimiento del codigo tributario y secuencias comprobante fiscal ahora
+311,android_control_center,android_control_center,0.984645,1,check_control_center,abrir mini bitacora o mini factura rapida
+312,collaborators_roles_live,collaborators_roles_live,0.993624,1,check_branches,urgente permisos de administrador vs colaborador ahora
+313,dispatch_conduce_help,dispatch_conduce_help,0.996294,1,check_branches,desde mi celular cuantos despachos tengo emitidos
+314,invoice_summary_live,invoice_summary_live,0.982322,1,check_branches,quiero total facturado hasta hoy
+315,greeting,greeting,0.99615,1,none,hola recibot en la app
+316,routes_agenda_live,routes_agenda_live,0.995852,1,check_routes,dime cuantas rutas tengo activas en reciminsa
+317,white_label_settings,white_label_settings,0.988308,1,check_branches,revisa cambiar idioma espanol ingles
+318,android_control_center,android_control_center,0.99873,1,check_control_center,agregar boton bitacora recogida y nueva factura junto al wifi y bluetooth
+319,finance_cashflow_live,finance_cashflow_live,0.989254,1,check_invoices_bitacoras,como va el flujo de caja hoy urgente
+320,audit_full_app,audit_full_app,0.994067,1,check_system_sync,desde mi celular chequea todo legal dgii finanzas y materiales
+321,supabase_sync_delete,supabase_sync_delete,0.995919,1,check_system_sync,ayudame a cuando borro una facturas se borra en supabase en reciminsa
+322,collaborators_roles_live,collaborators_roles_live,0.990344,1,check_branches,en reciminsaapp cuantos colaboradores o empleados tengo paso a paso
+323,supabase_sync_delete,supabase_sync_delete,0.997023,1,check_system_sync,en reciminsaapp trabajar offline sin internet y sincronizar luego rapidamente
+324,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998365,1,check_quotes_docs,necesito saber diferencia juridica entre cotizacion conduce y factura con ncf en reciminsa
+325,android_control_center,android_control_center,0.997626,1,check_control_center,no veo los botones de reciminsa en mi centro de control hoy
+326,returns_credit_debit_notes,returns_credit_debit_notes,0.99385,1,check_invoices_bitacoras,quiero crear nota de debito b03 urgente
+327,collaborators_roles_live,collaborators_roles_live,0.986564,1,check_branches,en reciminsaapp como bloqueo modulos a un empleado en reciminsa
+328,security_biometric_legal,security_biometric_legal,0.996489,1,check_system_sync,puedes proteccion de contrasena sesion
+329,white_label_settings,white_label_settings,0.97376,1,check_branches,revisa cambiar el logo y nombre de la empresa marca blanca urgente
+330,tax_math_calculator,tax_math_calculator,0.961735,1,run_calculator_or_nav,retencion de isr 2 o 10 ciento hoy
+331,thanks_farewell,thanks_farewell,0.998958,1,none,perfecto entendido
+332,clients_manage_live,clients_manage_live,0.996356,1,check_branches,ver detalles y ubicacion de clientes rapidamente
+333,branches_overview_live,branches_overview_live,0.995217,1,check_branches,quiero cual es sucursal principal ahora
+334,pdf_printing_layout,pdf_printing_layout,0.992511,1,check_branches,quiero compartir factura pdf por whatsapp
+335,supabase_sync_delete,supabase_sync_delete,0.99579,1,check_system_sync,revisa como funciona la sincronizacion con supabase en reciminsa
+336,navigate_or_open_tool,navigate_or_open_tool,0.99583,1,run_calculator_or_nav,dime navegar a ecologia rapidamente
+337,collaborators_roles_live,collaborators_roles_live,0.991402,1,check_collaborators,en reciminsaapp como bloqueo modulos a un empleado
+338,materials_families_audit,materials_families_audit,0.996969,1,check_invoices_bitacoras,necesito saber materiales sin familia asignada en reciminsa
+339,identity_capabilities,identity_capabilities,0.999688,1,none,cuantos parametros tiene neo
+340,legal_audit_risk_scenario,legal_audit_risk_scenario,0.998709,1,check_legal_compliance,es legal revisa mi cumplimiento legal empresarial y riesgos dgii en la app
+341,dispatch_conduce_help,dispatch_conduce_help,0.994643,1,check_branches,oye recibot cuantos despachos tengo emitidos rapidamente
+342,bitacora_summary_live,bitacora_summary_live,0.986705,1,check_invoices_bitacoras,en reciminsaapp balance estimado mis bitacoras paso a paso
+343,returns_credit_debit_notes,returns_credit_debit_notes,0.991342,1,check_invoices_bitacoras,anular parcialmente facturas b04 urgente
+344,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.997238,1,check_legal_compliance,en reciminsaapp diferencia entre filial independiente y sucursal operativa en la app
+345,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.997557,1,check_legal_compliance,revisa como uso bitacoras y clientes en la app para prevenir riesgos de chatarra ante la dgii
+346,bitacora_create_help,bitacora_create_help,0.960071,1,check_materials_prices,quiero como pongo el precio de compra y venta en bitacoras en la app
+347,materials_families_audit,materials_families_audit,0.996287,1,check_invoices_bitacoras,eliminar un material en supabase
+348,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.998133,1,check_finances,urgente norma 05 2019 sobre tipos especiales comprobante fiscal b11 b14 b15 hoy
+349,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.998136,1,check_materials_prices,ayudame a como evitar problemas legales por comprar cables cobre o chatarra de origen dudoso en la app
+350,greeting,greeting,0.995591,1,none,por favor hey bot
+351,bitacora_summary_live,bitacora_summary_live,0.990302,1,check_branches,dime muestrame las bitacoras recientes por sucursal paso a paso
+352,audit_full_app,audit_full_app,0.994331,1,check_system_sync,por favor revisar cumplimiento completo en la app
+353,supabase_sync_delete,supabase_sync_delete,0.997084,1,check_system_sync,como funciona la sincronizacion con supabase
+354,branches_overview_live,branches_overview_live,0.994832,1,check_clients,desde mi celular ubicacion de cada sucursal en facturas y tarjetas
+355,security_biometric_legal,security_biometric_legal,0.995829,1,check_system_sync,puedes inicio rapido con sqlite y biometria ahora
+356,pdf_printing_layout,pdf_printing_layout,0.993483,1,check_branches,quiero compartir factura pdf whatsapp paso a paso
+357,security_biometric_legal,security_biometric_legal,0.980032,1,check_system_sync,por favor auditoria de seguridad y log de actividad hoy
+358,legal_data_privacy_cyber,legal_data_privacy_cyber,0.999505,1,check_clients,puedes redacta aviso corto privacidad datos clientes por favor
+359,pdf_printing_layout,pdf_printing_layout,0.995915,1,check_branches,dime como configurar nombre de sucursal y direccion en impresiones
+360,bitacora_summary_live,bitacora_summary_live,0.998892,1,check_branches,ultimas bitacoras de recogida
+361,invoice_create_help,invoice_create_help,0.938437,1,check_branches,oye recibot como creo una factura de venta hoy
+362,gdrive_backup_excel,gdrive_backup_excel,0.998864,1,check_system_sync,descargar reporte excel personalizado hoy
+363,returns_credit_debit_notes,returns_credit_debit_notes,0.962499,1,check_invoices_bitacoras,desde mi celular pdf de nota de credito y debito en la app
+364,gdrive_backup_excel,gdrive_backup_excel,0.99713,1,check_system_sync,configurar google apps script web app en la app
+365,legal_data_privacy_cyber,legal_data_privacy_cyber,0.991643,1,check_legal_compliance,desde mi celular proteccion legal respaldo excel y carpetas compartidas google drive hoy
+366,audit_dgii_ncf,audit_dgii_ncf,0.998121,1,check_invoices_bitacoras,quiero se acabaron los comprobantes fiscales
+367,bitacora_create_help,bitacora_create_help,0.995889,1,check_materials_prices,puedes como asigno el camion ficha chofer en viaje rapidamente
+368,dgii_rnc_lookup,dgii_rnc_lookup,0.997076,1,check_ncf_dgii,puedes como busco una empresa en la dgii al facturar paso a paso
+369,legal_labor_tss_safety,legal_labor_tss_safety,0.991692,1,check_legal_compliance,me pueden multar si inscripcion en tss ley 87 01 infotep y riesgos laborales idoppril urgente
+370,greeting,greeting,0.997105,1,none,buenas noches por favor
+371,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.995017,1,check_legal_compliance,cual es la ley sobre nombre comercial certificado por onapi vs denominacion social hoy
+372,bitacora_create_help,bitacora_create_help,0.996602,1,check_materials_prices,oye recibot como pongo el precio compra venta en bitacora rapidamente
+373,ecology_impact_live,ecology_impact_live,0.995919,1,check_invoices_bitacoras,ayudame a toneladas recicladas y impacto verde en la app
+374,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.998064,1,check_legal_compliance,quiero como sustentar legalmente compras de chatarra a proveedores informales en la app
+375,greeting,greeting,0.981575,1,none,necesito saber como estas
+376,quote_help_and_live,quote_help_and_live,0.997569,1,check_branches,oye recibot como hago cotizacion
+377,android_control_center,android_control_center,0.997193,1,check_control_center,en reciminsaapp estado de los botones rapidos android en reciminsa
+378,legal_environmental_waste,legal_environmental_waste,0.995898,1,check_invoices_bitacoras,peso reciclado en bitacoras como evidencia de valorizacion
+379,returns_credit_debit_notes,returns_credit_debit_notes,0.987845,1,check_invoices_bitacoras,dime como funcionan notas de credito y debito rapidamente
+380,invoice_summary_live,invoice_summary_live,0.903847,1,check_branches,necesito saber revisar facturas por sucursall en reciminsa
+381,white_label_settings,white_label_settings,0.96483,1,check_branches,en reciminsaapp activar o desactivar modulos en configuracion en reciminsa
+382,audit_full_app,audit_full_app,0.996129,1,check_branches,ayudame a revisa toda mi empresa y dime que falta en reciminsa
+383,ecology_impact_live,ecology_impact_live,0.998594,1,check_invoices_bitacoras,necesito saber estadisticas sostenibilidad rapidamente
+384,supabase_sync_delete,supabase_sync_delete,0.996018,1,check_system_sync,dime el otro dispositivo no ve los cambios paso a paso
+385,clients_manage_live,clients_manage_live,0.980672,1,check_branches,quiero agregar cliente nuevo con dropdown de sucursal paso a paso
+386,ecology_impact_live,ecology_impact_live,0.99827,1,check_invoices_bitacoras,puedes estadisticas sostenibilidad ahora
+387,collaborators_roles_live,collaborators_roles_live,0.98498,1,check_branches,desde mi celular cuantos colaboradores o empleados tengo en reciminsa
+388,ecology_impact_live,ecology_impact_live,0.99718,1,check_invoices_bitacoras,toneladas recicladas y impacto verde paso a paso
+389,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998556,1,check_quotes_docs,urgente clausula de variacion de precios de metales en cotizaciones rapidamente
+390,ecology_impact_live,ecology_impact_live,0.996412,1,check_invoices_bitacoras,oye recibot estadisticas de sostenibilidad paso a paso
+391,white_label_settings,white_label_settings,0.980995,1,check_branches,oye recibot cambiar color del tema o modo oscuro claro por favor
+392,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.995319,1,check_legal_compliance,urgente obligaciones mensuales 606 607 608 it1 e ir17 segun la ley
+393,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.998777,1,check_finances,cuando aplica retencion de 30 por ciento o 100 por ciento de itbis
+394,market_prices_margin,market_prices_margin,0.99469,1,run_calculator_or_nav,desde mi celular tabla precios sugeridos en reciminsa
+395,legal_data_privacy_cyber,legal_data_privacy_cyber,0.9974,1,check_clients,puedes riesgo legal de compartir bases de datos de clientes sin autorizacion en reciminsa
+396,dispatch_conduce_help,dispatch_conduce_help,0.995203,1,check_branches,estado de mis conduces rapidamente
+397,greeting,greeting,0.998057,1,none,hola amigo por favor
+398,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.997964,1,check_branches,revisa obligacion de renovar registro mercantil en camara de comercio cada dos anos paso a paso
+399,clients_manage_live,clients_manage_live,0.997191,1,check_branches,ver detalles ubicacion de clientes por favor
+400,legal_tax_code_ncf,legal_tax_code_ncf,0.997295,1,check_legal_compliance,es legal debo imprimir factura comercial o fiscal para compras de reciclaje por favor
+401,gdrive_backup_excel,gdrive_backup_excel,0.99876,1,check_system_sync,enviar respaldo de bitacoras a drive ahora
+402,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.997881,1,check_legal_compliance,dime quien actua como agente de retencion tributaria en ventas y compras en reciminsa
+403,legal_tax_code_ncf,legal_tax_code_ncf,0.988919,1,check_invoices_bitacoras,puedes es ilegal emitir factura con ncf vencido o fuera de rango paso a paso
+404,quote_help_and_live,quote_help_and_live,0.997353,1,check_quotes_docs,puedes diferencia entre item y servicio en cotizacion
+405,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.996964,1,check_quotes_docs,dime valor juridico del conduce de entrega probar recepcion de mercancia hoy
+406,white_label_settings,white_label_settings,0.984969,1,check_branches,urgente cambiar color del tema o modo oscuro claro en la app
+407,market_prices_margin,market_prices_margin,0.99449,1,run_calculator_or_nav,puedes cuanto gano por tonelada ahora
+408,navigate_or_open_tool,navigate_or_open_tool,0.998414,1,check_control_center,abrir mini factura ahora en la app
+409,audit_dgii_ncf,audit_dgii_ncf,0.997811,1,check_invoices_bitacoras,ayudame a validar secuencias dgii activas rapidamente
+410,returns_credit_debit_notes,returns_credit_debit_notes,0.979524,1,check_invoices_bitacoras,por favor diferencia entre b03 y b04 dgii rapidamente
+411,finance_cashflow_live,finance_cashflow_live,0.98064,1,check_invoices_bitacoras,dime resumen de ingresos y egresos por favor
+412,branches_overview_live,branches_overview_live,0.99231,1,check_clients,urgente asignar usuario o empleado a una sucursal
+413,unit_converter,unit_converter,0.99861,1,run_calculator_or_nav,revisa cuantas libras tiene un kilogramo urgente
+414,gdrive_backup_excel,gdrive_backup_excel,0.998845,1,check_system_sync,urgente configurar google apps script web app
+415,security_biometric_legal,security_biometric_legal,0.996906,1,check_system_sync,desde mi celular activar huella o biometria para iniciar sesion rapidamente
+416,branches_overview_live,branches_overview_live,0.98943,1,check_branches,desde mi celular ver los datos de todas las sucursales paso a paso
+417,invoice_summary_live,invoice_summary_live,0.995683,1,check_finances,puedes cuantas facturas hay ncf y sin ncf
+418,market_prices_margin,market_prices_margin,0.988835,1,run_calculator_or_nav,ayudame a ver tendencia precios historicos en la app
+419,invoice_summary_live,invoice_summary_live,0.976471,1,check_branches,revisa ver detalles de mis facturas guardadas urgente
+420,materials_families_audit,materials_families_audit,0.996425,1,check_invoices_bitacoras,por favor filtrar volumen por familia y material por favor
+421,thanks_farewell,thanks_farewell,0.997935,1,none,listo gracias ahora
+422,supabase_sync_delete,supabase_sync_delete,0.996113,1,check_system_sync,en reciminsaapp forzar sincronizacion con la nube en la app
+423,ecology_impact_live,ecology_impact_live,0.995762,1,check_invoices_bitacoras,necesito saber ver reporte ecologico en vivo en reciminsa
+424,finance_cashflow_live,finance_cashflow_live,0.996084,1,check_finances,urgente como registro un ingreso o egreso manual
+425,greeting,greeting,0.982515,1,none,necesito saber buenos dias por favor
+426,dgii_reports_606_607_608,dgii_reports_606_607_608,0.996163,1,check_finances,desde mi celular cuanto debo reportar el 607
+427,legal_environmental_waste,legal_environmental_waste,0.992312,1,check_legal_compliance,puedes cumplimiento norma 225 20 contribucion especial y recicladores paso a paso
+428,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.996007,1,check_legal_compliance,me pueden multar si como uso bitacoras y clientes en la app para prevenir riesgos de chatarra hoy
+429,materials_families_audit,materials_families_audit,0.997798,1,check_invoices_bitacoras,urgente materiales sin familia asignada
+430,dgii_reports_606_607_608,dgii_reports_606_607_608,0.994421,1,check_finances,dime generar formato 606 compras ahora
+431,finance_cashflow_live,finance_cashflow_live,0.989593,1,check_branches,en reciminsaapp por que un gasto de factura se borra al eliminar la factura
+432,dispatch_conduce_help,dispatch_conduce_help,0.99173,1,check_branches,por favor hacer conduce de salida de mercancia en la app
+433,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.99902,1,check_finances,recargos e intereses indemnizatorios por mora tributaria dgii
+434,legal_tax_code_ncf,legal_tax_code_ncf,0.996002,1,check_invoices_bitacoras,puedes es ilegal emitir factura con ncf vencido o fuera de rango legalmente
+435,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.998684,1,check_branches,obligacion renovar registro mercantil camara de comercio cada dos anos
+436,greeting,greeting,0.99588,1,none,hola asistente
+437,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.991379,1,check_legal_compliance,en reciminsaapp que es comprobante electronico de credito fiscal e31 y nota e34 rapidamente
+438,bitacora_summary_live,bitacora_summary_live,0.992142,1,check_branches,desde mi celular ver miniaturas de bitacoras
+439,branches_overview_live,branches_overview_live,0.997038,1,check_clients,ubicacion de cada sucursal en facturas y tarjetas
+440,bitacora_create_help,bitacora_create_help,0.991069,1,check_clients,como asigno el camion ficha y chofer en un viaje rapidamente
+441,gdrive_backup_excel,gdrive_backup_excel,0.996872,1,check_system_sync,ayudame a importar datos desde excel hoy
+442,white_label_settings,white_label_settings,0.97112,1,check_branches,urgente personalizar encabezados rnc telefono y correo de la empresa
+443,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.994373,1,check_legal_compliance,cual es la ley sobre una cotizacion firmada tiene validez contractual u obligacion legal
+444,legal_tax_code_ncf,legal_tax_code_ncf,0.998948,1,check_invoices_bitacoras,me pueden multar si cuantos anos debo guardar facturas y documentos segun articulo 50 ahora
+445,bitacora_create_help,bitacora_create_help,0.993592,1,check_materials_prices,quiero pesar carton plastico aluminio en bitacoras rapidamente
+446,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.989288,1,check_legal_compliance,cual es la ley sobre responsabilidad penal por receptacion de material robado sin respaldo en reciminsa
+447,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.995001,1,check_legal_compliance,me pueden multar si fecha limite declaracion jurada it1 dia 20 de cada mes legalmente
+448,unit_converter,unit_converter,0.996691,1,run_calculator_or_nav,por favor cuantas libras tiene un kilogramo hoy
+449,clients_manage_live,clients_manage_live,0.968196,1,check_clients,desde mi celular como creo un cliente le asigno sucursales hoy
+450,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.996405,1,check_legal_compliance,que pasa si como sustentar legalmente compras de chatarra a proveedores informales por favor
+451,identity_capabilities,identity_capabilities,0.999696,1,none,tienes sentimientos o conciencia
+452,quote_help_and_live,quote_help_and_live,0.991278,1,check_branches,incluir itbis 18 por ciento en cotizacion
+453,finance_cashflow_live,finance_cashflow_live,0.987293,1,check_branches,desde mi celular ganancia neta del negocio en la app
+454,system_health_check,system_health_check,0.991661,1,check_branches,urgente diagnostico de red y almacenamiento urgente
+455,collaborators_roles_live,collaborators_roles_live,0.996461,1,check_branches,dime ver lista miembros equipo en la app
+456,white_label_settings,white_label_settings,0.966604,1,check_branches,urgente activar o desactivar modulos ajustes rapidamente
+457,dgii_reports_606_607_608,dgii_reports_606_607_608,0.996,1,check_finances,donde veo el 606 y 607 paso a paso
+458,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.99143,1,check_legal_compliance,en mi empresa requisitos societarios asambleas anuales y acta constitutiva ante la dgii
+459,dgii_reports_606_607_608,dgii_reports_606_607_608,0.998008,1,check_finances,descargar archivos txt 606 607 608
+460,tax_math_calculator,tax_math_calculator,0.997748,1,run_calculator_or_nav,simula 350 x 24
+461,unit_converter,unit_converter,0.999471,1,run_calculator_or_nav,cuantas libras tiene kilogramo
+462,legal_environmental_waste,legal_environmental_waste,0.994111,1,check_legal_compliance,que pasa si permisos ambientales ley 64 00 mimarena para centro de acopio y reciclaje
+463,pdf_printing_layout,pdf_printing_layout,0.988253,1,check_branches,por favor compartir facturas pdf por whatsapp
+464,returns_credit_debit_notes,returns_credit_debit_notes,0.983179,1,check_invoices_bitacoras,oye recibot anular parcialmente una facturas con b04 paso a paso
+465,audit_dgii_ncf,audit_dgii_ncf,0.997658,1,check_invoices_bitacoras,quiero cuantos ncf me quedan disponibles hoy
+466,clients_manage_live,clients_manage_live,0.99708,1,check_branches,clientes sin sucursal asignada
+467,security_biometric_legal,security_biometric_legal,0.998465,1,check_system_sync,activar huella o biometria para iniciar sesion
+468,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.99796,1,check_legal_compliance,desde mi celular consecuencias legales de compras fraccionadas en efectivo sin soporte ante la dgii
+469,market_prices_margin,market_prices_margin,0.991149,1,run_calculator_or_nav,por favor que ganancia deja comprar a 45 y vender a 60 urgente
+470,invoice_summary_live,invoice_summary_live,0.984029,1,check_finances,en reciminsaapp buscar facturas de este mes urgente
+471,legal_environmental_waste,legal_environmental_waste,0.994586,1,check_legal_compliance,ayudame a peso reciclado en bitacoras como evidencia de valorizacion ahora
+472,pdf_printing_layout,pdf_printing_layout,0.98106,1,check_branches,dime estructura de los pdf de facturas y cotizaciones ahora
+473,identity_capabilities,identity_capabilities,0.998862,1,none,ayuda general ahora
+474,thanks_farewell,thanks_farewell,0.992479,1,none,necesito saber adios por favor
+475,bitacora_summary_live,bitacora_summary_live,0.979532,1,check_invoices_bitacoras,en reciminsaapp resumen de recogidas y compras por favor
+476,dgii_rnc_lookup,dgii_rnc_lookup,0.997713,1,check_ncf_dgii,puedes cuantos digitos tiene el rnc y la cedula por favor
+477,finance_cashflow_live,finance_cashflow_live,0.979338,1,check_branches,puedes que gasto de facturas se borra al eliminar factura urgente
+478,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.996966,1,check_quotes_docs,dime consecuencias legales de usar cotizacion como recibo fiscal ahora
+479,greeting,greeting,0.990442,1,none,que tal en la app
+480,gdrive_backup_excel,gdrive_backup_excel,0.999028,1,check_system_sync,configurar google apps script web app
+481,tax_math_calculator,tax_math_calculator,0.998184,1,run_calculator_or_nav,simula 1500 x 15
+482,identity_capabilities,identity_capabilities,0.978715,1,none,que modelo es mejor
+483,audit_full_app,audit_full_app,0.995032,1,check_system_sync,chequea todo legal dgii finanzas y materiales en reciminsa
+484,clients_manage_live,clients_manage_live,0.987032,1,check_clients,revisa como creo un cliente y le asigno sucursal por favor
+485,gdrive_backup_excel,gdrive_backup_excel,0.998816,1,check_system_sync,en reciminsaapp respaldo automatico en google drive ahora
+486,greeting,greeting,0.99357,1,none,necesito saber hola recibot en la app
+487,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.996229,1,check_legal_compliance,urgente estructura juridico de 13 caracteres en comprobantes electronicos ecf en la app
+488,collaborators_roles_live,collaborators_roles_live,0.990035,1,check_branches,como bloqueo modulos un empleado rapidamente
+489,bitacora_summary_live,bitacora_summary_live,0.994509,1,check_branches,urgente ver miniaturas de bitacoras en reciminsa
+490,dgii_reports_606_607_608,dgii_reports_606_607_608,0.997162,1,check_ncf_dgii,exportar txt para oficina virtual dgii rapidamente
+491,legal_labor_tss_safety,legal_labor_tss_safety,0.97303,1,check_collaborators,oye recibot documentos legales requeridos expediente colaborador en reciminsa
+492,legal_labor_tss_safety,legal_labor_tss_safety,0.987845,1,check_legal_compliance,necesito saber riesgo juridico de tener colaboradores informales manejando camiones por favor
+493,navigate_or_open_tool,navigate_or_open_tool,0.999474,1,run_calculator_or_nav,llevame a colaboradores
+494,identity_capabilities,identity_capabilities,0.95683,1,none,diferencia entre argon auditor y pulso agil
+495,dgii_rnc_lookup,dgii_rnc_lookup,0.999176,1,check_clients,revisa autocompletar empresa con rnc o cedula
+496,legal_data_privacy_cyber,legal_data_privacy_cyber,0.995695,1,check_legal_compliance,explicame cumplimiento de confidencialidad de precios y clientes rapidamente
+497,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.999252,1,check_legal_compliance,requisitos kyc identificacion del proveedor en compras de metales
+498,tax_math_calculator,tax_math_calculator,0.931327,1,run_calculator_or_nav,retencion de itbis 30 o 100 por ciento urgente
+499,branches_overview_live,branches_overview_live,0.998298,1,check_branches,ayudame a comparar sucursales en historial
+500,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.997035,1,check_legal_compliance,cuando es obligatoria la facturacion electronica ecf e31 e32
+501,thanks_farewell,thanks_farewell,0.998594,1,none,por favor listo gracias
+502,routes_agenda_live,routes_agenda_live,0.99414,1,check_routes,urgente paradas pendientes en la agenda
+503,legal_data_privacy_cyber,legal_data_privacy_cyber,0.996089,1,check_clients,cumplimiento de confidencialidad de precios y clientes
+504,quote_help_and_live,quote_help_and_live,0.981935,1,check_branches,quiero incluir itbis 18 por ciento en cotizacion ahora
+505,audit_dgii_ncf,audit_dgii_ncf,0.997222,1,check_invoices_bitacoras,configurar rango de comprobantes b01 b02 b14 b15 e31 por favor
+506,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.992601,1,check_legal_compliance,que es un comprobante electronico de credito fiscal e31 y nota e34
+507,market_prices_margin,market_prices_margin,0.988171,1,run_calculator_or_nav,oye recibot cuanto gano por tonelada por favor
+508,invoice_summary_live,invoice_summary_live,0.994107,1,check_finances,revisa cuantas facturas tengo registradas
+509,finance_cashflow_live,finance_cashflow_live,0.991874,1,check_invoices_bitacoras,como va el flujo de caja hoy
+510,market_prices_margin,market_prices_margin,0.999105,1,run_calculator_or_nav,margen de ganancia en reciclaje
+511,pdf_printing_layout,pdf_printing_layout,0.99799,1,check_branches,por que va el logo arriba y al final en factura pdf
+512,supabase_sync_delete,supabase_sync_delete,0.996158,1,check_system_sync,por que no vuelven a aparecer los datos borrados tombstones ahora
+513,legal_audit_risk_scenario,legal_audit_risk_scenario,0.99763,1,check_branches,resumen de cumplimiento normativo corporativo en vivo segun la ley
+514,quote_help_and_live,quote_help_and_live,0.989273,1,check_quotes_docs,convertir cotizacion en factura
+515,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.994367,1,check_legal_compliance,me pueden multar si requisitos kyc identificacion del proveedor en compras de metales legalmente
+516,unit_converter,unit_converter,0.999008,1,run_calculator_or_nav,necesito saber pasar 3 toneladas a libras
+517,legal_environmental_waste,legal_environmental_waste,0.990327,1,check_invoices_bitacoras,desde mi celular peso reciclado en bitacoras como evidencia de valorizacion en la app
+518,dispatch_conduce_help,dispatch_conduce_help,0.992861,1,check_branches,puedes estado de mis conduces rapidamente
+519,security_biometric_legal,security_biometric_legal,0.986416,1,check_system_sync,quiero como elimino mi cuenta permanentemente por favor
+520,tax_math_calculator,tax_math_calculator,0.998639,1,run_calculator_or_nav,cuanto es 6400 lbs por 35 pesos
+521,returns_credit_debit_notes,returns_credit_debit_notes,0.991374,1,check_invoices_bitacoras,desde mi celular ncf afectado nota credito rapidamente
+522,bitacora_create_help,bitacora_create_help,0.997688,1,check_clients,descargar excel al guardar una bitacora paso a paso
+523,ecology_impact_live,ecology_impact_live,0.997308,1,check_invoices_bitacoras,revisa como se calcula el ahorro de energia y co2
+524,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.998484,1,check_branches,puedes obligacion de renovar registro mercantil en camara de comercio cada dos anos
+525,audit_dgii_ncf,audit_dgii_ncf,0.997937,1,check_invoices_bitacoras,cuantos ncf me quedan disponibles por favor
+526,clients_manage_live,clients_manage_live,0.989513,1,check_clients,puedes directorio de clientes
+527,thanks_farewell,thanks_farewell,0.997708,1,none,oye recibot te lo agradezco
+528,android_control_center,android_control_center,0.998641,1,check_control_center,ayudame a tocar el lapiz en android para anadir bitacora recogida y nueva factura
+529,branches_overview_live,branches_overview_live,0.992933,1,check_clients,quiero como veo de que sucursal es cada factura y bitacora hoy
+530,clients_manage_live,clients_manage_live,0.98659,1,check_branches,como editar o borrar un cliente en supabase
+531,audit_full_app,audit_full_app,0.99342,1,check_system_sync,en reciminsaapp auditar toda la aplicacion por favor
+532,audit_full_app,audit_full_app,0.995991,1,check_system_sync,puedes revisar errores legales y de datos rapidamente
+533,branches_overview_live,branches_overview_live,0.997997,1,check_clients,como veo que sucursal es cada factura bitacora hoy
+534,thanks_farewell,thanks_farewell,0.997388,1,none,excelente gracias hoy
+535,dgii_rnc_lookup,dgii_rnc_lookup,0.997127,1,check_ncf_dgii,puedes consultar contribuyente dgii nombre ahora
+536,thanks_farewell,thanks_farewell,0.99671,1,none,muy bien gracias
+537,dgii_reports_606_607_608,dgii_reports_606_607_608,0.996799,1,check_finances,formato 608 comprobantes anulados por favor
+538,legal_environmental_waste,legal_environmental_waste,0.995766,1,check_legal_compliance,permisos ambientales ley 64 00 mimarena para centro de acopio y reciclaje ahora
+539,materials_families_audit,materials_families_audit,0.996606,1,check_invoices_bitacoras,como configuro carton plastico cobre aluminio hierro en reciminsa
+540,unit_converter,unit_converter,0.998252,1,run_calculator_or_nav,pasar 5 toneladas a libras
+541,legal_data_privacy_cyber,legal_data_privacy_cyber,0.993622,1,check_legal_compliance,en reciminsaapp proteccion legal de respaldo excel y carpetas compartidas google drive hoy
+542,legal_labor_tss_safety,legal_labor_tss_safety,0.993498,1,check_legal_compliance,que pasa si uso obligatorio de equipo de proteccion personal epp en acopio de metales
+543,invoice_summary_live,invoice_summary_live,0.958789,1,check_branches,desde mi celular resumen de facturas de venta rapidamente
+544,returns_credit_debit_notes,returns_credit_debit_notes,0.990647,1,check_invoices_bitacoras,por favor anular parcialmente una factura con b04
+545,invoice_create_help,invoice_create_help,0.833599,1,check_branches,donde pongo el ncf al faturar en reciminsa
+546,thanks_farewell,thanks_farewell,0.996843,1,none,super bien ahora
+547,quote_help_and_live,quote_help_and_live,0.996909,1,check_quotes_docs,diferencia entre item y servicio en cotizaciones
+548,legal_environmental_waste,legal_environmental_waste,0.995072,1,check_routes,quiero permisos ambientales ley 64 00 mimarena para centro acopio reciclaje ahora
+549,dgii_reports_606_607_608,dgii_reports_606_607_608,0.997458,1,check_invoices_bitacoras,reporte 609 pagos al exterior
+550,invoice_create_help,invoice_create_help,0.917138,1,check_ncf_dgii,urgente como convierto una factura en conduce o conduce en reciminsa
+551,security_biometric_legal,security_biometric_legal,0.996006,1,check_system_sync,en reciminsaapp inicio rapido con sqlite y biometria
+552,branches_overview_live,branches_overview_live,0.99592,1,check_clients,quiero ubicacion de cada sucursal en facturas y tarjetas
+553,routes_agenda_live,routes_agenda_live,0.993857,1,check_collaborators,desde mi celular rutas de recogida programadas
+554,identity_capabilities,identity_capabilities,0.999119,1,none,por favor cuantos parametros tiene neo ahora
+555,white_label_settings,white_label_settings,0.988775,1,check_branches,cambiar idioma espanol ingles ahora
+556,materials_families_audit,materials_families_audit,0.997836,1,check_invoices_bitacoras,eliminar material en supabase paso a paso
+557,ecology_impact_live,ecology_impact_live,0.997502,1,check_materials_prices,cuantos arboles agua co2 he ahorrado
+558,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.994242,1,check_legal_compliance,diferencia legal entre serie b tradicional y serie e electronica
+559,legal_environmental_waste,legal_environmental_waste,0.989347,1,check_legal_compliance,es legal cumplimiento ley 225 20 contribucion especial y recicladores legalmente
+560,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.995664,1,check_legal_compliance,requisitos legales de firma digital xml y codigo qr en ecf
+561,supabase_sync_delete,supabase_sync_delete,0.992752,1,check_system_sync,urgente id de empresa compartido en supabase paso a paso
+562,returns_credit_debit_notes,returns_credit_debit_notes,0.990336,1,check_invoices_bitacoras,necesito saber como hago una devolucion de venta por favor
+563,finance_cashflow_live,finance_cashflow_live,0.991334,1,check_invoices_bitacoras,oye recibot como va flujo caja hoy urgente
+564,greeting,greeting,0.996472,1,none,que tal hoy
+565,quote_help_and_live,quote_help_and_live,0.985235,1,check_quotes_docs,desde mi celular diferencia entre item y servicio en cotizaciones por favor
+566,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.999477,1,check_materials_prices,ley 155 17 contra lavado de activos y limites de pagos en efectivo
+567,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.996446,1,check_legal_compliance,cual es la ley sobre recargos e intereses indemnizatorios por mora tributaria dgii ahora
+568,market_prices_margin,market_prices_margin,0.993086,1,run_calculator_or_nav,quiero calcular margen compra a 10 venta a 18 ahora
+569,quote_help_and_live,quote_help_and_live,0.998015,1,check_quotes_docs,diferencia entre item y servicio en cotizacion
+570,legal_tax_code_ncf,legal_tax_code_ncf,0.997097,1,check_legal_compliance,es legal decreto 254 06 regulacion de comprobantes fiscales ncf legalmente
+571,bitacora_create_help,bitacora_create_help,0.994056,1,check_clients,por que las bitacoras generan un egreso en finanzas
+572,white_label_settings,white_label_settings,0.986517,1,check_branches,puedes cambiar color del tema o modo oscuro claro en reciminsa
+573,legal_audit_risk_scenario,legal_audit_risk_scenario,0.986682,1,check_system_sync,en reciminsaapp auditoria juridico completa mi empresa en reciminsaapp segun la ley
+574,audit_dgii_ncf,audit_dgii_ncf,0.972948,1,check_invoices_bitacoras,desde mi celular puedo facturar sin secuencia ncf ahora
+575,supabase_sync_delete,supabase_sync_delete,0.997675,1,check_system_sync,urgente cola de sincronizacion pendiente rapidamente
+576,audit_dgii_ncf,audit_dgii_ncf,0.997097,1,check_invoices_bitacoras,secuencia b01 agotada o vencida urgente
+577,invoice_summary_live,invoice_summary_live,0.971057,1,check_branches,desde mi celular cuanto he vendido en facturas
+578,audit_full_app,audit_full_app,0.994466,1,check_clients,necesito saber verifica fallos en toda la app en reciminsa
+579,audit_full_app,audit_full_app,0.997724,1,check_ncf_dgii,auditar toda aplicacion hoy
+580,collaborators_roles_live,collaborators_roles_live,0.993797,1,check_branches,permisos de administrador vs colaborador rapidamente
+581,clients_manage_live,clients_manage_live,0.972595,1,check_branches,oye recibot clientes por sucursal paso a paso
+582,legal_labor_tss_safety,legal_labor_tss_safety,0.994718,1,check_legal_compliance,por favor reglas de desahucio preaviso cesantia y regalia pascual navidad paso a paso
+583,unit_converter,unit_converter,0.996599,1,run_calculator_or_nav,necesito saber equivalencia tonelada metrica a libras rapidamente
+584,identity_capabilities,identity_capabilities,0.990166,1,none,cuantos tokens tienes
+585,pdf_printing_layout,pdf_printing_layout,0.993484,1,check_branches,como configurar nombre de sucursal direccion impresiones rapidamente
+586,gdrive_backup_excel,gdrive_backup_excel,0.998575,1,check_system_sync,urgente respaldo automatico en google drive en reciminsa
+587,routes_agenda_live,routes_agenda_live,0.996308,1,check_branches,en reciminsaapp agenda del dia camiones hoy
+588,ecology_impact_live,ecology_impact_live,0.995593,1,check_invoices_bitacoras,en reciminsaapp ver reporte ecologico en vivo por favor
+589,legal_audit_risk_scenario,legal_audit_risk_scenario,0.998094,1,check_legal_compliance,guia legal integral para operar empresa recicladora formal en rd
+590,greeting,greeting,0.998119,1,none,buenas tardes hoy
+591,legal_environmental_waste,legal_environmental_waste,0.99286,1,check_routes,revisa sanciones ambientales por transporte o acopio ilegal de desechos por favor
+592,clients_manage_live,clients_manage_live,0.991009,1,check_clients,en reciminsaapp cuantos clientes tengo registrados en reciminsa
+593,collaborators_roles_live,collaborators_roles_live,0.988933,1,check_branches,necesito saber anadir empleado a una sucursal por favor
+594,invoice_create_help,invoice_create_help,0.980915,1,check_ncf_dgii,dime pasos para crear factura regimen especial b14 o gubernamental b15 hoy
+595,identity_capabilities,identity_capabilities,0.99782,1,check_ncf_dgii,tu arquitectura y parametros
+596,legal_tax_code_ncf,legal_tax_code_ncf,0.995623,1,check_invoices_bitacoras,oye recibot es ilegal emitir factura ncf vencido o fuera rango ahora
+597,tax_math_calculator,tax_math_calculator,0.990418,1,run_calculator_or_nav,calcula 500 kilos 12 rapidamente
+598,quote_help_and_live,quote_help_and_live,0.991772,1,check_branches,dime como hago una cotizacion paso a paso
+599,legal_labor_tss_safety,legal_labor_tss_safety,0.948782,1,check_legal_compliance,me pueden multar si nacionalizacion nomina regla 80 20 codigo de trabajo dominicano ante la dgii
+600,legal_audit_risk_scenario,legal_audit_risk_scenario,0.996565,1,check_legal_compliance,en mi empresa ayudame a identificar riesgos legales ocultos en mi configuracion segun la ley
+601,collaborators_roles_live,collaborators_roles_live,0.995365,1,check_collaborators,anadir empleado a una sucursales rapidamente
+602,unit_converter,unit_converter,0.997073,1,run_calculator_or_nav,dime conversion de peso reciclaje en reciminsa
+603,invoice_create_help,invoice_create_help,0.983669,1,check_ncf_dgii,revisa como convierto una factura en conduce o despacho urgente
+604,materials_families_audit,materials_families_audit,0.997471,1,check_invoices_bitacoras,urgente como creo familias de materiales hoy
+605,materials_families_audit,materials_families_audit,0.988581,1,check_invoices_bitacoras,oye recibot como configuro carton plastico cobre aluminio hierro paso a paso
+606,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.996002,1,check_legal_compliance,me pueden multar si uso del registro nacional de contribuyentes unico multiples locales segun la ley
+607,collaborators_roles_live,collaborators_roles_live,0.993133,1,check_branches,revisa anadir empleado una sucursal hoy
+608,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.991309,1,check_legal_compliance,que pasa si formalizar nueva sucursal o establecimiento comercial ante dgii ahora
+609,legal_audit_risk_scenario,legal_audit_risk_scenario,0.999065,1,check_system_sync,cuales son mis principales brechas legales actuales segun mis datos
+610,unit_converter,unit_converter,0.997142,1,run_calculator_or_nav,puedes equivalencia tonelada metrica a libras por favor
+611,legal_environmental_waste,legal_environmental_waste,0.996928,1,check_legal_compliance,revisa requisitos legales de transporte autorizado de residuos en rutas ahora
+612,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.999245,1,check_legal_compliance,si abro dos sucursales necesito otro rnc o uso el mismo de la empresa legalmente
+613,legal_audit_risk_scenario,legal_audit_risk_scenario,0.993587,1,check_legal_compliance,explicame auditoria legal completa de mi empresa en reciminsaapp segun la ley
+614,market_prices_margin,market_prices_margin,0.997482,1,run_calculator_or_nav,cuanto gano por tonelada hoy
+615,ecology_impact_live,ecology_impact_live,0.995205,1,check_invoices_bitacoras,quiero como se calcula el ahorro de energia y co2 por favor
+616,audit_dgii_ncf,audit_dgii_ncf,0.997116,1,check_invoices_bitacoras,necesito saber cuantos comprobante fiscal me quedan disponibles urgente
+617,system_health_check,system_health_check,0.92483,1,check_branches,diagnstico red almacenamiento en la app
+618,bitacora_create_help,bitacora_create_help,0.993578,1,check_materials_prices,oye recibot crear nueva bitacora paso a paso
+619,navigate_or_open_tool,navigate_or_open_tool,0.997978,1,run_calculator_or_nav,abrir mini facturas ahora
+620,invoice_summary_live,invoice_summary_live,0.967489,1,check_branches,ayudame a revisar facturas por sucursal paso a paso
+621,system_health_check,system_health_check,0.9897,1,check_branches,estado de la app
+622,tax_math_calculator,tax_math_calculator,0.998148,1,run_calculator_or_nav,cuanto es 18 de itbis sobre 5000
+623,legal_data_privacy_cyber,legal_data_privacy_cyber,0.997624,1,check_legal_compliance,obligaciones bajo la ley 172 13 de proteccion de datos personales por favor
+624,unit_converter,unit_converter,0.996394,1,run_calculator_or_nav,oye recibot cuantas libras tiene un kilogramo rapidamente
+625,unit_converter,unit_converter,0.997454,1,run_calculator_or_nav,por favor cuantos kilos son 2000 libras en la app
+626,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.998213,1,check_legal_compliance,que pasa si umbrales de transacciones en efectivo bajo ley 155 17 republica dominicana por favor
+627,invoice_summary_live,invoice_summary_live,0.993195,1,check_branches,necesito saber cuantas facturas he emitido en reciminsa
+628,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.998784,1,check_finances,en reciminsaapp recargos e intereses indemnizatorios por mora tributaria dgii rapidamente
+629,dispatch_conduce_help,dispatch_conduce_help,0.99448,1,check_quotes_docs,gestion de despachos comerciales
+630,returns_credit_debit_notes,returns_credit_debit_notes,0.997823,1,check_invoices_bitacoras,ncf afectado en nota de credito
+631,routes_agenda_live,routes_agenda_live,0.992487,1,check_branches,en reciminsaapp como creo ruta de recoleccion en la app
+632,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.998034,1,check_legal_compliance,revisa validez tributaria de comprobantes e31 e32 e33 e34 e44 e45 ahora
+633,ecology_impact_live,ecology_impact_live,0.998635,1,check_invoices_bitacoras,estadisticas de sostenibilidad en reciminsa
+634,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.999142,1,check_branches,dime como se declaran multiples sucursales en la app y ante impuestos internos hoy
+635,quote_help_and_live,quote_help_and_live,0.986902,1,check_quotes_docs,quiero cotizar un servicio con nombre precio descripcion hoy
+636,returns_credit_debit_notes,returns_credit_debit_notes,0.997337,1,check_quotes_docs,como hago una devolucion de venta
+637,legal_data_privacy_cyber,legal_data_privacy_cyber,0.9934,1,check_legal_compliance,explicame medidas de seguridad recomendadas biometria permisos y copias drive legalmente
+638,invoice_create_help,invoice_create_help,0.991732,1,check_branches,como funciona la pestana de facturas
+639,quote_help_and_live,quote_help_and_live,0.987719,1,check_branches,ayudame a cuantas cotizaciones tengo guardadas hoy
+640,routes_agenda_live,routes_agenda_live,0.997777,1,check_branches,convertir parada de ruta en bitacora completada
+641,returns_credit_debit_notes,returns_credit_debit_notes,0.993273,1,check_invoices_bitacoras,desde mi celular crear nota debito b03
+642,dgii_reports_606_607_608,dgii_reports_606_607_608,0.997154,1,check_ncf_dgii,urgente exportar txt para oficina virtual dgii urgente
+643,legal_tax_code_ncf,legal_tax_code_ncf,0.983983,1,check_legal_compliance,cual es la ley sobre vigencia legal de dos anos para secuencias de ncf serie b en reciminsa
+644,bitacora_create_help,bitacora_create_help,0.986832,1,check_clients,ayudame a como asigno el camion ficha y chofer en un viaje
+645,materials_families_audit,materials_families_audit,0.991608,1,check_invoices_bitacoras,en reciminsaapp como configuro carton plastico cobre aluminio hierro en la app
+646,branches_overview_live,branches_overview_live,0.981319,1,check_clients,quiero asignar usuario o empleado a una sucursal en la app
+647,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.996348,1,check_branches,cual es la ley sobre responsabilidad limitada socios srl recicladora hoy
+648,white_label_settings,white_label_settings,0.980607,1,check_branches,oye recibot cambiar color del tema o modo oscuro claro en la app
+649,gdrive_backup_excel,gdrive_backup_excel,0.998524,1,check_system_sync,oye recibot descargar reporte excel personalizado
+650,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.998479,1,check_legal_compliance,explicame cuando retener 2 por ciento o 10 por ciento de isr segun codigo tributario por favor
+651,dgii_reports_606_607_608,dgii_reports_606_607_608,0.995561,1,check_finances,manejo dgii impuestos
+652,dgii_rnc_lookup,dgii_rnc_lookup,0.999351,1,check_ncf_dgii,consultar contribuyente dgii por nombre
+653,invoice_create_help,invoice_create_help,0.980703,1,check_ncf_dgii,revisa pasos para crear factura regimen especial b14 o gubernamental b15
+654,ecology_impact_live,ecology_impact_live,0.995978,1,check_invoices_bitacoras,ayudame a estadisticas de sostenibilidad paso a paso
+655,greeting,greeting,0.995983,1,none,necesito saber que tal
+656,audit_full_app,audit_full_app,0.99617,1,check_system_sync,auditoria total de app paso a paso
+657,unit_converter,unit_converter,0.997974,1,run_calculator_or_nav,puedes equivalencia tonelada metrica a libras rapidamente
+658,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.963206,1,check_legal_compliance,en mi empresa puedo emitir e31 sin certificado de firma digital ante dgii
+659,bitacora_summary_live,bitacora_summary_live,0.987016,1,check_branches,desde mi celular total comprado en bitacoras paso a paso
+660,dgii_rnc_lookup,dgii_rnc_lookup,0.996365,1,check_ncf_dgii,necesito saber consultar contribuyente dgii nombre urgente
+661,market_prices_margin,market_prices_margin,0.990905,1,run_calculator_or_nav,urgente ver tendencia de precios historicos en la app
+662,legal_labor_tss_safety,legal_labor_tss_safety,0.992889,1,check_legal_compliance,que pasa si diferencia legal entre contrato por tiempo indefinido y contratista independiente en reciminsa
+663,pdf_printing_layout,pdf_printing_layout,0.993961,1,check_branches,ayudame a como configurar nombre de sucursal y direccion en impresiones paso a paso
+664,legal_environmental_waste,legal_environmental_waste,0.994722,1,check_legal_compliance,diferencia legal entre residuos no peligrosos valorizables y peligrosos
+665,greeting,greeting,0.997841,1,none,por favor hola
+666,clients_manage_live,clients_manage_live,0.997175,1,check_branches,necesito saber ver detalles ubicacion clientes rapidamente
+667,identity_capabilities,identity_capabilities,0.999883,1,none,funcionas offline sin internet
+668,bitacora_create_help,bitacora_create_help,0.992678,1,check_branches,vincular parada de ruta con bitacora
+669,android_control_center,android_control_center,0.996036,1,check_control_center,revisa como pongo accesos rapidos en la barra ajustes rapidos por favor
+670,legal_environmental_waste,legal_environmental_waste,0.994624,1,check_legal_compliance,puedes que exige la norma 225 20 de gestion integral de residuos solidos
+671,bitacora_summary_live,bitacora_summary_live,0.988898,1,check_invoices_bitacoras,urgente muestrame las bitacoras recientes por sucursall
+672,branches_overview_live,branches_overview_live,0.993784,1,check_invoices_bitacoras,necesito saber resumen consolidado por sucursal urgente
+673,dgii_reports_606_607_608,dgii_reports_606_607_608,0.996018,1,check_finances,donde veo el 606 y 607 en reciminsa
+674,audit_dgii_ncf,audit_dgii_ncf,0.995687,1,check_invoices_bitacoras,desde mi celular comprobar ncf restantes hoy
+675,unit_converter,unit_converter,0.999057,1,run_calculator_or_nav,equivalencia tonelada metrica a libras
+676,system_health_check,system_health_check,0.988351,1,check_branches,en reciminsaapp limpiar cache de facturas o finanzas urgente
+677,system_health_check,system_health_check,0.988707,1,check_branches,necesito saber salud de la app
+678,market_prices_margin,market_prices_margin,0.993925,1,run_calculator_or_nav,ayudame a cuanto gano por tonelada urgente
+679,invoice_summary_live,invoice_summary_live,0.967385,1,check_branches,en reciminsaapp revisar facturas por sucursal por favor
+680,greeting,greeting,0.997038,1,none,buenas noches
+681,pdf_printing_layout,pdf_printing_layout,0.980877,1,check_branches,revisa estructura de los pdf de facturas y cotizaciones rapidamente
+682,dgii_rnc_lookup,dgii_rnc_lookup,0.999234,1,check_ncf_dgii,oye recibot rnc de 9 digitos cedula 11 digitos en la app
+683,materials_families_audit,materials_families_audit,0.996567,1,check_invoices_bitacoras,puedes eliminar un material en supabase
+684,thanks_farewell,thanks_farewell,0.991047,1,check_control_center,nos vemos
+685,ecology_impact_live,ecology_impact_live,0.995831,1,check_invoices_bitacoras,por favor como se calcula el ahorro de energia y co2 urgente
+686,system_health_check,system_health_check,0.990968,1,check_control_center,oye recibot informacion plataforma android web
+687,market_prices_margin,market_prices_margin,0.988709,1,check_materials_prices,urgente materiales con margen negativo o bajo en reciminsa
+688,tax_math_calculator,tax_math_calculator,0.857929,1,check_finances,necesito saber retencion de itbis 30 o 100 por ciento rapidamente
+689,white_label_settings,white_label_settings,0.92295,1,check_branches,desde mi celular personalizar encabezados rnc telefono y correo de la empresa en la app
+690,branches_overview_live,branches_overview_live,0.988804,1,check_branches,revisa como creo una nueva sucursal en la empresa
+691,navigate_or_open_tool,navigate_or_open_tool,0.998874,1,check_control_center,quiero abrir bitacoras en reciminsa
+692,collaborators_roles_live,collaborators_roles_live,0.986144,1,check_branches,desde mi celular permisos de administrador vs colaborador en reciminsa
+693,market_prices_margin,market_prices_margin,0.993,1,run_calculator_or_nav,en reciminsaapp cual es mi rentabilidad libra o kilo en la app
+694,returns_credit_debit_notes,returns_credit_debit_notes,0.992181,1,check_invoices_bitacoras,desde mi celular como hago una devolucion venta
+695,supabase_sync_delete,supabase_sync_delete,0.996457,1,check_system_sync,por favor que no vuelven aparecer los datos borrados tombstones rapidamente
+696,audit_full_app,audit_full_app,0.998294,1,check_ncf_dgii,estado completo de operaciones y fiscal
+697,ecology_impact_live,ecology_impact_live,0.99774,1,check_invoices_bitacoras,impacto medioambiental del reciclaje
+698,dgii_rnc_lookup,dgii_rnc_lookup,0.999083,1,check_clients,urgente autocompletar empresa con rnc o cedula
+699,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.992153,1,check_legal_compliance,me pueden multar si uso del registro nacional de contribuyentes unico para multiples locales paso a paso
+700,market_prices_margin,market_prices_margin,0.963704,1,run_calculator_or_nav,puedes precios de mercado de materiales paso a paso
+701,thanks_farewell,thanks_farewell,0.998586,1,none,ok gracias en la app
+702,identity_capabilities,identity_capabilities,0.999714,1,none,cual es tu version
+703,legal_audit_risk_scenario,legal_audit_risk_scenario,0.992224,1,check_legal_compliance,necesito saber checklist legal completo antes de una fiscalizacion empresarial segun la ley
+704,audit_full_app,audit_full_app,0.995896,1,check_system_sync,en reciminsaapp chequea todo juridico dgii finanzas materiales
+705,system_health_check,system_health_check,0.985638,1,check_branches,revisa diagnostico de red y almacenamiento hoy
+706,android_control_center,android_control_center,0.996904,1,check_control_center,dime no veo los botones de reciminsa en mi centro de control rapidamente
+707,thanks_farewell,thanks_farewell,0.998644,1,none,oye recibot listo gracias
+708,tax_math_calculator,tax_math_calculator,0.871205,1,check_finances,ayudame a retencion de itbis 30 o 100 por ciento por favor
+709,greeting,greeting,0.997687,1,none,buenas como vas hoy
+710,audit_dgii_ncf,audit_dgii_ncf,0.994537,1,check_invoices_bitacoras,puedes revisar secuencias de comprobantes fiscales
+711,gdrive_backup_excel,gdrive_backup_excel,0.997322,1,check_system_sync,ayudame a configurar google apps script web app en reciminsa
+712,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.996819,1,check_legal_compliance,dime obligaciones mensuales 606 607 608 it1 e ir17 por favor
+713,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.994697,1,check_legal_compliance,necesito saber debida diligencia registro fotografico o documental vendedores segun la ley
+714,dgii_rnc_lookup,dgii_rnc_lookup,0.996406,1,check_ncf_dgii,puedes lupa dgii en clientes y facturas en la app
+715,returns_credit_debit_notes,returns_credit_debit_notes,0.987283,1,check_quotes_docs,quiero pdf de nota de credito y debito rapidamente
+716,identity_capabilities,identity_capabilities,0.999026,1,none,eres una inteligencia artificial ahora
+717,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.988363,1,check_legal_compliance,explicame que es un comprobante electronico de credito fiscal e31 y nota e34 paso a paso
+718,white_label_settings,white_label_settings,0.978112,1,check_branches,quiero al crear empresa va primero el nombre o razon social y luego rnc por favor
+719,legal_tax_code_ncf,legal_tax_code_ncf,0.996822,1,check_legal_compliance,quiero plazo legal de 30 dias para anulacion y devolucion de itbis b04
+720,pdf_printing_layout,pdf_printing_layout,0.983938,1,check_branches,urgente estructura de los pdf de facturas y cotizaciones
+721,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.998587,1,check_materials_prices,puedes obligacion de documentar procedencia de metales chatarra y cables por favor
+722,bitacora_create_help,bitacora_create_help,0.996658,1,check_branches,revisa como asigno el camion ficha chofer un viaje en reciminsa
+723,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.996624,1,check_legal_compliance,me pueden multar si terminos comerciales recomendados para contratos de reciclaje segun la ley
+724,unit_converter,unit_converter,0.998833,1,run_calculator_or_nav,quiero cuantas toneladas son 15000 libras
+725,pdf_printing_layout,pdf_printing_layout,0.978495,1,check_branches,por favor orden de logo nombre de empresa sucursales y ubicacion en pdf paso a paso
+726,android_control_center,android_control_center,0.998404,1,check_control_center,quiero estado de los botones rapidos android
+727,security_biometric_legal,security_biometric_legal,0.986058,1,check_system_sync,oye recibot auditoria de seguridad y log de actividad
+728,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.998433,1,check_finances,ayudame a quien actua como agente de retencion tributaria en ventas y compras
+729,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.997281,1,check_legal_compliance,revisa fecha limite legal para enviar formatos 606 607 y 608 dia 15 legalmente
+730,legal_audit_risk_scenario,legal_audit_risk_scenario,0.996503,1,check_legal_compliance,necesito saber resumen cumplimiento normativo corporativo en vivo ante la dgii
+731,bitacora_create_help,bitacora_create_help,0.993606,1,check_materials_prices,dime registrar compra de materiales reciclados hoy
+732,dispatch_conduce_help,dispatch_conduce_help,0.971418,1,check_branches,urgente como creo un conduce o conduce rapidamente
+733,system_health_check,system_health_check,0.983179,1,check_branches,puedes informacion de plataforma android web paso a paso
+734,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.997696,1,check_legal_compliance,en mi empresa obligacion de renovar registro mercantil en camara de comercio cada dos anos ahora
+735,gdrive_backup_excel,gdrive_backup_excel,0.998573,1,check_system_sync,urgente configurar google apps script web app ahora
+736,identity_capabilities,identity_capabilities,0.999276,1,none,oye recibot eres una inteligencia artificial
+737,clients_manage_live,clients_manage_live,0.963816,1,check_branches,ayudame a buscar cliente por nombre o rnc ahora
+738,gdrive_backup_excel,gdrive_backup_excel,0.998307,1,check_system_sync,quiero probar conexion con google drive por favor
+739,clients_manage_live,clients_manage_live,0.989937,1,check_clients,en reciminsaapp directorio clientes rapidamente
+740,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.997028,1,check_legal_compliance,me pueden multar si plazo de vigencia y terminos legales recomendados en cotizaciones hoy
+741,quote_help_and_live,quote_help_and_live,0.451252,1,check_branches,por favor convertir cotisacion en factura urgente
+742,audit_dgii_ncf,audit_dgii_ncf,0.996104,1,check_invoices_bitacoras,por favor revisar secuencias de comprobantes fiscales en reciminsa
+743,system_health_check,system_health_check,0.992131,1,check_control_center,informacion de plataforma android web
+744,finance_cashflow_live,finance_cashflow_live,0.962798,1,check_branches,revisa resumen de ingresos y egresos paso a paso
+745,tax_math_calculator,tax_math_calculator,0.99702,1,run_calculator_or_nav,ayudame a formula total facturas con isc e itbis
+746,materials_families_audit,materials_families_audit,0.996549,1,check_invoices_bitacoras,revisa auditar materiales ahora
+747,thanks_farewell,thanks_farewell,0.998554,1,none,oye recibot ok gracias hoy
+748,legal_tax_code_ncf,legal_tax_code_ncf,0.999303,1,check_invoices_bitacoras,explicame por que la norma exige conservar registros contables por 10 anos hoy
+749,legal_tax_code_ncf,legal_tax_code_ncf,0.998381,1,check_legal_compliance,puedes puedo recuperar itbis con nota de credito b04 despues de 30 dias
+750,materials_families_audit,materials_families_audit,0.996962,1,check_invoices_bitacoras,revisa asociar codigo de materiales a una familia
+751,supabase_sync_delete,supabase_sync_delete,0.997053,1,check_system_sync,el otro dispositivo no ve los cambios hoy
+752,security_biometric_legal,security_biometric_legal,0.997553,1,check_system_sync,revisa proteccion de contrasena y sesion
+753,audit_dgii_ncf,audit_dgii_ncf,0.997097,1,check_invoices_bitacoras,urgente secuencia b01 agotada o vencida
+754,white_label_settings,white_label_settings,0.96798,1,check_branches,en reciminsaapp personalizar encabezados nit telefono correo de la empresa
+755,system_health_check,system_health_check,0.994515,1,check_branches,health check del sistema urgente
+756,audit_dgii_ncf,audit_dgii_ncf,0.99499,1,check_invoices_bitacoras,quiero secuencia b01 agotada o vencida hoy
+757,legal_data_privacy_cyber,legal_data_privacy_cyber,0.991194,1,check_legal_compliance,que pasa si derecho de rectificacion y supresion real de datos personales paso a paso
+758,dispatch_conduce_help,dispatch_conduce_help,0.990614,1,check_quotes_docs,revisa convertir factura en conduce de entrega hoy
+759,identity_capabilities,identity_capabilities,0.980633,1,check_branches,necesito saber ayuda general en la app
+760,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.998611,1,check_legal_compliance,que riesgos legales tengo si compro cobre o aluminio en efectivo sin cedula
+761,market_prices_margin,market_prices_margin,0.996696,1,run_calculator_or_nav,revisa ver tendencia de precios historicos
+762,audit_dgii_ncf,audit_dgii_ncf,0.998158,1,check_invoices_bitacoras,urgente parametrizaciones ncf inventario de comprobantes
+763,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.997176,1,check_legal_compliance,urgente retencion del 100 ciento del itbis cuando compro sin factura formal
+764,collaborators_roles_live,collaborators_roles_live,0.99252,1,check_branches,desde mi celular anadir empleado a una sucursal rapidamente
+765,dispatch_conduce_help,dispatch_conduce_help,0.996605,1,check_quotes_docs,hacer conduce de salida de mercancia
+766,routes_agenda_live,routes_agenda_live,0.993963,1,check_collaborators,necesito saber agenda del dia para camiones hoy
+767,routes_agenda_live,routes_agenda_live,0.992656,1,check_routes,oye recibot paradas pendientes en la agenda paso a paso
+768,android_control_center,android_control_center,0.935703,1,check_control_center,en reciminsaapp abrir mini bitacoras o mini factura rapida hoy
+769,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.988825,1,check_legal_compliance,por favor diferencia legal entre serie b tradicional y serie e electronica urgente
+770,audit_dgii_ncf,audit_dgii_ncf,0.998219,1,check_invoices_bitacoras,es ilegal facturar b01 sin secuencia ncf
+771,invoice_create_help,invoice_create_help,0.967474,1,check_ncf_dgii,en reciminsaapp emitir facturas electronica e31 hoy
+772,branches_overview_live,branches_overview_live,0.990953,1,check_branches,desde mi celular resumen consolidado por sucursal en la app
+773,identity_capabilities,identity_capabilities,0.995991,1,none,necesito saber comandos disponibles hoy
+774,identity_capabilities,identity_capabilities,0.999715,1,none,cuales son tus limites
+775,invoice_summary_live,invoice_summary_live,0.965693,1,check_branches,revisa muestrame las ultimas facturas paso a paso
+776,dispatch_conduce_help,dispatch_conduce_help,0.99142,1,check_branches,urgente imprimir pdf de conduce hoy
+777,dispatch_conduce_help,dispatch_conduce_help,0.990829,1,check_branches,desde mi celular imprimir pdf de conduce
+778,bitacora_create_help,bitacora_create_help,0.997879,1,check_clients,como registro una bitacora de recogida
+779,market_prices_margin,market_prices_margin,0.983876,1,run_calculator_or_nav,ayudame a como actualizo precios de compra y venta por favor
+780,routes_agenda_live,routes_agenda_live,0.992907,1,check_routes,ayudame a paradas pendientes en la agenda en reciminsa
+781,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.997241,1,check_quotes_docs,necesito saber consecuencias legales de usar cotizacion como recibo fiscal
+782,dgii_reports_606_607_608,dgii_reports_606_607_608,0.997145,1,check_invoices_bitacoras,reporte 609 pagos al exterior ahora
+783,unit_converter,unit_converter,0.997166,1,run_calculator_or_nav,oye recibot conversion de peso reciclaje urgente
+784,market_prices_margin,market_prices_margin,0.990369,1,check_materials_prices,oye recibot materiales con margen negativo o bajo rapidamente
+785,thanks_farewell,thanks_farewell,0.99879,1,none,necesito saber de maravilla
+786,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.989591,1,check_legal_compliance,quiero auditoria de cumplimiento antilavado compras informales en reciminsa
+787,invoice_summary_live,invoice_summary_live,0.968053,1,check_branches,por favor ver detalles de mis facturas guardadas en reciminsa
+788,bitacora_summary_live,bitacora_summary_live,0.995793,1,check_branches,cuantas bitacoras tengo registradas ahora
+789,unit_converter,unit_converter,0.997904,1,run_calculator_or_nav,revisa pasar 3 toneladas a libras en la app
+790,bitacora_summary_live,bitacora_summary_live,0.987339,1,check_invoices_bitacoras,dime resumen de recogidas compras por favor
+791,dispatch_conduce_help,dispatch_conduce_help,0.994057,1,check_quotes_docs,urgente imprimir pdf de conduce
+792,ecology_impact_live,ecology_impact_live,0.999111,1,check_invoices_bitacoras,estadisticas sostenibilidad por favor
+793,dispatch_conduce_help,dispatch_conduce_help,0.994834,1,check_quotes_docs,gestion de despachos comerciales por favor
+794,navigate_or_open_tool,navigate_or_open_tool,0.990744,1,run_calculator_or_nav,desde mi celular llevame a facturas urgente
+795,dispatch_conduce_help,dispatch_conduce_help,0.981539,1,check_quotes_docs,ayudame a convertir factura en conduce de entrega paso a paso
+796,unit_converter,unit_converter,0.998802,1,run_calculator_or_nav,ayudame a pasar 3 toneladas libras
+797,legal_labor_tss_safety,legal_labor_tss_safety,0.991878,1,check_legal_compliance,documentos legales requeridos en expediente de colaborador
+798,pdf_printing_layout,pdf_printing_layout,0.926325,1,check_branches,oye recibot estructura pdf de facturas cotizaciones urgente
+799,legal_corporate_branches_rnc,legal_corporate_branches_rnc,0.995195,1,check_branches,formalizar nueva sucursal o establecimiento comercial ante dgii paso a paso
+800,navigate_or_open_tool,navigate_or_open_tool,0.998115,1,run_calculator_or_nav,abrir codigos de materiales urgente
+801,tax_math_calculator,tax_math_calculator,0.997773,1,run_calculator_or_nav,calcula 120 kg a 75
+802,dgii_rnc_lookup,dgii_rnc_lookup,0.998806,1,check_ncf_dgii,nit de 9 digitos y cedula de 11 digitos por favor
+803,legal_environmental_waste,legal_environmental_waste,0.9959,1,check_legal_compliance,sanciones ambientales por transporte o acopio ilegal de desechos
+804,audit_full_app,audit_full_app,0.996266,1,check_system_sync,ayudame a diagnostico completo del negocio hoy
+805,materials_families_audit,materials_families_audit,0.996687,1,check_invoices_bitacoras,oye recibot como creo familias de materiales hoy
+806,market_prices_margin,market_prices_margin,0.997898,1,run_calculator_or_nav,quiero margen de ganancia en reciclaje rapidamente
+807,identity_capabilities,identity_capabilities,0.932206,1,none,diferencia entre argon auditor y pulso agil ahora
+808,greeting,greeting,0.997637,1,none,buenas por favor
+809,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.985514,1,check_legal_compliance,puedo emitir e31 sin certificado de firma digital ante dgii hoy
+810,security_biometric_legal,security_biometric_legal,0.965057,1,check_system_sync,desde mi celular como elimino mi cuenta permanentemente por favor
+811,legal_data_privacy_cyber,legal_data_privacy_cyber,0.997683,1,check_legal_compliance,cual es la ley sobre norma 53 07 contra crimenes de alta tecnologia y acceso no autorizado
+812,android_control_center,android_control_center,0.998467,1,check_control_center,estado de los botones rapidos android urgente
+813,collaborators_roles_live,collaborators_roles_live,0.992134,1,check_collaborators,como bloqueo modulos a un empleado rapidamente
+814,finance_cashflow_live,finance_cashflow_live,0.996045,1,check_finances,necesito saber como registro un ingreso o egreso manual
+815,legal_audit_risk_scenario,legal_audit_risk_scenario,0.997258,1,check_branches,oye recibot resumen cumplimiento normativo corporativo en vivo
+816,legal_tax_code_ncf,legal_tax_code_ncf,0.999106,1,check_invoices_bitacoras,por que la ley exige conservar registros contables por 10 anos
+817,navigate_or_open_tool,navigate_or_open_tool,0.997184,1,run_calculator_or_nav,revisa ir a sucursales de empresa por favor
+818,tax_math_calculator,tax_math_calculator,0.99741,1,run_calculator_or_nav,oye recibot multiplica 850 lb a 14.5
+819,legal_tax_code_ncf,legal_tax_code_ncf,0.99563,1,check_legal_compliance,dime debo imprimir facturas comercial o fiscal compras reciclaje
+820,routes_agenda_live,routes_agenda_live,0.994588,1,check_routes,ayudame a agenda del dia para camiones
+821,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.998367,1,check_quotes_docs,urgente clausula de variacion de precios de metales en cotizaciones paso a paso
+822,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.994295,1,check_materials_prices,explicame redacta un recibo o declaracion de origen licito compra metales por favor
+823,clients_manage_live,clients_manage_live,0.934709,1,check_branches,desde mi celular buscar cliente por nombre o rnc en la app
+824,legal_data_privacy_cyber,legal_data_privacy_cyber,0.994149,1,check_legal_compliance,cual es la ley sobre obligaciones bajo la norma 172 13 proteccion datos personales paso a paso
+825,legal_ecf_electronic_invoicing,legal_ecf_electronic_invoicing,0.983516,1,check_legal_compliance,ayudame a diferencia legal entre serie b tradicional y serie e electronica segun la ley
+826,finance_cashflow_live,finance_cashflow_live,0.987602,1,check_branches,en reciminsaapp por que un gasto de factura se borra al eliminar la factura hoy
+827,white_label_settings,white_label_settings,0.951756,1,check_branches,activar o desactivar modulos ajustes por favor
+828,clients_manage_live,clients_manage_live,0.994838,1,check_clients,ayudame a como creo clientes le asigno sucursal
+829,materials_families_audit,materials_families_audit,0.995617,1,check_invoices_bitacoras,revisar codigos de materiales
+830,legal_labor_tss_safety,legal_labor_tss_safety,0.989372,1,check_legal_compliance,es legal reglas de desahucio preaviso cesantia y regalia pascual navidad segun la ley
+831,dispatch_conduce_help,dispatch_conduce_help,0.995437,1,check_branches,revisa imprimir pdf conduce hoy
+832,identity_capabilities,identity_capabilities,0.919335,1,none,diferencia entre argon auditor y pulso agil en la app
+833,quote_help_and_live,quote_help_and_live,0.626699,1,check_quotes_docs,cuantas cotisaciones tengo guardadas hoy
+834,android_control_center,android_control_center,0.997778,1,check_control_center,urgente no veo botones de reciminsa en ajustes rapidos rapidamente
+835,android_control_center,android_control_center,0.99684,1,check_control_center,desde mi celular estado de los botones rapidos android
+836,clients_manage_live,clients_manage_live,0.986503,1,check_clients,revisa clientes por sucursall
+837,supabase_sync_delete,supabase_sync_delete,0.996134,1,check_system_sync,ayudame a como verifico si estoy sincronizado
+838,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.994472,1,check_legal_compliance,en reciminsaapp requisitos kyc identificacion del proveedor en compras de metales paso a paso
+839,branches_overview_live,branches_overview_live,0.997097,1,check_clients,cambiar sucursales activa urgente
+840,pdf_printing_layout,pdf_printing_layout,0.993789,1,check_branches,revisa orden logo nombre de empresa sucursal ubicacion pdf
+841,unit_converter,unit_converter,0.997015,1,run_calculator_or_nav,convierte 4800 lbs a kg
+842,supabase_sync_delete,supabase_sync_delete,0.995581,1,check_system_sync,por favor forzar sincronizacion con la nube paso a paso
+843,bitacora_create_help,bitacora_create_help,0.997174,1,check_materials_prices,oye recibot como asigno camion ficha chofer viaje
+844,audit_full_app,audit_full_app,0.994771,1,check_clients,quiero verifica fallos en toda la app ahora
+845,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.99853,1,check_finances,por favor cuando aplica retencion de 30 por ciento o 100 ciento de itbis
+846,legal_tax_code_ncf,legal_tax_code_ncf,0.995946,1,check_legal_compliance,urgente diferencia legal entre comprobante b01 valido e invalido ante auditoria ahora
+847,finance_cashflow_live,finance_cashflow_live,0.991915,1,check_branches,en reciminsaapp balance neto en caja urgente
+848,identity_capabilities,identity_capabilities,0.985843,1,check_branches,cual es tu vocabulario
+849,returns_credit_debit_notes,returns_credit_debit_notes,0.989587,1,check_invoices_bitacoras,desde mi celular como hago una devolucion de venta
+850,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.99807,1,check_legal_compliance,es legal consecuencias legales de usar cotizaciones como recibo fiscal en la app
+851,security_biometric_legal,security_biometric_legal,0.99463,1,check_system_sync,por favor politica de privacidad y terminos legales
+852,legal_retentions_itbis_isr,legal_retentions_itbis_isr,0.998477,1,check_finances,puedes compras recicladores informales personas fisicas b11 en reciminsa
+853,pdf_printing_layout,pdf_printing_layout,0.991509,1,check_branches,en reciminsaapp compartir factura pdf por whatsapp en la app
+854,quote_help_and_live,quote_help_and_live,0.99846,1,check_quotes_docs,diferencia entre item servicio cotizacion
+855,bitacora_summary_live,bitacora_summary_live,0.987634,1,check_branches,ayudame a cuantas bitacoras tengo registradas hoy
+856,collaborators_roles_live,collaborators_roles_live,0.99424,1,check_collaborators,asignar colaborador a sucursal especifica rapidamente
+857,quote_help_and_live,quote_help_and_live,0.986802,1,check_branches,desde mi celular como hago una cotizacion paso a paso
+858,identity_capabilities,identity_capabilities,0.999643,1,none,que es argon auditor hoy
+859,bitacora_create_help,bitacora_create_help,0.994499,1,check_clients,ayudame a por que las vitacoras generan un egreso en finanzas en reciminsa
+860,dgii_rnc_lookup,dgii_rnc_lookup,0.993272,1,check_ncf_dgii,oye recibot buscar razon social rnc en reciminsa
+861,pdf_printing_layout,pdf_printing_layout,0.978989,1,check_branches,quiero estructura de los pdf de facturas y cotizaciones ahora
+862,security_biometric_legal,security_biometric_legal,0.972236,1,check_system_sync,por favor como elimino mi cuenta permanentemente en reciminsa
+863,finance_cashflow_live,finance_cashflow_live,0.992071,1,check_branches,desde mi celular ganancia neta del negocio por favor
+864,dispatch_conduce_help,dispatch_conduce_help,0.985045,1,check_branches,ayudame a como creo un despacho o conduce urgente
+865,dgii_rnc_lookup,dgii_rnc_lookup,0.99895,1,check_clients,el cliente necesita rnc obligatorio para b01
+866,navigate_or_open_tool,navigate_or_open_tool,0.997111,1,run_calculator_or_nav,ayudame a ir a egresos
+867,system_health_check,system_health_check,0.991529,1,check_branches,quiero limpiar cache de facturas o finanzas
+868,navigate_or_open_tool,navigate_or_open_tool,0.996856,1,check_control_center,abrir ingresos rapidamente
+869,legal_commercial_contracts_docs,legal_commercial_contracts_docs,0.99711,1,check_legal_compliance,me pueden multar si clausula de variacion de precios metales en cotizaciones legalmente
+870,legal_tax_code_ncf,legal_tax_code_ncf,0.996755,1,check_invoices_bitacoras,en mi empresa decreto 254 06 regulacion de comprobantes fiscales ncf
+871,quote_help_and_live,quote_help_and_live,0.997366,1,check_branches,cotizacion de item con descripcion opcional
+872,invoice_create_help,invoice_create_help,0.980889,1,check_ncf_dgii,urgente emitir facturas electronica e31 rapidamente
+873,legal_labor_tss_safety,legal_labor_tss_safety,0.98527,1,check_legal_compliance,ayudame a obligaciones del empleador bajo codigo de trabajo ley 16 92 en la app
+874,legal_labor_tss_safety,legal_labor_tss_safety,0.995516,1,check_legal_compliance,es legal registrar empleados en la app sustituye el registro legal en la tss paso a paso
+875,white_label_settings,white_label_settings,0.952577,1,check_branches,necesito saber activar o desactivar modulos en ajustes por favor
+876,dgii_rnc_lookup,dgii_rnc_lookup,0.999479,1,check_clients,autocompletar empresa con rnc o cedula
+877,legal_aml_scrap_compliance,legal_aml_scrap_compliance,0.995068,1,check_legal_compliance,auditoria de cumplimiento antilavado y compras informales
+878,invoice_summary_live,invoice_summary_live,0.989349,1,check_finances,por favor buscar facturas de este mes
+879,gdrive_backup_excel,gdrive_backup_excel,0.99768,1,check_system_sync,quiero importar datos desde excel
+880,legal_tax_code_ncf,legal_tax_code_ncf,0.994826,1,check_invoices_bitacoras,ayudame a revisar cumplimiento del codigo tributario y secuencias ncf en la app
+881,dgii_reports_606_607_608,dgii_reports_606_607_608,0.996839,1,check_finances,por favor donde veo 606 y 607

@@ -1,0 +1,14 @@
+{
+  "vocab_size": 2000,
+  "max_seq_len": 32,
+  "d_in": 128,
+  "num_intents": 42,
+  "num_tools": 13,
+  "num_depths": 3,
+  "train_count": 4032,
+  "val_count": 1008,
+  "pretrain_sentences": 909,
+  "dpo_pairs": 74,
+  "kb_docs": 77,
+  "seed": 42
+}
